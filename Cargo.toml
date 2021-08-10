@@ -7,4 +7,4 @@ edition = "2018"
 
 [dependencies]
 arrayvec = "0.7.1"
-bytes = "1.0.1"
+blake2 = "0.9.1"

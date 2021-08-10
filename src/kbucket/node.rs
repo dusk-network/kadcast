@@ -23,5 +23,10 @@ impl<TKey:BinaryID, TValue> Node<TKey, TValue> {
     pub fn is_id_valid(&self) -> bool {
         true
     }
+
+    pub fn id(&self) -> &TKey{
+        &self.id
+    }
+    
 }
 
