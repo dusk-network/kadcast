@@ -31,7 +31,7 @@ impl<ID:BinaryID, V> Bucket<ID, V> {
         }
         match self.nodes.try_push(node) {
             Ok(_) => InsertResult::Inserted,
-            Err(e) => InsertResult::Rejected
+            Err(e) => InsertResult::Pending
         }
     }
 
