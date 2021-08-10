@@ -5,7 +5,7 @@ use blake2::{Blake2s, Digest};
 
 use crate::{
     kbucket::{BinaryID, Node},
-    K_ID_LEN,
+    K_ID_LEN_BYTES,
 };
 
 pub struct PeerInfo {
@@ -14,11 +14,12 @@ pub struct PeerInfo {
 
 pub struct PeerID {
     str_id: String,
-    binary: [u8; K_ID_LEN],
+    binary: [u8; K_ID_LEN_BYTES],
+    nonce: u32,
 }
 
 impl PeerID {
-    fn compute_id(info: &PeerInfo) -> [u8; K_ID_LEN] {
+    fn compute_id(info: &PeerInfo) -> [u8; K_ID_LEN_BYTES] {
         let mut hasher = Blake2s::new();
         hasher.update(info.address.port().to_le_bytes());
         match info.address.ip() {
@@ -37,23 +38,29 @@ impl PeerID {
 }
 
 impl BinaryID for PeerID {
-    fn as_binary(&self) -> [u8; K_ID_LEN] {
-        self.binary.clone()
+    fn as_binary(&self) -> &[u8; K_ID_LEN_BYTES] {
+        &self.binary
+    }
+
+    fn nonce(&self) -> u32 {
+        self.nonce
     }
 }
 
 pub fn from_address(address: String) -> Node<PeerID, PeerInfo> {
     let server: SocketAddr = address.parse().expect("Unable to parse address");
     let info = PeerInfo { address: server };
+    let binary_id = PeerID::compute_id(&info);
     let id = PeerID {
         str_id: address,
-        binary: PeerID::compute_id(&info),
+        binary: binary_id,
+        nonce: compute_nonce(&binary_id)
     };
     PeerID::compute_id(&info);
     Node::new(id, info)
 }
 
-pub fn compute_nonce(id: &[u8; K_ID_LEN]) -> u32 {
+pub fn compute_nonce(id: &[u8; K_ID_LEN_BYTES]) -> u32 {
     let mut nonce: u32 = 0;
     let mut hasher = Blake2s::new();
     loop {
@@ -67,7 +74,7 @@ pub fn compute_nonce(id: &[u8; K_ID_LEN]) -> u32 {
     }
 }
 
-pub fn verify_nonce(id: &[u8; K_ID_LEN], nonce: u32) -> bool {
+pub fn verify_nonce(id: &[u8; K_ID_LEN_BYTES], nonce: u32) -> bool {
     let mut hasher = Blake2s::new();
     hasher.update(id);
     hasher.update(nonce.to_le_bytes());
