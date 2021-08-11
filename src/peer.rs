@@ -7,17 +7,16 @@ use crate::{
     kbucket::{BinaryID, Node},
     K_DIFF_MIN_BIT, K_DIFF_PRODUCED_BIT, K_ID_LEN_BYTES, K_NONCE_LEN,
 };
-
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PeerInfo {
     address: SocketAddr,
 }
-
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PeerID {
     str_id: String,
     binary: [u8; K_ID_LEN_BYTES],
     nonce: [u8; K_NONCE_LEN],
 }
-
 impl PeerID {
     fn compute_id(info: &PeerInfo) -> [u8; K_ID_LEN_BYTES] {
         let mut hasher = Blake2s::new();
