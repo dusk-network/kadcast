@@ -5,7 +5,7 @@ use blake2::{Blake2s, Digest};
 
 use crate::{
     kbucket::{BinaryID, Node},
-    K_ID_LEN_BYTES,
+    K_DIFF_MIN, K_DIFF_PRODUCED, K_ID_LEN_BYTES, K_NONCE_LEN,
 };
 
 pub struct PeerInfo {
@@ -15,7 +15,7 @@ pub struct PeerInfo {
 pub struct PeerID {
     str_id: String,
     binary: [u8; K_ID_LEN_BYTES],
-    nonce: u32,
+    nonce: [u8; K_NONCE_LEN],
 }
 
 impl PeerID {
@@ -42,8 +42,8 @@ impl BinaryID for PeerID {
         &self.binary
     }
 
-    fn nonce(&self) -> u32 {
-        self.nonce
+    fn nonce(&self) -> &[u8; K_NONCE_LEN] {
+        &self.nonce
     }
 }
 
@@ -54,29 +54,35 @@ pub fn from_address(address: String) -> Node<PeerID, PeerInfo> {
     let id = PeerID {
         str_id: address,
         binary: binary_id,
-        nonce: compute_nonce(&binary_id)
+        nonce: compute_nonce(&binary_id),
     };
     PeerID::compute_id(&info);
     Node::new(id, info)
 }
 
-pub fn compute_nonce(id: &[u8; K_ID_LEN_BYTES]) -> u32 {
+pub fn compute_nonce(id: &[u8; K_ID_LEN_BYTES]) -> [u8; K_NONCE_LEN] {
     let mut nonce: u32 = 0;
     let mut hasher = Blake2s::new();
     loop {
         hasher.update(id);
-        hasher.update(nonce.to_le_bytes());
+        let nonce_bytes = nonce.to_le_bytes();
+        hasher.update(nonce_bytes);
         let hash = hasher.finalize_reset();
-        if hash.as_slice()[31] == 0 {
-            return nonce;
+        if hash.into_iter().rev().take(K_DIFF_PRODUCED).all(|n| n == 0) {
+            return nonce_bytes;
         }
         nonce += 1;
     }
 }
 
-pub fn verify_nonce(id: &[u8; K_ID_LEN_BYTES], nonce: u32) -> bool {
+pub fn verify_nonce(id: &[u8; K_ID_LEN_BYTES], nonce: &[u8; K_NONCE_LEN]) -> bool {
     let mut hasher = Blake2s::new();
     hasher.update(id);
-    hasher.update(nonce.to_le_bytes());
-    hasher.finalize().as_slice()[31] == 0
+    hasher.update(nonce);
+    hasher
+        .finalize()
+        .into_iter()
+        .rev()
+        .take(K_DIFF_MIN)
+        .all(|n| n == 0)
 }

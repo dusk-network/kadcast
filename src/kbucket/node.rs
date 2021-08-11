@@ -1,21 +1,20 @@
-use std::{any::Any, time::Instant};
 use crate::peer;
+use std::time::Instant;
 
 use super::key::BinaryID;
 
-pub struct Node<TKey:BinaryID , TValue> {
+pub struct Node<TKey: BinaryID, TValue> {
     id: TKey,
     value: TValue,
     last_used: Option<Instant>,
 }
 
-impl<TKey:BinaryID, TValue> Node<TKey, TValue> {
-
-    pub fn new(id: TKey, value: TValue) -> Node<TKey, TValue>{
-        Node{
+impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
+    pub fn new(id: TKey, value: TValue) -> Node<TKey, TValue> {
+        Node {
             id,
             value,
-            last_used:None
+            last_used: None,
         }
     }
 
@@ -23,12 +22,10 @@ impl<TKey:BinaryID, TValue> Node<TKey, TValue> {
         self.id.calculate_distance(&other.id)
     }
     pub fn is_id_valid(&self) -> bool {
-        peer::verify_nonce(&self.id.as_binary(),self.id.nonce())
+        peer::verify_nonce(self.id.as_binary(), self.id.nonce())
     }
 
-    pub fn id(&self) -> &TKey{
+    pub fn id(&self) -> &TKey {
         &self.id
     }
-    
 }
-

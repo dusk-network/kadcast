@@ -29,14 +29,16 @@ impl<ID:BinaryID, V> Bucket<ID, V> {
         if !node.is_id_valid() {
             return InsertResult::Invalid;
         }
+
+
         match self.nodes.try_push(node) {
             Ok(_) => InsertResult::Inserted,
-            Err(e) => InsertResult::Pending
+            Err(_) => InsertResult::Pending
         }
     }
 
     pub fn pick(&self) -> [Option<Node<ID, V>>; K_BETA] {
-        return [None, None, None];
+        [None, None, None]
     }
 
     pub fn remove_last_unreach(&mut self) -> Option<Node<ID,V>>{
