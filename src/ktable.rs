@@ -15,10 +15,11 @@ impl<ID: BinaryID, V> Tree<ID, V> {
         }
     }
 
-    pub fn insert(&mut self, node: Node<ID, V>) -> InsertResult {
+    pub fn insert(&mut self, node: Node<ID, V>) -> InsertResult<Node<ID, V>> {
         let bucket_idx = self.root.calculate_distance(&node);
-        bucket_idx.map_or(InsertResult::Invalid, |dist| {
-            self.buckets[dist].insert(node)
-        })
+        match bucket_idx {
+            None => InsertResult::Invalid(node),
+            Some(idx) => self.buckets[idx].insert(node),
+        }
     }
 }
