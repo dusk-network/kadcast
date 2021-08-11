@@ -10,8 +10,8 @@ mod utils;
 pub const K_K: usize = 20;
 pub const K_ID_LEN_BYTES: usize = 16;
 pub const K_NONCE_LEN: usize = 4;
-pub const K_DIFF_MIN: usize=1;
-pub const K_DIFF_PRODUCED: usize=2;
+pub const K_DIFF_MIN_BIT: usize=8;
+pub const K_DIFF_PRODUCED_BIT: usize=8;
 
 //Redundacy factor for lookup
 const K_ALPHA: usize = 3;
@@ -58,12 +58,12 @@ mod tests {
             let res = route_table.insert(peer::from_address(format!("192.168.0.{}:666", i)));
             match res {
                 InsertResult::Inserted | 
-                InsertResult::Pending => assert!(true),
+                InsertResult::Pending(_) => assert!(true),
                 _ => assert!(false)
             }
         }
         let res = route_table.insert(peer::from_address(String::from("192.168.0.1:666")));
-        assert!(if let InsertResult::Invalid = res {
+        assert!(if let InsertResult::Invalid(_) = res {
             true
         } else {
             false
