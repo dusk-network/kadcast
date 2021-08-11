@@ -11,7 +11,7 @@ impl<ID: BinaryID, V> Tree<ID, V> {
     pub fn for_root(root: Node<ID, V>) -> Tree<ID, V> {
         Tree {
             root,
-            buckets: iter::repeat_with(|| Bucket::new()).take(128).collect(),
+            buckets: iter::repeat_with(Bucket::new).take(128).collect(),
         }
     }
 
