@@ -1,16 +1,16 @@
 use crate::K_ID_LEN_BYTES;
 use crate::K_NONCE_LEN;
 
-pub trait BinaryID {
-    fn as_binary(&self) -> &[u8; K_ID_LEN_BYTES];
-    fn nonce(&self) -> &[u8; K_NONCE_LEN];
-    fn calculate_distance(&self, other: &dyn BinaryID) -> Option<usize> {
-        let a = self.as_binary();
-        let b = other.as_binary();
-        let distance = crate::utils::xor(a, b);
+pub type BinaryKey = [u8; K_ID_LEN_BYTES];
+pub type BinaryNonce = [u8; K_NONCE_LEN];
 
+
+pub trait BinaryID {
+    fn as_binary(&self) -> &BinaryKey;
+    fn nonce(&self) -> &BinaryNonce;
+    fn calculate_distance(&self, other: &dyn BinaryID) -> Option<usize> {
+        let distance = crate::utils::xor(self.as_binary(), other.as_binary());
         let mut pos = 0;
-        // for (idx, bytes) in distance.iter().enumerate().rev() {
         for (idx, bytes) in distance.iter().enumerate().rev() {
             if bytes == &0b0 {
                 continue;
