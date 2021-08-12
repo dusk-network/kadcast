@@ -1,5 +1,4 @@
 mod kbucket;
-mod ktable;
 mod peer;
 mod utils;
 
@@ -9,6 +8,7 @@ mod utils;
 // Max amount of nodes a bucket should contain
 pub const K_K: usize = 20;
 pub const K_ID_LEN_BYTES: usize = 16;
+pub const K_BUCKETS_AMOUNT: usize = K_ID_LEN_BYTES * 8;
 pub const K_NONCE_LEN: usize = 4;
 pub const K_DIFF_MIN_BIT: usize = 8;
 pub const K_DIFF_PRODUCED_BIT: usize = 8;
@@ -23,27 +23,27 @@ const K_CHUNK_SIZE: usize = 1024;
 #[cfg(test)]
 mod tests {
     use crate::{
-        kbucket::{BinaryID, InsertResult},
-        ktable::Tree,
-        peer::{self},
+        kbucket::{BinaryID, InsertResult, Tree},
+        peer::PeerNode,
+        utils,
     };
 
     #[test]
     fn test_id_nonce() {
-        let root = peer::from_address(String::from("192.168.0.1:666"));
-        let nonce = peer::compute_nonce(&root.id().as_binary());
+        let root = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let nonce = utils::compute_nonce(&root.id().as_binary());
         println!("Nonce is {:?}", nonce);
-        assert!(peer::verify_nonce(&root.id().as_binary(), &nonce));
+        assert!(utils::verify_nonce(&root.id().as_binary(), &nonce));
     }
 
     #[test]
     fn test_distance() {
-        let n1 = peer::from_address(String::from("192.168.0.1:666"));
-        let n2 = peer::from_address(String::from("192.168.0.1:666"));
+        let n1 = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let n2 = PeerNode::from_address(String::from("192.168.0.1:666"));
         assert_eq!(n1.calculate_distance(&n2), None);
         assert_eq!(n1.id().calculate_distance_native(n2.id()), None);
         for i in 2..255 {
-            let n_in = peer::from_address(format!("192.168.0.{}:666", i));
+            let n_in = PeerNode::from_address(format!("192.168.0.{}:666", i));
             assert_eq!(
                 n1.calculate_distance(&n_in),
                 n1.id().calculate_distance_native(n_in.id())
@@ -53,16 +53,16 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let root = peer::from_address(String::from("192.168.0.1:666"));
+        let root = PeerNode::from_address(String::from("192.168.0.1:666"));
         let mut route_table = Tree::for_root(root);
         for i in 2..255 {
-            let res = route_table.insert(peer::from_address(format!("192.168.0.{}:666", i)));
+            let res = route_table.insert(PeerNode::from_address(format!("192.168.0.{}:666", i)));
             match res {
                 InsertResult::Inserted | InsertResult::Pending(_) => assert!(true),
                 _ => assert!(false),
             }
         }
-        let res = route_table.insert(peer::from_address(String::from("192.168.0.1:666")));
+        let res = route_table.insert(PeerNode::from_address(String::from("192.168.0.1:666")));
         assert!(if let InsertResult::Invalid(_) = res {
             true
         } else {
