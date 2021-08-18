@@ -1,84 +1,178 @@
+use std::time::Duration;
+
 use crate::{K_BETA, K_K};
 
 use super::key::BinaryID;
-use super::node::Node;
+use super::node::{Node, NodeEvictionStatus};
+use super::BinaryKey;
 use arrayvec::ArrayVec;
+
+#[derive(Debug, Copy, Clone)]
+pub struct BucketConfig {
+    node_ttl: Duration,
+    node_evict_after: Duration,
+}
+
+impl BucketConfig {
+    pub fn new(node_ttl_seconds: u64, node_evict_after_millis: u64) -> Self {
+        BucketConfig {
+            node_ttl: Duration::from_secs(node_ttl_seconds),
+            node_evict_after: Duration::from_millis(node_evict_after_millis),
+        }
+    }
+}
 
 pub struct Bucket<ID: BinaryID, V> {
     nodes: arrayvec::ArrayVec<Node<ID, V>, K_K>,
     pending_node: Option<Node<ID, V>>,
+    bucket_config: BucketConfig,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum InsertResult<'a, TNode> {
+pub enum NodeInsertOk<'a, TNode> {
     Inserted,
-    Updated,
-    Pending(&'a TNode),
-    Invalid(TNode),
+    Updated {
+        pending_eviction: Option<&'a TNode>,
+    },
+    Pending {
+        pending_insert: &'a TNode,
+        pending_eviction: Option<&'a TNode>,
+    },
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NodeInsertError<TNode> {
+    Invalid(TNode),
+    Full(TNode),
+}
+
+impl<'a, TNode> NodeInsertOk<'a, TNode> {
+    pub fn get_pending(&self) -> Option<&TNode> {
+        match self {
+            NodeInsertOk::Inserted => None,
+            NodeInsertOk::Pending {
+                pending_insert: _,
+                pending_eviction,
+            } => *pending_eviction,
+            NodeInsertOk::Updated { pending_eviction } => *pending_eviction,
+        }
+    }
+}
+pub type InsertOk<'a, ID, V> = NodeInsertOk<'a, Node<ID, V>>;
+pub type InsertError<ID, V> = NodeInsertError<Node<ID, V>>;
 impl<ID: BinaryID, V> Bucket<ID, V> {
-    pub fn new() -> Bucket<ID, V> {
+    pub fn new(bucket_config: BucketConfig) -> Self {
         Bucket {
             nodes: ArrayVec::<Node<ID, V>, K_K>::new(),
             pending_node: None,
+            bucket_config,
         }
     }
 
-    pub fn insert(&mut self, node: Node<ID, V>) -> InsertResult<Node<ID, V>> {
-        if !node.is_id_valid() {
-            return InsertResult::Invalid(node);
-        }
-        let updated = self
-            .nodes
-            .iter()
-            .position(|s| s.id().as_binary() == node.id().as_binary())
-            .map(|old_index| {
-                //Try to insert again an existing node, should move it at the end of our bucket according to LRU policy
-                self.nodes[old_index..].rotate_left(1);
-                InsertResult::Updated
-            });
+    //Update the node corresponding to the given key and return his ref
+    fn update_node(&mut self, key: &BinaryKey) -> Option<&Node<ID, V>> {
+        let old_index = self.nodes.iter().position(|s| s.id().as_binary() == key)?;
+        self.nodes[old_index..].rotate_left(1);
+        self.nodes.last_mut()?.refresh();
+        self.nodes.last()
+    }
 
-        updated.unwrap_or_else(move || match self.nodes.try_push(node) {
-            Ok(_) => InsertResult::Inserted,
-            Err(err) => {
-                self.pending_node = Some(err.element());
-                let b = self.pending_node.as_ref().unwrap();
-                InsertResult::Pending(b)
+    /*
+        If the bucket is full, flag the least recent used for eviction.
+        If it's already flagged, check if timeout is expired and then replace with the pending node.
+        The method return the candidate for eviction (if any)
+    */
+
+    fn try_perform_eviction(&mut self) -> Option<&Node<ID, V>> {
+        if !self.nodes.is_full() {
+            return None;
+        }
+        match self.nodes.first()?.eviction_status {
+            NodeEvictionStatus::Requested(instant) => {
+                if instant.elapsed() < self.bucket_config.node_evict_after {
+                    self.nodes.first()
+                } else {
+                    self.nodes.pop_at(0);
+                    if let Some(pending) = self.pending_node.take() {
+                        if pending.is_alive(self.bucket_config.node_ttl) {
+                            //FIXME: use try_push instead of push
+                            //FIXME2: we are breaking the LRU policy, maybe in the meanwhile other records are been updated. Btw it's mitigated with is_alive check
+                            self.nodes.push(pending);
+                        }
+                    }
+                    None
+                }
             }
-        })
+            NodeEvictionStatus::None => {
+                if self.nodes.first()?.is_alive(self.bucket_config.node_ttl) {
+                    None
+                } else {
+                    self.nodes.first_mut()?.flag_for_check();
+                    self.nodes.first()
+                }
+            }
+        }
+    }
+
+    pub fn insert(
+        &mut self,
+        node: Node<ID, V>,
+    ) -> Result<InsertOk<ID, V>, InsertError<ID, V>> {
+        if !node.is_id_valid() {
+            return Err(NodeInsertError::Invalid(node));
+        }
+        if self.update_node(node.id().as_binary()).is_some() {
+            return Ok(NodeInsertOk::Updated {
+                pending_eviction: self.try_perform_eviction(),
+            });
+        }
+        self.try_perform_eviction();
+        match self.nodes.try_push(node) {
+            Ok(_) => Ok(NodeInsertOk::Inserted),
+            Err(err) => {
+                if self
+                    .nodes
+                    .first()
+                    .expect("Bucket full but no node as .first()")
+                    .is_alive(self.bucket_config.node_ttl)
+                {
+                    Err(NodeInsertError::Full(err.element()))
+                } else {
+                    self.pending_node = Some(err.element());
+                    Ok(NodeInsertOk::Pending {
+                        pending_insert: self
+                            .pending_node
+                            .as_ref()
+                            .expect("Unable to get the pending node back"),
+                        pending_eviction: self.get_pending_eviction_node(),
+                    })
+                }
+            }
+        }
     }
 
     pub fn pick(&self) -> [Option<Node<ID, V>>; K_BETA] {
         [None, None, None]
     }
 
-    pub fn least_used(&self) -> Option<&Node<ID, V>> {
-        self.nodes.first()
-    }
-
-    pub fn remove_id(&mut self, id: &[u8]) -> Option<Node<ID, V>> {
+    /*  The method return the least recent used node to query if flagged for eviction */
+    fn get_pending_eviction_node(&self) -> Option<&Node<ID, V>> {
         self.nodes
-            .iter()
-            .position(|s| s.id().as_binary() == id)
-            .and_then(|old_index| {
-                let removed = self.nodes.pop_at(old_index);
-                if let Some(pending) = self.pending_node.take() {
-                    self.nodes.push(pending);
-                }
-                removed
-            })
-    }
-
-    pub fn get_pending(&self) -> Option<&Node<ID, V>> {
-        self.pending_node.as_ref()
+            .first()
+            .filter(|n| n.eviction_status != NodeEvictionStatus::None)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{thread, time::Duration};
+
     use crate::{
-        kbucket::{key::BinaryKey, BinaryID, Bucket, InsertResult},
+        kbucket::{
+            bucket::{BucketConfig, NodeInsertError},
+            key::BinaryKey,
+            BinaryID, Bucket, NodeInsertOk, Node,
+        },
         peer::PeerNode,
     };
 
@@ -86,31 +180,60 @@ mod tests {
         pub fn last_id(&self) -> Option<&BinaryKey> {
             self.nodes.last().map(|n| n.id().as_binary())
         }
-    }
-    impl<ID: BinaryID, V> Bucket<ID, V> {
+
         pub fn least_used_id(&self) -> Option<&BinaryKey> {
             self.nodes.first().map(|n| n.id().as_binary())
+        }
+
+        pub fn remove_id(&mut self, id: &[u8]) -> Option<Node<ID, V>> {
+            let update_idx = self.nodes.iter().position(|s| s.id().as_binary() == id)?;
+
+            let removed = self.nodes.pop_at(update_idx);
+            if let Some(pending) = self.pending_node.take() {
+                self.nodes.push(pending);
+            }
+            removed
         }
     }
 
     #[test]
-    fn test_lru() {
-        let mut bucket = Bucket::new();
+    fn test_lru_base_5secs() {
+        let config = BucketConfig::new(5, 1000);
+        let mut bucket = Bucket::new(config);
         let node1 = PeerNode::from_address("192.168.1.1:8080".to_string());
         let id_node1 = node1.id().as_binary().clone();
         let node1_copy = PeerNode::from_address("192.168.1.1:8080".to_string());
-        assert_eq!(InsertResult::Inserted, bucket.insert(node1));
-        assert_eq!(InsertResult::Updated, bucket.insert(node1_copy));
+        // assert_eq!(bucket.insert(node1).expect("msg"),InsertResult::Inserted{..});
+        match bucket.insert(node1).expect("This should return an ok()") {
+            NodeInsertOk::Inserted { .. } => {}
+            _ => assert!(false),
+        }
+
+        match bucket
+            .insert(node1_copy)
+            .expect("This should return an ok()")
+        {
+            NodeInsertOk::Updated { .. } => {}
+            _ => assert!(false),
+        }
         assert_eq!(Some(&id_node1), bucket.last_id());
         let node2 = PeerNode::from_address("192.168.1.2:8080".to_string());
         let id_node2 = node2.id().as_binary().clone();
-        assert_eq!(InsertResult::Inserted, bucket.insert(node2));
+
+        match bucket.insert(node2).expect("This should return an ok()") {
+            NodeInsertOk::Inserted => {}
+            _ => assert!(false),
+        }
         assert_eq!(Some(&id_node2), bucket.last_id());
         assert_eq!(Some(&id_node1), bucket.least_used_id());
-        assert_eq!(
-            InsertResult::Updated,
-            bucket.insert(PeerNode::from_address("192.168.1.1:8080".to_string()))
-        );
+
+        match bucket
+            .insert(PeerNode::from_address("192.168.1.1:8080".to_string()))
+            .expect("This should return an ok()")
+        {
+            NodeInsertOk::Updated { .. } => {}
+            _ => assert!(false),
+        }
         assert_eq!(Some(&id_node1), bucket.last_id());
         assert_eq!(Some(&id_node2), bucket.least_used_id());
         let a = bucket.remove_id(&id_node2);
@@ -118,22 +241,43 @@ mod tests {
         assert_eq!(Some(&id_node1), bucket.last_id());
         assert_eq!(Some(&id_node1), bucket.least_used_id());
         for i in 2..21 {
-            assert_eq!(
-                InsertResult::Inserted,
-                bucket.insert(PeerNode::from_address(format!("192.168.1.{}:8080", i)))
-            );
+            match bucket
+                .insert(PeerNode::from_address(format!("192.168.1.{}:8080", i)))
+                .expect("This should return an ok()")
+            {
+                NodeInsertOk::Inserted { .. } => {}
+                _ => assert!(false),
+            }
         }
         let pending = PeerNode::from_address("192.168.1.21:8080".to_string());
         let pending_id = pending.id().as_binary().clone();
-        match bucket.insert(pending) {
-            InsertResult::Pending(pending) => assert_eq!(pending.id().as_binary(), &pending_id),
+        match bucket.insert(pending).expect_err("this should be error") {
+            NodeInsertError::Full(pending) => {
+                assert_eq!(pending.id().as_binary(), &pending_id);
+                thread::sleep(Duration::from_secs(5));
+                match bucket.insert(pending).expect("this should be ok") {
+                    NodeInsertOk::Pending {
+                        pending_insert,
+                        pending_eviction: _,
+                    } => {
+                        assert_eq!(pending_insert.id().as_binary(), &pending_id);
+                        thread::sleep(Duration::from_secs(1));
+                        let pending = PeerNode::from_address("192.168.1.21:8080".to_string());
+                        match bucket.insert(pending).expect("this should be ok") {
+                            NodeInsertOk::Inserted => {}
+                            v => {
+                                println!("{:?}", v);
+                                assert!(false)
+                            }
+                        }
+                    }
+                    b => {
+                        println!("{:?}", b);
+                        assert!(false)
+                    }
+                }
+            }
             _ => assert!(false),
         }
-        assert_eq!(&pending_id, bucket.get_pending().unwrap().id().as_binary());
-        let lease_used_id = *bucket.least_used_id().clone().unwrap();
-        let removed = bucket.remove_id(&lease_used_id);
-        assert_eq!(removed.unwrap().id().as_binary(), &id_node1);
-        assert!(bucket.get_pending().is_none());
-        assert_eq!(bucket.last_id(), Some(&pending_id));
     }
 }
