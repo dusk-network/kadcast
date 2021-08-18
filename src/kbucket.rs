@@ -16,8 +16,6 @@ use crate::K_BUCKETS_AMOUNT;
 pub use bucket::InsertOk;
 pub use bucket::InsertError;
 
-
-
 pub struct Tree<ID: BinaryID, V> {
     root: Node<ID, V>,
     buckets: arrayvec::ArrayVec<Bucket<ID, V>, K_BUCKETS_AMOUNT>,
