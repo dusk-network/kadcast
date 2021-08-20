@@ -69,8 +69,8 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
         }
     }
 
-    //Update the node corresponding to the given key and return his ref
-    fn update_node(&mut self, key: &BinaryKey) -> Option<&Node<ID, V>> {
+    //Refreshes the node's last usage time corresponding to the given key and return his ref
+    fn refresh_node(&mut self, key: &BinaryKey) -> Option<&Node<ID, V>> {
         let old_index = self.nodes.iter().position(|s| s.id().as_binary() == key)?;
         self.nodes[old_index..].rotate_left(1);
         self.nodes.last_mut()?.refresh();
@@ -121,7 +121,7 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
         if !node.is_id_valid() {
             return Err(NodeInsertError::Invalid(node));
         }
-        if self.update_node(node.id().as_binary()).is_some() {
+        if self.refresh_node(node.id().as_binary()).is_some() {
             return Ok(NodeInsertOk::Updated {
                 pending_eviction: self.try_perform_eviction(),
             });
@@ -144,7 +144,7 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
                             .pending_node
                             .as_ref()
                             .expect("Unable to get the pending node back"),
-                        pending_eviction: self.get_pending_eviction_node(),
+                        pending_eviction: self.pending_eviction_node(),
                     })
                 }
             }
@@ -152,11 +152,11 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
     }
 
     pub fn pick(&self) -> [Option<Node<ID, V>>; K_BETA] {
-        [None, None, None]
+        todo!()
     }
 
     /*  The method return the least recent used node to query if flagged for eviction */
-    fn get_pending_eviction_node(&self) -> Option<&Node<ID, V>> {
+    fn pending_eviction_node(&self) -> Option<&Node<ID, V>> {
         self.nodes
             .first()
             .filter(|n| n.eviction_status != NodeEvictionStatus::None)

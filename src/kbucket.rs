@@ -2,19 +2,14 @@ use std::iter;
 mod bucket;
 mod key;
 mod node;
-pub use bucket::Bucket;
-pub use bucket::NodeInsertOk;
-pub use bucket::NodeInsertError;
-pub use key::BinaryID;
-pub use key::BinaryKey;
-pub use key::BinaryNonce;
-pub use bucket::BucketConfig;
+pub use bucket::{Bucket, BucketConfig, NodeInsertError, NodeInsertOk};
+pub use key::{BinaryID, BinaryKey, BinaryNonce};
 pub use node::Node;
 
 use crate::K_BUCKETS_AMOUNT;
 
-pub use bucket::InsertOk;
 pub use bucket::InsertError;
+pub use bucket::InsertOk;
 
 pub struct Tree<ID: BinaryID, V> {
     root: Node<ID, V>,
