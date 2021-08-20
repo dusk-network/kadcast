@@ -8,21 +8,21 @@ use super::BinaryKey;
 use arrayvec::ArrayVec;
 
 #[derive(Debug, Copy, Clone)]
-pub struct BucketConfig {
+pub(super) struct BucketConfig {
     node_ttl: Duration,
     node_evict_after: Duration,
 }
 
 impl BucketConfig {
-    pub fn new(node_ttl_seconds: u64, node_evict_after_millis: u64) -> Self {
+    pub(super) fn new(node_ttl: Duration, node_evict_after: Duration) -> Self {
         BucketConfig {
-            node_ttl: Duration::from_secs(node_ttl_seconds),
-            node_evict_after: Duration::from_millis(node_evict_after_millis),
+            node_ttl,
+            node_evict_after,
         }
     }
 }
 
-pub struct Bucket<ID: BinaryID, V> {
+pub(super) struct Bucket<ID: BinaryID, V> {
     nodes: arrayvec::ArrayVec<Node<ID, V>, K_K>,
     pending_node: Option<Node<ID, V>>,
     bucket_config: BucketConfig,
@@ -61,7 +61,7 @@ impl<'a, TNode> NodeInsertOk<'a, TNode> {
 pub type InsertOk<'a, ID, V> = NodeInsertOk<'a, Node<ID, V>>;
 pub type InsertError<ID, V> = NodeInsertError<Node<ID, V>>;
 impl<ID: BinaryID, V> Bucket<ID, V> {
-    pub fn new(bucket_config: BucketConfig) -> Self {
+    pub(super) fn new(bucket_config: BucketConfig) -> Self {
         Bucket {
             nodes: ArrayVec::<Node<ID, V>, K_K>::new(),
             pending_node: None,
@@ -114,10 +114,7 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
         }
     }
 
-    pub fn insert(
-        &mut self,
-        node: Node<ID, V>,
-    ) -> Result<InsertOk<ID, V>, InsertError<ID, V>> {
+    pub fn insert(&mut self, node: Node<ID, V>) -> Result<InsertOk<ID, V>, InsertError<ID, V>> {
         if !node.is_id_valid() {
             return Err(NodeInsertError::Invalid(node));
         }
@@ -168,11 +165,7 @@ mod tests {
     use std::{thread, time::Duration};
 
     use crate::{
-        kbucket::{
-            bucket::{BucketConfig, NodeInsertError},
-            key::BinaryKey,
-            BinaryID, Bucket, NodeInsertOk, Node,
-        },
+        kbucket::{bucket::NodeInsertError, key::BinaryKey, BinaryID, Bucket, Node, NodeInsertOk},
         peer::PeerNode,
     };
 
@@ -196,10 +189,21 @@ mod tests {
         }
     }
 
+    impl<ID: BinaryID, V> crate::kbucket::Tree<ID, V> {
+        fn bucket_for_test(&mut self) -> &mut Bucket<ID, V> {
+            self.buckets.first_mut().unwrap()
+        }
+    }
+
     #[test]
     fn test_lru_base_5secs() {
-        let config = BucketConfig::new(5, 1000);
-        let mut bucket = Bucket::new(config);
+        let root = PeerNode::from_address(String::from("127.0.0.1:666"));
+        let mut route_table = crate::kbucket::TreeBuilder::new(root)
+            .node_evict_after(Duration::from_millis(1000))
+            .node_ttl(Duration::from_secs(5))
+            .build();
+
+        let bucket = route_table.bucket_for_test();
         let node1 = PeerNode::from_address("192.168.1.1:8080".to_string());
         let id_node1 = node1.id().as_binary().clone();
         let node1_copy = PeerNode::from_address("192.168.1.1:8080".to_string());
