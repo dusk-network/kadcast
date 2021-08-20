@@ -6,6 +6,9 @@ use super::key::BinaryID;
 use super::node::{Node, NodeEvictionStatus};
 use super::BinaryKey;
 use arrayvec::ArrayVec;
+use rand::seq::SliceRandom; 
+use rand::thread_rng;
+
 
 #[derive(Debug, Copy, Clone)]
 pub struct BucketConfig {
@@ -151,8 +154,14 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
         }
     }
 
-    pub fn pick(&self) -> [Option<Node<ID, V>>; K_BETA] {
-        todo!()
+    //pick at most Beta random nodes from this bucket
+    pub fn pick(&self) -> Vec<&Node<ID, V>> {
+        let mut idxs: Vec<usize> = (0..self.nodes.len()).collect();
+        idxs.shuffle(&mut thread_rng());
+        idxs.iter()
+            .take(K_BETA)
+            .filter_map(|idx| self.nodes.get(*idx))
+            .collect()
     }
 
     /*  The method return the least recent used node to query if flagged for eviction */
@@ -167,14 +176,11 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
 mod tests {
     use std::{thread, time::Duration};
 
-    use crate::{
-        kbucket::{
+    use crate::{K_BETA, kbucket::{
             bucket::{BucketConfig, NodeInsertError},
             key::BinaryKey,
             BinaryID, Bucket, NodeInsertOk, Node,
-        },
-        peer::PeerNode,
-    };
+        }, peer::PeerNode};
 
     impl<ID: BinaryID, V> Bucket<ID, V> {
         pub fn last_id(&self) -> Option<&BinaryKey> {
@@ -208,6 +214,8 @@ mod tests {
             NodeInsertOk::Inserted { .. } => {}
             _ => assert!(false),
         }
+        let a = bucket.pick();
+        assert_eq!(a.len(), 1);
 
         match bucket
             .insert(node1_copy)
@@ -224,6 +232,8 @@ mod tests {
             NodeInsertOk::Inserted => {}
             _ => assert!(false),
         }
+        let a = bucket.pick();
+        assert_eq!(a.len(), 2);
         assert_eq!(Some(&id_node2), bucket.last_id());
         assert_eq!(Some(&id_node1), bucket.least_used_id());
 
@@ -234,6 +244,8 @@ mod tests {
             NodeInsertOk::Updated { .. } => {}
             _ => assert!(false),
         }
+        let a = bucket.pick();
+        assert_eq!(a.len(), 2);
         assert_eq!(Some(&id_node1), bucket.last_id());
         assert_eq!(Some(&id_node2), bucket.least_used_id());
         let a = bucket.remove_id(&id_node2);
@@ -245,10 +257,13 @@ mod tests {
                 .insert(PeerNode::from_address(format!("192.168.1.{}:8080", i)))
                 .expect("This should return an ok()")
             {
-                NodeInsertOk::Inserted { .. } => {}
+                NodeInsertOk::Inserted { .. } => {
+                    assert!(bucket.pick().len() <= K_BETA);
+                }
                 _ => assert!(false),
             }
         }
+        assert_eq!(bucket.pick().len(), K_BETA);
         let pending = PeerNode::from_address("192.168.1.21:8080".to_string());
         let pending_id = pending.id().as_binary().clone();
         match bucket.insert(pending).expect_err("this should be error") {

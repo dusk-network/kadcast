@@ -33,4 +33,14 @@ impl<ID: BinaryID, V> Tree<ID, V> {
             Some(idx) => self.buckets[idx].insert(node),
         }
     }
+
+    //iter the buckets (up to max_height) and pick at most Beta nodes for each bucket
+    pub fn extract(&self, max_h: usize) -> Vec<(usize, Vec<&Node<ID, V>>)> {
+        self.buckets
+            .iter()
+            .take(max_h)
+            .enumerate()
+            .map(|(idx, bucket)| (idx, bucket.pick()))
+            .collect()
+    }
 }
