@@ -151,13 +151,12 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
     }
 
     //pick at most Beta random nodes from this bucket
-    pub fn pick(&self) -> Vec<&Node<ID, V>> {
+    pub fn pick(&self) -> impl Iterator<Item=&Node<ID, V>> {
         let mut idxs: Vec<usize> = (0..self.nodes.len()).collect();
         idxs.shuffle(&mut thread_rng());
-        idxs.iter()
+        idxs.into_iter()
             .take(K_BETA)
-            .filter_map(|idx| self.nodes.get(*idx))
-            .collect()
+            .filter_map(move |idx| self.nodes.get(idx))
     }
 
     /*  The method return the least recent used node to query if flagged for eviction */
@@ -216,13 +215,12 @@ mod tests {
         let node1 = PeerNode::from_address("192.168.1.1:8080".to_string());
         let id_node1 = node1.id().as_binary().clone();
         let node1_copy = PeerNode::from_address("192.168.1.1:8080".to_string());
-        // assert_eq!(bucket.insert(node1).expect("msg"),InsertResult::Inserted{..});
         match bucket.insert(node1).expect("This should return an ok()") {
             NodeInsertOk::Inserted { .. } => {}
             _ => assert!(false),
         }
         let a = bucket.pick();
-        assert_eq!(a.len(), 1);
+        assert_eq!(a.count(), 1);
 
         match bucket
             .insert(node1_copy)
@@ -240,7 +238,7 @@ mod tests {
             _ => assert!(false),
         }
         let a = bucket.pick();
-        assert_eq!(a.len(), 2);
+        assert_eq!(a.count(), 2);
         assert_eq!(Some(&id_node2), bucket.last_id());
         assert_eq!(Some(&id_node1), bucket.least_used_id());
 
@@ -252,7 +250,7 @@ mod tests {
             _ => assert!(false),
         }
         let a = bucket.pick();
-        assert_eq!(a.len(), 2);
+        assert_eq!(a.count(), 2);
         assert_eq!(Some(&id_node1), bucket.last_id());
         assert_eq!(Some(&id_node2), bucket.least_used_id());
         let a = bucket.remove_id(&id_node2);
@@ -265,12 +263,12 @@ mod tests {
                 .expect("This should return an ok()")
             {
                 NodeInsertOk::Inserted { .. } => {
-                    assert!(bucket.pick().len() <= K_BETA);
+                    assert!(bucket.pick().count() <= K_BETA);
                 }
                 _ => assert!(false),
             }
         }
-        assert_eq!(bucket.pick().len(), K_BETA);
+        assert_eq!(bucket.pick().count(), K_BETA);
         let pending = PeerNode::from_address("192.168.1.21:8080".to_string());
         let pending_id = pending.id().as_binary().clone();
         match bucket.insert(pending).expect_err("this should be error") {
