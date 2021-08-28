@@ -22,8 +22,10 @@ const K_CHUNK_SIZE: usize = 1024;
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::{
-        kbucket::{BinaryID, BucketConfig, NodeInsertError, Tree},
+        kbucket::{BinaryID, NodeInsertError, TreeBuilder},
         peer::PeerNode,
         utils,
     };
@@ -54,7 +56,10 @@ mod tests {
     #[test]
     fn it_works() {
         let root = PeerNode::from_address(String::from("192.168.0.1:666"));
-        let mut route_table = Tree::new(root, BucketConfig::new(60, 5000));
+        let mut route_table = crate::kbucket::Tree::builder(root)
+            .node_evict_after(Duration::from_millis(5000))
+            .node_ttl(Duration::from_secs(60))
+            .build();
         for i in 2..255 {
             let res = route_table.insert(PeerNode::from_address(format!("192.168.0.{}:666", i)));
             match res {
@@ -67,7 +72,9 @@ mod tests {
                 },
             }
         }
-        let res = route_table.insert(PeerNode::from_address(String::from("192.168.0.1:666"))).expect_err("this should be an error");
+        let res = route_table
+            .insert(PeerNode::from_address(String::from("192.168.0.1:666")))
+            .expect_err("this should be an error");
         assert!(if let NodeInsertError::Invalid(_) = res {
             true
         } else {
