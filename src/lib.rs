@@ -25,7 +25,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::{
-        kbucket::{BinaryID, NodeInsertError, TreeBuilder},
+        kbucket::{BinaryID, NodeInsertError},
         peer::PeerNode,
         utils,
     };

@@ -16,6 +16,8 @@ pub use bucket::InsertOk;
 const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
 const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
 
+pub type BucketHeight = usize;
+
 pub struct Tree<ID: BinaryID, V> {
     root: Node<ID, V>,
     buckets: arrayvec::ArrayVec<Bucket<ID, V>, K_BUCKETS_AMOUNT>,
@@ -30,7 +32,19 @@ impl<ID: BinaryID, V> Tree<ID, V> {
         }
     }
 
-    pub fn builder(root: Node<ID, V>) -> TreeBuilder<ID,V> {
+    //iter the buckets (up to max_height) and pick at most Beta nodes for each bucket
+    pub fn extract(
+        &self,
+        max_h: usize,
+    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<ID, V>>)> {
+        self.buckets
+            .iter()
+            .take(max_h)
+            .enumerate()
+            .map(|(idx, bucket)| (idx, bucket.pick()))
+    }
+
+    pub fn builder(root: Node<ID, V>) -> TreeBuilder<ID, V> {
         TreeBuilder::new(root)
     }
 }

@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 arrayvec = "0.7.1"
 blake2 = "0.9.1"
+rand = "0.8.4"
