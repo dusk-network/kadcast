@@ -1,6 +1,7 @@
 pub mod kbucket;
 mod peer;
 mod utils;
+mod encoding;
 
 //This should be derived from NodeID size (btw is the max amount of nodes in a network)
 // const K_L: usize = 500;
