@@ -1,9 +1,13 @@
-use std::{error::Error, io::{BufReader, BufWriter, Read, Write}};
+use std::{
+    error::Error,
+    io::{BufReader, BufWriter, Read, Write},
+};
 
-use super::Marshallable;
+use crate::encoding::Marshallable;
+
 pub struct BroadcastPayload {
-    height: u8,
-    gossip_frame: Box<[u8]>, //this is the result of any internal protocol message serialization
+    height: u8,            //what this height refer to?
+    gossip_frame: Vec<u8>, //Is this the result of any internal protocol message serialization
 }
 
 impl Marshallable for BroadcastPayload {
@@ -15,8 +19,18 @@ impl Marshallable for BroadcastPayload {
         Ok(())
     }
     fn unmarshal_binary<R: Read>(
-        _reader: &mut BufReader<R>,
+        reader: &mut BufReader<R>,
     ) -> Result<BroadcastPayload, Box<dyn Error>> {
-        todo!()
+        let mut height_buf = [0; 1];
+        reader.read_exact(&mut height_buf)?;
+        let mut gossip_length_buf = [0; 4];
+        reader.read_exact(&mut gossip_length_buf)?;
+        let gossip_length = u32::from_le_bytes(gossip_length_buf);
+        let mut gossip_frame = vec![0; gossip_length as usize];
+        reader.read_exact(&mut gossip_frame)?;
+        Ok(BroadcastPayload {
+            height: height_buf[0],
+            gossip_frame,
+        })
     }
 }

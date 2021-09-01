@@ -1,12 +1,14 @@
-use crate::encoding::{error::EncodingError, payload::Marshallable};
 use std::{
     error::Error,
     io::{BufReader, BufWriter, Read, Write},
 };
 
+use crate::encoding::error::EncodingError;
+
 use super::{
     header::Header,
     payload::{BroadcastPayload, NodePayload},
+    Marshallable,
 };
 
 // PingMsg wire Ping message id.

@@ -4,9 +4,11 @@ use std::{
     io::{BufReader, BufWriter, Read, Write},
 };
 
-use crate::{encoding::error::EncodingError, kbucket::BinaryKey, K_ID_LEN_BYTES};
-
-use super::Marshallable;
+use crate::{
+    encoding::{error::EncodingError, Marshallable},
+    kbucket::BinaryKey,
+    K_ID_LEN_BYTES,
+};
 
 pub struct NodePayload {
     peers: Vec<PeerInfo>,
@@ -44,7 +46,7 @@ impl Marshallable for PeerInfo {
         let mut ipv4 = [0; 4];
         let ip: IpInfo;
         reader.read_exact(&mut ipv4)?;
-        if ipv4[0] == 0u8 {
+        if ipv4[0] != 0u8 {
             ip = IpInfo::IPv4(ipv4)
         } else {
             let mut ipv6 = [0u8; 13];

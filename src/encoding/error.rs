@@ -3,18 +3,20 @@ use std::fmt;
 
 #[derive(Debug)]
 pub(super) struct EncodingError {
-    details: String
+    details: String,
 }
 
 impl EncodingError {
     pub(super) fn new(msg: &str) -> EncodingError {
-        EncodingError{details: msg.to_string()}
+        EncodingError {
+            details: msg.to_string(),
+        }
     }
 }
 
 impl fmt::Display for EncodingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"{}",self.details)
+        write!(f, "{}", self.details)
     }
 }
 
