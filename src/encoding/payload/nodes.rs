@@ -9,17 +9,17 @@ use crate::{
     kbucket::BinaryKey,
     K_ID_LEN_BYTES,
 };
-
+#[derive(Debug,PartialEq)]
 pub struct NodePayload {
     peers: Vec<PeerInfo>,
 }
-
+#[derive(Debug,PartialEq)]
 struct PeerInfo {
     ip: IpInfo,
     port: u16,
     id: BinaryKey,
 }
-
+#[derive(Debug,PartialEq)]
 enum IpInfo {
     IPv4([u8; 4]),
     IPv6([u8; 16]),

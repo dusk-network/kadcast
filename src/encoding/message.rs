@@ -5,11 +5,8 @@ use std::{
 
 use crate::encoding::error::EncodingError;
 
-use super::{
-    header::Header,
-    payload::{BroadcastPayload, NodePayload},
-    Marshallable,
-};
+use super::payload::{BroadcastPayload, NodePayload};
+pub use super::{header::Header, Marshallable};
 
 // PingMsg wire Ping message id.
 const ID_MSG_PING: u8 = 0;
@@ -26,6 +23,7 @@ const ID_MSG_NODES: u8 = 3;
 // BroadcastMsg Message propagation type.
 const ID_MSG_BROADCAST: u8 = 10;
 
+#[derive(Debug,PartialEq)]
 pub enum KadcastMessage {
     Ping(Header),
     Pong(Header),

@@ -4,6 +4,7 @@ use blake2::{Blake2s, Digest};
 use std::convert::TryInto;
 use std::net::{IpAddr, SocketAddr};
 pub type PeerNode = Node<PeerID, PeerInfo>;
+use crate::encoding::message::Header;
 
 use crate::kbucket::{BinaryID, Node};
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -56,5 +57,22 @@ impl PeerNode {
         let mut x = vec![0u8; 16];
         x.clone_from_slice(&a[..16]);
         x.try_into().expect("Wrong length")
+    }
+
+    //TODO: demote me as pub(crate) so this method will be used internally by the protocol itself
+    pub fn as_header(&self) -> Header {
+        Header {
+            id: self.id().binary,
+            nonce: self.id().nonce,
+            sender_port: self.value().address.port(),
+            reserved: [0; 2],
+        }
+    }
+}
+
+impl Header {
+        //TODO: demote me as pub(crate) so this method will be used internally by the protocol itself
+    pub fn from_peer(peer: &PeerNode) -> Header {
+        peer.as_header()
     }
 }

@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::encoding::Marshallable;
-
+#[derive(Debug,PartialEq)]
 pub struct BroadcastPayload {
     height: u8,            //what this height refer to?
     gossip_frame: Vec<u8>, //Is this the result of any internal protocol message serialization

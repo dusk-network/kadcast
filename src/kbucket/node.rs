@@ -40,6 +40,10 @@ impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
         &self.id
     }
 
+    pub fn value(&self) -> &TValue {
+        &self.value
+    }
+
     pub(super) fn refresh(&mut self) {
         self.eviction_status = NodeEvictionStatus::None;
         self.seen_at = Instant::now();

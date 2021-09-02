@@ -9,12 +9,12 @@ use crate::{
 };
 
 use super::{error::EncodingError, Marshallable};
-
+#[derive(Debug,PartialEq)]
 pub struct Header {
-    id: BinaryKey,
-    nonce: BinaryNonce, //we should changeit to u32 according to golang reference impl?
-    port: u16,          //why we have the port here?????
-    reserved: [u8; 2],
+    pub(crate) id: BinaryKey,
+    pub(crate) nonce: BinaryNonce, //we should changeit to u32 according to golang reference impl?
+    pub(crate) sender_port: u16,          //why we have the port here?????
+    pub(crate) reserved: [u8; 2],
 }
 
 impl Marshallable for Header {
@@ -24,7 +24,7 @@ impl Marshallable for Header {
         }
         writer.write_all(&self.id)?;
         writer.write_all(&self.nonce)?;
-        writer.write_all(&self.port.to_le_bytes())?;
+        writer.write_all(&self.sender_port.to_le_bytes())?;
         writer.write_all(&self.reserved)?;
         Ok(())
     }
@@ -51,7 +51,7 @@ impl Marshallable for Header {
         Ok(Header {
             id,
             nonce,
-            port,
+            sender_port: port,
             reserved,
         })
     }
