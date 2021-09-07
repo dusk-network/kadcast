@@ -23,8 +23,8 @@ const ID_MSG_NODES: u8 = 3;
 // BroadcastMsg Message propagation type.
 const ID_MSG_BROADCAST: u8 = 10;
 
-#[derive(Debug,PartialEq)]
-pub enum KadcastMessage {
+#[derive(Debug, PartialEq)]
+pub(crate) enum KadcastMessage {
     Ping(Header),
     Pong(Header),
     FindNodes(Header, NodePayload),

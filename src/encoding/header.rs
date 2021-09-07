@@ -9,11 +9,11 @@ use crate::{
 };
 
 use super::{error::EncodingError, Marshallable};
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Header {
     pub(crate) id: BinaryKey,
     pub(crate) nonce: BinaryNonce, //we should changeit to u32 according to golang reference impl?
-    pub(crate) sender_port: u16,          //why we have the port here?????
+    pub(crate) sender_port: u16,
     pub(crate) reserved: [u8; 2],
 }
 

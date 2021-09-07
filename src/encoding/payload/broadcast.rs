@@ -4,10 +4,10 @@ use std::{
 };
 
 use crate::encoding::Marshallable;
-#[derive(Debug,PartialEq)]
-pub struct BroadcastPayload {
-    height: u8,            //what this height refer to?
-    gossip_frame: Vec<u8>, //Is this the result of any internal protocol message serialization
+#[derive(Debug, PartialEq)]
+pub(crate) struct BroadcastPayload {
+    pub(crate) height: u8,            //HELP: what this height refer to?
+    pub(crate) gossip_frame: Vec<u8>, //Is this the result of any internal protocol message serialization?
 }
 
 impl Marshallable for BroadcastPayload {

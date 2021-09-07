@@ -5,6 +5,7 @@ use std::convert::TryInto;
 use std::net::{IpAddr, SocketAddr};
 pub type PeerNode = Node<PeerID, PeerInfo>;
 use crate::encoding::message::Header;
+use crate::encoding::payload::{IpInfo, PeerEncodedInfo};
 
 use crate::kbucket::{BinaryID, Node};
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -68,10 +69,21 @@ impl PeerNode {
             reserved: [0; 2],
         }
     }
+
+    pub(crate) fn as_peer_info(&self) -> PeerEncodedInfo {
+        PeerEncodedInfo {
+            id: self.id().binary,
+            ip: match self.value().address.ip() {
+                IpAddr::V4(ip) => IpInfo::IPv4(ip.octets()),
+                IpAddr::V6(ip) => IpInfo::IPv6(ip.octets()),
+            },
+            port: self.value().address.port(),
+        }
+    }
 }
 
 impl Header {
-        //TODO: demote me as pub(crate) so this method will be used internally by the protocol itself
+    //TODO: demote me as pub(crate) so this method will be used internally by the protocol itself
     pub fn from_peer(peer: &PeerNode) -> Header {
         peer.as_header()
     }

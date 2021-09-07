@@ -9,23 +9,24 @@ use crate::{
     kbucket::BinaryKey,
     K_ID_LEN_BYTES,
 };
-#[derive(Debug,PartialEq)]
-pub struct NodePayload {
-    peers: Vec<PeerInfo>,
+#[derive(Debug, PartialEq)]
+pub(crate) struct NodePayload {
+    pub(crate) peers: Vec<PeerEncodedInfo>,
 }
-#[derive(Debug,PartialEq)]
-struct PeerInfo {
-    ip: IpInfo,
-    port: u16,
-    id: BinaryKey,
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct PeerEncodedInfo {
+    pub(crate) ip: IpInfo,
+    pub(crate) port: u16,
+    pub(crate) id: BinaryKey,
 }
-#[derive(Debug,PartialEq)]
-enum IpInfo {
+#[derive(Debug, PartialEq)]
+pub enum IpInfo {
     IPv4([u8; 4]),
     IPv6([u8; 16]),
 }
 
-impl Marshallable for PeerInfo {
+impl Marshallable for PeerEncodedInfo {
     fn marshal_binary<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), Box<dyn Error>> {
         match &self.ip {
             IpInfo::IPv6(bytes) => {
@@ -41,7 +42,9 @@ impl Marshallable for PeerInfo {
         Ok(())
     }
 
-    fn unmarshal_binary<R: Read>(reader: &mut BufReader<R>) -> Result<PeerInfo, Box<dyn Error>> {
+    fn unmarshal_binary<R: Read>(
+        reader: &mut BufReader<R>,
+    ) -> Result<PeerEncodedInfo, Box<dyn Error>> {
         let concat_u8 = |first: &[u8], second: &[u8]| -> Vec<u8> { [first, second].concat() };
         let mut ipv4 = [0; 4];
         let ip: IpInfo;
@@ -63,7 +66,7 @@ impl Marshallable for PeerInfo {
         let port = u16::from_le_bytes(port);
         let mut id = [0; K_ID_LEN_BYTES];
         reader.read_exact(&mut id)?;
-        Ok(PeerInfo { ip, port, id })
+        Ok(PeerEncodedInfo { ip, port, id })
     }
 }
 impl Marshallable for NodePayload {
@@ -79,7 +82,7 @@ impl Marshallable for NodePayload {
         Ok(())
     }
     fn unmarshal_binary<R: Read>(reader: &mut BufReader<R>) -> Result<NodePayload, Box<dyn Error>> {
-        let mut peers: Vec<PeerInfo> = vec![];
+        let mut peers: Vec<PeerEncodedInfo> = vec![];
         let mut len = [0; 2];
         reader.read_exact(&mut len)?;
         let len = u16::from_le_bytes(len);
@@ -87,7 +90,7 @@ impl Marshallable for NodePayload {
             return Err(Box::new(EncodingError::new("Invalid peers count")));
         }
         for _ in 0..len {
-            peers.push(PeerInfo::unmarshal_binary(reader)?)
+            peers.push(PeerEncodedInfo::unmarshal_binary(reader)?)
         }
         Ok(NodePayload { peers })
     }
