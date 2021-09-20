@@ -1,13 +1,13 @@
-use crate::kbucket::{BinaryKey, BinaryNonce};
+use crate::kbucket::{BinaryID, BinaryKey, BinaryNonce};
 use crate::utils;
 use blake2::{Blake2s, Digest};
 use std::convert::TryInto;
 use std::net::{IpAddr, SocketAddr};
-pub type PeerNode = Node<PeerID, PeerInfo>;
+pub type PeerNode = Node<PeerInfo>;
 use crate::encoding::message::Header;
 use crate::encoding::payload::{IpInfo, PeerEncodedInfo};
 
-use crate::kbucket::{BinaryID, Node};
+use crate::kbucket::Node;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PeerInfo {
     address: SocketAddr,
@@ -19,25 +19,14 @@ pub struct PeerID {
     nonce: BinaryNonce,
 }
 
-impl BinaryID for PeerID {
-    fn as_binary(&self) -> &BinaryKey {
-        &self.binary
-    }
-
-    fn nonce(&self) -> &BinaryNonce {
-        &self.nonce
-    }
-}
-
 impl PeerNode {
     pub fn from_address(address: String) -> PeerNode {
         let server: SocketAddr = address.parse().expect("Unable to parse address");
         let info = PeerInfo { address: server };
         let binary = PeerNode::compute_id(&info);
         let nonce = utils::compute_nonce(&binary);
-        let id = PeerID {
-            str_id: address,
-            binary,
+        let id = BinaryID {
+            bytes: binary,
             nonce,
         };
         Node::new(id, info)
@@ -63,8 +52,8 @@ impl PeerNode {
     //TODO: demote me as pub(crate) so this method will be used internally by the protocol itself
     pub fn as_header(&self) -> Header {
         Header {
-            id: self.id().binary,
-            nonce: self.id().nonce,
+            id: *self.id().as_binary(),
+            nonce: *self.id().nonce(),
             sender_port: self.value().address.port(),
             reserved: [0; 2],
         }
@@ -72,7 +61,7 @@ impl PeerNode {
 
     pub(crate) fn as_peer_info(&self) -> PeerEncodedInfo {
         PeerEncodedInfo {
-            id: self.id().binary,
+            id: *self.id().as_binary(),
             ip: match self.value().address.ip() {
                 IpAddr::V4(ip) => IpInfo::IPv4(ip.octets()),
                 IpAddr::V6(ip) => IpInfo::IPv6(ip.octets()),

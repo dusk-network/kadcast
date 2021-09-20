@@ -4,10 +4,20 @@ use crate::K_NONCE_LEN;
 pub type BinaryKey = [u8; K_ID_LEN_BYTES];
 pub type BinaryNonce = [u8; K_NONCE_LEN];
 
-pub trait BinaryID {
-    fn as_binary(&self) -> &BinaryKey;
-    fn nonce(&self) -> &BinaryNonce;
-    fn calculate_distance(&self, other: &dyn BinaryID) -> Option<usize> {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BinaryID {
+    pub(crate) bytes: BinaryKey,
+    pub(crate) nonce: BinaryNonce
+}
+
+impl BinaryID {
+    pub fn as_binary(&self) -> &BinaryKey {
+        &self.bytes
+    }
+    pub fn nonce(&self) -> &BinaryNonce {
+        &self.nonce
+    }
+    pub fn calculate_distance(&self, other: &Self) -> Option<usize> {
         let distance = crate::utils::xor(self.as_binary(), other.as_binary());
         let mut pos = 0;
         for (idx, bytes) in distance.iter().enumerate().rev() {
@@ -25,15 +35,4 @@ pub trait BinaryID {
         }
     }
 
-    fn calculate_distance_native(&self, other: &dyn BinaryID) -> Option<usize> {
-        let a = u128::from_le_bytes(*self.as_binary());
-        let b = u128::from_le_bytes(*other.as_binary());
-        let xor = a ^ b;
-        let ret = 128 - xor.leading_zeros() as usize;
-        if ret == 0 {
-            None
-        } else {
-            Some(ret - 1)
-        }
-    }
 }

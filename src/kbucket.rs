@@ -18,13 +18,13 @@ const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
 
 pub type BucketHeight = usize;
 
-pub struct Tree<ID: BinaryID, V> {
-    root: Node<ID, V>,
-    buckets: arrayvec::ArrayVec<Bucket<ID, V>, K_BUCKETS_AMOUNT>,
+pub struct Tree<V> {
+    root: Node<V>,
+    buckets: arrayvec::ArrayVec<Bucket<V>, K_BUCKETS_AMOUNT>,
 }
 
-impl<ID: BinaryID, V> Tree<ID, V> {
-    pub fn insert(&mut self, node: Node<ID, V>) -> Result<InsertOk<ID, V>, InsertError<ID, V>> {
+impl<V> Tree<V> {
+    pub fn insert(&mut self, node: Node<V>) -> Result<InsertOk<V>, InsertError<V>> {
         let bucket_idx = self.root.calculate_distance(&node);
         match bucket_idx {
             None => Err(NodeInsertError::Invalid(node)),
@@ -36,7 +36,7 @@ impl<ID: BinaryID, V> Tree<ID, V> {
     pub fn extract(
         &self,
         max_h: usize,
-    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<ID, V>>)> {
+    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)> {
         self.buckets
             .iter()
             .take(max_h)
@@ -44,19 +44,19 @@ impl<ID: BinaryID, V> Tree<ID, V> {
             .map(|(idx, bucket)| (idx, bucket.pick()))
     }
 
-    pub fn builder(root: Node<ID, V>) -> TreeBuilder<ID, V> {
+    pub fn builder(root: Node<V>) -> TreeBuilder<V> {
         TreeBuilder::new(root)
     }
 }
 
-pub struct TreeBuilder<ID: BinaryID, V> {
+pub struct TreeBuilder<V> {
     node_ttl: Duration,
     node_evict_after: Duration,
-    root: Node<ID, V>,
+    root: Node<V>,
 }
 
-impl<ID: BinaryID, V> TreeBuilder<ID, V> {
-    fn new(root: Node<ID, V>) -> TreeBuilder<ID, V> {
+impl<V> TreeBuilder<V> {
+    fn new(root: Node<V>) -> TreeBuilder<V> {
         TreeBuilder {
             root,
             node_evict_after: Duration::from_millis(BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS),
@@ -64,17 +64,17 @@ impl<ID: BinaryID, V> TreeBuilder<ID, V> {
         }
     }
 
-    pub fn node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<ID, V> {
+    pub fn node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
         self.node_ttl = node_ttl;
         self
     }
 
-    pub fn node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<ID, V> {
+    pub fn node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<V> {
         self.node_evict_after = node_evict_after;
         self
     }
 
-    pub fn build(self) -> Tree<ID, V> {
+    pub fn build(self) -> Tree<V> {
         let config = BucketConfig::new(self.node_ttl, self.node_evict_after);
         Tree {
             root: self.root,

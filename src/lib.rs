@@ -31,6 +31,20 @@ mod tests {
         utils,
     };
 
+    impl BinaryID {
+        fn calculate_distance_native(&self, other: &BinaryID) -> Option<usize> {
+            let a = u128::from_le_bytes(*self.as_binary());
+            let b = u128::from_le_bytes(*other.as_binary());
+            let xor = a ^ b;
+            let ret = 128 - xor.leading_zeros() as usize;
+            if ret == 0 {
+                None
+            } else {
+                Some(ret - 1)
+            }
+        }
+    }
+
     #[test]
     fn test_id_nonce() {
         let root = PeerNode::from_address(String::from("192.168.0.1:666"));

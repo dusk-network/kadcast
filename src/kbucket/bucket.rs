@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use crate::{K_BETA, K_K};
 
-use super::key::BinaryID;
 use super::node::{Node, NodeEvictionStatus};
 use super::BinaryKey;
 use arrayvec::ArrayVec;
@@ -24,9 +23,9 @@ impl BucketConfig {
     }
 }
 
-pub(super) struct Bucket<ID: BinaryID, V> {
-    nodes: arrayvec::ArrayVec<Node<ID, V>, K_K>,
-    pending_node: Option<Node<ID, V>>,
+pub(super) struct Bucket<V> {
+    nodes: arrayvec::ArrayVec<Node<V>, K_K>,
+    pending_node: Option<Node<V>>,
     bucket_config: BucketConfig,
 }
 
@@ -60,19 +59,19 @@ impl<'a, TNode> NodeInsertOk<'a, TNode> {
         }
     }
 }
-pub type InsertOk<'a, ID, V> = NodeInsertOk<'a, Node<ID, V>>;
-pub type InsertError<ID, V> = NodeInsertError<Node<ID, V>>;
-impl<ID: BinaryID, V> Bucket<ID, V> {
+pub type InsertOk<'a, V> = NodeInsertOk<'a, Node<V>>;
+pub type InsertError<V> = NodeInsertError<Node<V>>;
+impl<V> Bucket<V> {
     pub(super) fn new(bucket_config: BucketConfig) -> Self {
         Bucket {
-            nodes: ArrayVec::<Node<ID, V>, K_K>::new(),
+            nodes: ArrayVec::<Node<V>, K_K>::new(),
             pending_node: None,
             bucket_config,
         }
     }
 
     //Refreshes the node's last usage time corresponding to the given key and return his ref
-    fn refresh_node(&mut self, key: &BinaryKey) -> Option<&Node<ID, V>> {
+    fn refresh_node(&mut self, key: &BinaryKey) -> Option<&Node<V>> {
         let old_index = self.nodes.iter().position(|s| s.id().as_binary() == key)?;
         self.nodes[old_index..].rotate_left(1);
         self.nodes.last_mut()?.refresh();
@@ -85,7 +84,7 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
         The method return the candidate for eviction (if any)
     */
 
-    fn try_perform_eviction(&mut self) -> Option<&Node<ID, V>> {
+    fn try_perform_eviction(&mut self) -> Option<&Node<V>> {
         if !self.nodes.is_full() {
             return None;
         }
@@ -116,7 +115,7 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
         }
     }
 
-    pub fn insert(&mut self, node: Node<ID, V>) -> Result<InsertOk<ID, V>, InsertError<ID, V>> {
+    pub fn insert(&mut self, node: Node<V>) -> Result<InsertOk<V>, InsertError<V>> {
         if !node.is_id_valid() {
             return Err(NodeInsertError::Invalid(node));
         }
@@ -151,7 +150,7 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
     }
 
     //pick at most Beta random nodes from this bucket
-    pub fn pick(&self) -> impl Iterator<Item = &Node<ID, V>> {
+    pub fn pick(&self) -> impl Iterator<Item = &Node<V>> {
         let mut idxs: Vec<usize> = (0..self.nodes.len()).collect();
         idxs.shuffle(&mut thread_rng());
         idxs.into_iter()
@@ -160,7 +159,7 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
     }
 
     /*  The method return the least recent used node to query if flagged for eviction */
-    fn pending_eviction_node(&self) -> Option<&Node<ID, V>> {
+    fn pending_eviction_node(&self) -> Option<&Node<V>> {
         self.nodes
             .first()
             .filter(|n| n.eviction_status != NodeEvictionStatus::None)
@@ -172,12 +171,12 @@ mod tests {
     use std::{thread, time::Duration};
 
     use crate::{
-        kbucket::{bucket::NodeInsertError, key::BinaryKey, BinaryID, Bucket, Node, NodeInsertOk},
+        kbucket::{bucket::NodeInsertError, key::BinaryKey, Bucket, Node, NodeInsertOk},
         peer::PeerNode,
         K_BETA,
     };
 
-    impl<ID: BinaryID, V> Bucket<ID, V> {
+    impl<V> Bucket<V> {
         pub fn last_id(&self) -> Option<&BinaryKey> {
             self.nodes.last().map(|n| n.id().as_binary())
         }
@@ -186,7 +185,7 @@ mod tests {
             self.nodes.first().map(|n| n.id().as_binary())
         }
 
-        pub fn remove_id(&mut self, id: &[u8]) -> Option<Node<ID, V>> {
+        pub fn remove_id(&mut self, id: &[u8]) -> Option<Node<V>> {
             let update_idx = self.nodes.iter().position(|s| s.id().as_binary() == id)?;
 
             let removed = self.nodes.pop_at(update_idx);
@@ -197,8 +196,8 @@ mod tests {
         }
     }
 
-    impl<ID: BinaryID, V> crate::kbucket::Tree<ID, V> {
-        fn bucket_for_test(&mut self) -> &mut Bucket<ID, V> {
+    impl<V> crate::kbucket::Tree<V> {
+        fn bucket_for_test(&mut self) -> &mut Bucket<V> {
             self.buckets.first_mut().unwrap()
         }
     }

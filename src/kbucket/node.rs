@@ -1,11 +1,11 @@
-use std::time::{Duration, Instant};
+use std::{time::{Duration, Instant}};
 
 use crate::utils;
 
 use super::key::BinaryID;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Node<TKey: BinaryID, TValue> {
-    id: TKey,
+pub struct Node<TValue> {
+    id: BinaryID,
     value: TValue,
     pub(super) eviction_status: NodeEvictionStatus,
     pub(super) seen_at: Instant,
@@ -17,8 +17,8 @@ pub enum NodeEvictionStatus {
     Requested(Instant),
 }
 
-impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
-    pub fn new(id: TKey, value: TValue) -> Self {
+impl<TValue> Node<TValue> {
+    pub fn new(id: BinaryID, value: TValue) -> Self {
         Node {
             id,
             value,
@@ -27,7 +27,7 @@ impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
         }
     }
 
-    pub fn calculate_distance(&self, other: &Node<TKey, TValue>) -> Option<usize> {
+    pub fn calculate_distance(&self, other: &Node<TValue>) -> Option<usize> {
         self.id.calculate_distance(&other.id)
     }
 
@@ -36,7 +36,7 @@ impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
         utils::verify_nonce(self.id.as_binary(), self.id.nonce())
     }
 
-    pub fn id(&self) -> &TKey {
+    pub fn id(&self) -> &BinaryID {
         &self.id
     }
 
