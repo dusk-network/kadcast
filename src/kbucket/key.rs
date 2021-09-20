@@ -10,8 +10,8 @@ use crate::{K_DIFF_MIN_BIT, K_DIFF_PRODUCED_BIT};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct BinaryID {
-    pub(crate) bytes: BinaryKey,
-    pub(crate) nonce: BinaryNonce,
+    bytes: BinaryKey,
+    nonce: BinaryNonce,
 }
 
 impl BinaryID {
@@ -21,29 +21,27 @@ impl BinaryID {
     pub fn nonce(&self) -> &BinaryNonce {
         &self.nonce
     }
-    pub fn calculate_distance(&self, other: &Self) -> Option<usize> {
-        let distance = BinaryID::xor(self.as_binary(), other.as_binary());
-        let mut pos = 0;
-        for (idx, bytes) in distance.iter().enumerate().rev() {
-            if bytes == &0b0 {
-                continue;
-            };
-            let mbsrank = 8 - bytes.leading_zeros() as usize;
-            pos = mbsrank + (idx * 8);
-            break;
-        }
-        if pos == 0 {
-            None
-        } else {
-            Some(pos - 1)
-        }
+
+    // Returns the 0-based kadcast distance between 2 ID 
+    // `None` if they are identical
+    pub fn calculate_distance(&self, other: &BinaryID) -> Option<usize> {
+        self.as_binary()
+            .iter()
+            .zip(other.as_binary().iter())
+            .map(|(&a, &b)| a ^ b)
+            .enumerate()
+            .rev()
+            .find(|(_, b)| b != &0b0)
+            .map(|(i, b)| BinaryID::msb(b).expect("Can't be None") + (i << 3) - 1)
     }
 
-    fn xor(one: &BinaryKey, two: &BinaryKey) -> Vec<u8> {
-        one.iter()
-            .zip(two.iter())
-            .map(|(&x1, &x2)| x1 ^ x2)
-            .collect()
+    // Returns the position of the most-significant bit set in a byte,
+    // `None` if no bit is set
+    const fn msb(n: u8) -> Option<usize> {
+        match u8::BITS - n.leading_zeros() {
+            0 => None,
+            n @ _ => Some(n as usize),
+        }
     }
 
     pub(crate) fn from_nonce(id: BinaryKey, nonce: BinaryNonce) -> Self {
