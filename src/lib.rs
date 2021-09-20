@@ -1,3 +1,4 @@
+mod encoding;
 pub mod kbucket;
 mod peer;
 mod utils;

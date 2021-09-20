@@ -23,7 +23,7 @@ impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
             id,
             value,
             seen_at: Instant::now(),
-            eviction_status: NodeEvictionStatus::None
+            eviction_status: NodeEvictionStatus::None,
         }
     }
 
@@ -40,16 +40,20 @@ impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
         &self.id
     }
 
+    pub fn value(&self) -> &TValue {
+        &self.value
+    }
+
     pub(super) fn refresh(&mut self) {
-        self.eviction_status=NodeEvictionStatus::None;
+        self.eviction_status = NodeEvictionStatus::None;
         self.seen_at = Instant::now();
     }
 
     pub(super) fn flag_for_check(&mut self) {
-        self.eviction_status=NodeEvictionStatus::Requested(Instant::now());
+        self.eviction_status = NodeEvictionStatus::Requested(Instant::now());
     }
 
-    pub(super) fn is_alive(&self, duration:Duration) -> bool {
+    pub(super) fn is_alive(&self, duration: Duration) -> bool {
         self.seen_at.elapsed() < duration
     }
 }

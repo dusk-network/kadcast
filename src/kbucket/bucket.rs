@@ -151,7 +151,7 @@ impl<ID: BinaryID, V> Bucket<ID, V> {
     }
 
     //pick at most Beta random nodes from this bucket
-    pub fn pick(&self) -> impl Iterator<Item=&Node<ID, V>> {
+    pub fn pick(&self) -> impl Iterator<Item = &Node<ID, V>> {
         let mut idxs: Vec<usize> = (0..self.nodes.len()).collect();
         idxs.shuffle(&mut thread_rng());
         idxs.into_iter()

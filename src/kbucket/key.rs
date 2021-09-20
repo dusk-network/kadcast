@@ -4,7 +4,6 @@ use crate::K_NONCE_LEN;
 pub type BinaryKey = [u8; K_ID_LEN_BYTES];
 pub type BinaryNonce = [u8; K_NONCE_LEN];
 
-
 pub trait BinaryID {
     fn as_binary(&self) -> &BinaryKey;
     fn nonce(&self) -> &BinaryNonce;
