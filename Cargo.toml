@@ -6,6 +6,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arrayvec = "0.7.1"
-blake2 = "0.9.1"
-rand = "0.8.4"
+arrayvec = "~0.7"
+blake2 = "~0.9"
+rand = "~0.8"
