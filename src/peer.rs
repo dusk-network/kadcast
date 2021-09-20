@@ -1,5 +1,4 @@
 use crate::kbucket::{BinaryID, BinaryKey};
-use crate::utils;
 use blake2::{Blake2s, Digest};
 use std::convert::TryInto;
 use std::net::{IpAddr, SocketAddr};
@@ -18,11 +17,7 @@ impl PeerNode {
         let server: SocketAddr = address.parse().expect("Unable to parse address");
         let info = PeerInfo { address: server };
         let binary = PeerNode::compute_id(&info);
-        let nonce = utils::compute_nonce(&binary);
-        let id = BinaryID {
-            bytes: binary,
-            nonce,
-        };
+        let id = BinaryID::new(binary);
         Node::new(id, info)
     }
 
@@ -46,8 +41,7 @@ impl PeerNode {
     //TODO: demote me as pub(crate) so this method will be used internally by the protocol itself
     pub fn as_header(&self) -> Header {
         Header {
-            id: *self.id().as_binary(),
-            nonce: *self.id().nonce(),
+            binary_id: *self.id(),
             sender_port: self.value().address.port(),
             reserved: [0; 2],
         }

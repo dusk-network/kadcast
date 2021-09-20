@@ -1,7 +1,5 @@
 use std::time::{Duration, Instant};
 
-use crate::utils;
-
 use super::key::BinaryID;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Node<TValue> {
@@ -33,7 +31,7 @@ impl<TValue> Node<TValue> {
 
     //maybe we can move this outside of node impl, nonce must be verified when a node is deserialized IMHO
     pub fn is_id_valid(&self) -> bool {
-        utils::verify_nonce(self.id.as_binary(), self.id.nonce())
+        self.id.verify_nonce()
     }
 
     pub fn id(&self) -> &BinaryID {

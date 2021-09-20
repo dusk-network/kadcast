@@ -1,7 +1,6 @@
 mod encoding;
 pub mod kbucket;
 mod peer;
-mod utils;
 
 //This should be derived from NodeID size (btw is the max amount of nodes in a network)
 // const K_L: usize = 500;
@@ -27,7 +26,6 @@ mod tests {
     use crate::{
         kbucket::{BinaryID, NodeInsertError},
         peer::PeerNode,
-        utils,
     };
 
     impl BinaryID {
@@ -47,9 +45,8 @@ mod tests {
     #[test]
     fn test_id_nonce() {
         let root = PeerNode::from_address("192.168.0.1:666");
-        let nonce = utils::compute_nonce(&root.id().as_binary());
-        println!("Nonce is {:?}", nonce);
-        assert!(utils::verify_nonce(&root.id().as_binary(), &nonce));
+        println!("Nonce is {:?}", root.id().nonce());
+        assert!(root.id().verify_nonce());
     }
 
     #[test]
