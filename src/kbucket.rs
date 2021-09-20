@@ -1,4 +1,4 @@
-use std::iter;
+use std::collections::HashMap;
 use std::time::Duration;
 mod bucket;
 mod key;
@@ -7,8 +7,6 @@ use bucket::{Bucket, BucketConfig};
 pub use bucket::{NodeInsertError, NodeInsertOk};
 pub use key::{BinaryID, BinaryKey, BinaryNonce};
 pub use node::Node;
-
-use crate::K_BUCKETS_AMOUNT;
 
 pub use bucket::InsertError;
 pub use bucket::InsertOk;
@@ -20,28 +18,34 @@ pub type BucketHeight = usize;
 
 pub struct Tree<V> {
     root: Node<V>,
-    buckets: arrayvec::ArrayVec<Bucket<V>, K_BUCKETS_AMOUNT>,
+    buckets: HashMap<BucketHeight, Bucket<V>>,
+    config: BucketConfig,
 }
 
 impl<V> Tree<V> {
     pub fn insert(&mut self, node: Node<V>) -> Result<InsertOk<V>, InsertError<V>> {
-        let bucket_idx = self.root.calculate_distance(&node);
-        match bucket_idx {
+        match self.root.calculate_distance(&node) {
             None => Err(NodeInsertError::Invalid(node)),
-            Some(idx) => self.buckets[idx].insert(node),
+            Some(height) => self.safe_get_bucket(height).insert(node),
         }
     }
 
-    //iter the buckets (up to max_height) and pick at most Beta nodes for each bucket
+    fn safe_get_bucket(&mut self, height: BucketHeight) -> &mut Bucket<V> {
+        return match self.buckets.entry(height) {
+            std::collections::hash_map::Entry::Occupied(o) => o.into_mut(),
+            std::collections::hash_map::Entry::Vacant(v) => v.insert(Bucket::new(self.config)),
+        };
+    }
+
+    //iter the buckets (up to max_height, inclusive) and pick at most Beta nodes for each bucket
     pub fn extract(
         &self,
         max_h: usize,
     ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)> {
         self.buckets
             .iter()
-            .take(max_h)
-            .enumerate()
-            .map(|(idx, bucket)| (idx, bucket.pick()))
+            .filter(move |(&height, _)| height <= max_h)
+            .map(|(&height, bucket)| (height, bucket.pick()))
     }
 
     pub fn builder(root: Node<V>) -> TreeBuilder<V> {
@@ -78,9 +82,8 @@ impl<V> TreeBuilder<V> {
         let config = BucketConfig::new(self.node_ttl, self.node_evict_after);
         Tree {
             root: self.root,
-            buckets: iter::repeat_with(|| Bucket::new(config))
-                .take(K_BUCKETS_AMOUNT)
-                .collect(),
+            buckets: HashMap::new(),
+            config,
         }
     }
 }

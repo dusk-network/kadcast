@@ -198,7 +198,7 @@ mod tests {
 
     impl<V> crate::kbucket::Tree<V> {
         fn bucket_for_test(&mut self) -> &mut Bucket<V> {
-            self.buckets.first_mut().unwrap()
+            self.safe_get_bucket(1)
         }
     }
 

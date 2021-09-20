@@ -9,7 +9,6 @@ mod utils;
 // Max amount of nodes a bucket should contain
 pub const K_K: usize = 20;
 pub const K_ID_LEN_BYTES: usize = 16;
-pub const K_BUCKETS_AMOUNT: usize = K_ID_LEN_BYTES * 8;
 pub const K_NONCE_LEN: usize = 4;
 pub const K_DIFF_MIN_BIT: usize = 8;
 pub const K_DIFF_PRODUCED_BIT: usize = 8;
