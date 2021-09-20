@@ -1,4 +1,4 @@
-use crate::kbucket::{BinaryID, BinaryKey, BinaryNonce};
+use crate::kbucket::{BinaryID, BinaryKey};
 use crate::utils;
 use blake2::{Blake2s, Digest};
 use std::convert::TryInto;
@@ -12,15 +12,9 @@ use crate::kbucket::Node;
 pub struct PeerInfo {
     address: SocketAddr,
 }
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PeerID {
-    str_id: String,
-    binary: BinaryKey,
-    nonce: BinaryNonce,
-}
 
 impl PeerNode {
-    pub fn from_address(address: String) -> PeerNode {
+    pub fn from_address(address: &str) -> PeerNode {
         let server: SocketAddr = address.parse().expect("Unable to parse address");
         let info = PeerInfo { address: server };
         let binary = PeerNode::compute_id(&info);

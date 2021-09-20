@@ -46,7 +46,7 @@ mod tests {
 
     #[test]
     fn test_id_nonce() {
-        let root = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let root = PeerNode::from_address("192.168.0.1:666");
         let nonce = utils::compute_nonce(&root.id().as_binary());
         println!("Nonce is {:?}", nonce);
         assert!(utils::verify_nonce(&root.id().as_binary(), &nonce));
@@ -54,12 +54,12 @@ mod tests {
 
     #[test]
     fn test_distance() {
-        let n1 = PeerNode::from_address(String::from("192.168.0.1:666"));
-        let n2 = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let n1 = PeerNode::from_address("192.168.0.1:666");
+        let n2 = PeerNode::from_address("192.168.0.1:666");
         assert_eq!(n1.calculate_distance(&n2), None);
         assert_eq!(n1.id().calculate_distance_native(n2.id()), None);
         for i in 2..255 {
-            let n_in = PeerNode::from_address(format!("192.168.0.{}:666", i));
+            let n_in = PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]);
             assert_eq!(
                 n1.calculate_distance(&n_in),
                 n1.id().calculate_distance_native(n_in.id())
@@ -69,13 +69,14 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let root = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let root = PeerNode::from_address("192.168.0.1:666");
         let mut route_table = crate::kbucket::Tree::builder(root)
             .node_evict_after(Duration::from_millis(5000))
             .node_ttl(Duration::from_secs(60))
             .build();
         for i in 2..255 {
-            let res = route_table.insert(PeerNode::from_address(format!("192.168.0.{}:666", i)));
+            let res =
+                route_table.insert(PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]));
             match res {
                 Ok(_) => {}
                 Err(error) => match error {
@@ -87,7 +88,7 @@ mod tests {
             }
         }
         let res = route_table
-            .insert(PeerNode::from_address(String::from("192.168.0.1:666")))
+            .insert(PeerNode::from_address("192.168.0.1:666"))
             .expect_err("this should be an error");
         assert!(if let NodeInsertError::Invalid(_) = res {
             true

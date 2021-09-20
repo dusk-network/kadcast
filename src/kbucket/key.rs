@@ -7,7 +7,7 @@ pub type BinaryNonce = [u8; K_NONCE_LEN];
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BinaryID {
     pub(crate) bytes: BinaryKey,
-    pub(crate) nonce: BinaryNonce
+    pub(crate) nonce: BinaryNonce,
 }
 
 impl BinaryID {
@@ -34,5 +34,4 @@ impl BinaryID {
             Some(pos - 1)
         }
     }
-
 }

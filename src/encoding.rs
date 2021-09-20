@@ -31,13 +31,13 @@ mod tests {
 
     #[test]
     fn encode_ping() {
-        let peer = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let peer = PeerNode::from_address("192.168.0.1:666");
         let a = KadcastMessage::Ping(peer.as_header());
         test_kadkast_marshal(a);
     }
     #[test]
     fn encode_pong() {
-        let peer = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let peer = PeerNode::from_address("192.168.0.1:666");
         let a = KadcastMessage::Pong(peer.as_header());
         test_kadkast_marshal(a);
         assert_eq!(1, 1);
@@ -45,12 +45,10 @@ mod tests {
 
     #[test]
     fn encode_find_nodes() {
-        let peer = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let peer = PeerNode::from_address("192.168.0.1:666");
         let nodes = vec![
-            PeerNode::from_address(String::from("192.168.1.1:666")),
-            PeerNode::from_address(String::from(
-                "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666",
-            )),
+            PeerNode::from_address("192.168.1.1:666"),
+            PeerNode::from_address("[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666"),
         ]
         .iter()
         .map(|f| f.as_peer_info())
@@ -62,12 +60,10 @@ mod tests {
 
     #[test]
     fn encode_nodes() {
-        let peer = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let peer = PeerNode::from_address("192.168.0.1:666");
         let nodes = vec![
-            PeerNode::from_address(String::from("192.168.1.1:666")),
-            PeerNode::from_address(String::from(
-                "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666",
-            )),
+            PeerNode::from_address("192.168.1.1:666"),
+            PeerNode::from_address("[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666"),
         ]
         .iter()
         .map(|f| f.as_peer_info())
@@ -79,7 +75,7 @@ mod tests {
 
     #[test]
     fn encode_broadcast() {
-        let peer = PeerNode::from_address(String::from("192.168.0.1:666"));
+        let peer = PeerNode::from_address("192.168.0.1:666");
         let a = KadcastMessage::Broadcast(
             peer.as_header(),
             BroadcastPayload {
