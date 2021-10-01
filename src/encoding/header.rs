@@ -3,27 +3,23 @@ use std::{
     io::{BufWriter, Read, Write},
 };
 
-use crate::{
-    kbucket::{BinaryKey, BinaryNonce},
-    utils, K_ID_LEN_BYTES, K_NONCE_LEN,
-};
+use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
 
 use super::{error::EncodingError, Marshallable};
 #[derive(Debug, PartialEq)]
 pub struct Header {
-    pub(crate) id: BinaryKey,
-    pub(crate) nonce: BinaryNonce, //we should changeit to u32 according to golang reference impl?
+    pub(crate) binary_id: BinaryID,
     pub(crate) sender_port: u16,
     pub(crate) reserved: [u8; 2],
 }
 
 impl Marshallable for Header {
     fn marshal_binary<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), Box<dyn Error>> {
-        if !utils::verify_nonce(&self.id, &self.nonce) {
+        if !self.binary_id.verify_nonce() {
             return Err(Box::new(EncodingError::new("Invalid Nonce")));
         }
-        writer.write_all(&self.id)?;
-        writer.write_all(&self.nonce)?;
+        writer.write_all(self.binary_id.as_binary())?;
+        writer.write_all(self.binary_id.nonce())?;
         writer.write_all(&self.sender_port.to_le_bytes())?;
         writer.write_all(&self.reserved)?;
         Ok(())
@@ -39,7 +35,8 @@ impl Marshallable for Header {
         reader.read_exact(&mut id)?;
         let mut nonce = [0; K_NONCE_LEN];
         reader.read_exact(&mut nonce)?;
-        if !utils::verify_nonce(&id, &nonce) {
+        let binary_id = BinaryID::from_nonce(id, nonce);
+        if !binary_id.verify_nonce() {
             return Err(Box::new(EncodingError::new("Invalid Nonce")));
         }
 
@@ -49,8 +46,7 @@ impl Marshallable for Header {
         let mut reserved = [0; 2];
         reader.read_exact(&mut reserved)?;
         Ok(Header {
-            id,
-            nonce,
+            binary_id,
             sender_port: port,
             reserved,
         })

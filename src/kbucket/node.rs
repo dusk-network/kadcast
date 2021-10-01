@@ -1,11 +1,9 @@
 use std::time::{Duration, Instant};
 
-use crate::utils;
-
 use super::key::BinaryID;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Node<TKey: BinaryID, TValue> {
-    id: TKey,
+pub struct Node<TValue> {
+    id: BinaryID,
     value: TValue,
     pub(super) eviction_status: NodeEvictionStatus,
     pub(super) seen_at: Instant,
@@ -17,8 +15,8 @@ pub enum NodeEvictionStatus {
     Requested(Instant),
 }
 
-impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
-    pub fn new(id: TKey, value: TValue) -> Self {
+impl<TValue> Node<TValue> {
+    pub fn new(id: BinaryID, value: TValue) -> Self {
         Node {
             id,
             value,
@@ -27,16 +25,16 @@ impl<TKey: BinaryID, TValue> Node<TKey, TValue> {
         }
     }
 
-    pub fn calculate_distance(&self, other: &Node<TKey, TValue>) -> Option<usize> {
+    pub fn calculate_distance(&self, other: &Node<TValue>) -> Option<usize> {
         self.id.calculate_distance(&other.id)
     }
 
     //maybe we can move this outside of node impl, nonce must be verified when a node is deserialized IMHO
     pub fn is_id_valid(&self) -> bool {
-        utils::verify_nonce(self.id.as_binary(), self.id.nonce())
+        self.id.verify_nonce()
     }
 
-    pub fn id(&self) -> &TKey {
+    pub fn id(&self) -> &BinaryID {
         &self.id
     }
 
