@@ -198,7 +198,7 @@ mod tests {
 
     impl<V> crate::kbucket::Tree<V> {
         fn bucket_for_test(&mut self) -> &mut Bucket<V> {
-            self.safe_get_bucket(1)
+            self.get_or_create_bucket(1)
         }
     }
 
@@ -206,8 +206,8 @@ mod tests {
     fn test_lru_base_5secs() {
         let root = PeerNode::from_address("127.0.0.1:666");
         let mut route_table = crate::kbucket::TreeBuilder::new(root)
-            .node_evict_after(Duration::from_millis(1000))
-            .node_ttl(Duration::from_secs(5))
+            .set_node_evict_after(Duration::from_millis(1000))
+            .set_node_ttl(Duration::from_secs(5))
             .build();
 
         let bucket = route_table.bucket_for_test();

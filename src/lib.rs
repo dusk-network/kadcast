@@ -1,6 +1,16 @@
+use std::convert::TryInto;
+
+use encoding::{message::KadcastMessage, payload::BroadcastPayload};
+use kbucket::{Tree, TreeBuilder};
+use mantainer::TableMantainer;
+use peer::{PeerInfo, PeerNode};
+use transport::WireNetwork;
+
 mod encoding;
 pub mod kbucket;
+mod mantainer;
 mod peer;
+mod transport;
 
 // Max amount of nodes a bucket should contain
 pub const K_K: usize = 20;
@@ -16,78 +26,72 @@ const K_BETA: usize = 3;
 
 const K_CHUNK_SIZE: usize = 1024;
 
-#[cfg(test)]
-mod tests {
-    use std::time::Duration;
+pub struct KadcastProto<TListener: KadcastBroadcastListener> {
+    listener: Option<TListener>, //FIX_ME: No need to use this pattern, better rely on https://docs.rs/tokio/1.12.0/tokio/sync/index.html#watch-channel
+    mantainer: TableMantainer,
+    network: WireNetwork,
+}
 
-    use crate::{
-        kbucket::{BinaryID, NodeInsertError},
-        peer::PeerNode,
-    };
-
-    impl BinaryID {
-        fn calculate_distance_native(&self, other: &BinaryID) -> Option<usize> {
-            let a = u128::from_le_bytes(*self.as_binary());
-            let b = u128::from_le_bytes(*other.as_binary());
-            let xor = a ^ b;
-            let ret = 128 - xor.leading_zeros() as usize;
-            if ret == 0 {
-                None
-            } else {
-                Some(ret - 1)
-            }
-        }
+impl<TListener: KadcastBroadcastListener> KadcastProto<TListener> {
+    pub fn bootstrap(&mut self) {
+        self.mantainer.bootstrap();
     }
 
-    #[test]
-    fn test_id_nonce() {
-        let root = PeerNode::from_address("192.168.0.1:666");
-        println!("Nonce is {:?}", root.id().nonce());
-        assert!(root.id().verify_nonce());
-    }
-
-    #[test]
-    fn test_distance() {
-        let n1 = PeerNode::from_address("192.168.0.1:666");
-        let n2 = PeerNode::from_address("192.168.0.1:666");
-        assert_eq!(n1.calculate_distance(&n2), None);
-        assert_eq!(n1.id().calculate_distance_native(n2.id()), None);
-        for i in 2..255 {
-            let n_in = PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]);
-            assert_eq!(
-                n1.calculate_distance(&n_in),
-                n1.id().calculate_distance_native(n_in.id())
-            );
-        }
-    }
-
-    #[test]
-    fn it_works() {
-        let root = PeerNode::from_address("192.168.0.1:666");
-        let mut route_table = crate::kbucket::Tree::builder(root)
-            .node_evict_after(Duration::from_millis(5000))
-            .node_ttl(Duration::from_secs(60))
-            .build();
-        for i in 2..255 {
-            let res =
-                route_table.insert(PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]));
-            match res {
-                Ok(_) => {}
-                Err(error) => match error {
-                    NodeInsertError::Invalid(_) => {
-                        assert!(false)
-                    }
-                    _ => {}
+    pub fn send_message(&self, message: Vec<u8>) {
+        for (idx, peers) in self.mantainer.ktable().extract(None) {
+            let msg = KadcastMessage::Broadcast(
+                self.mantainer.ktable().root().as_header(),
+                BroadcastPayload {
+                    height: idx.try_into().unwrap(),
+                    gossip_frame: message.clone(), //FIX_ME: avoid clone
                 },
+            );
+            for ele in peers {
+                self.network.send_message(&msg, ele.value().address())
             }
         }
-        let res = route_table
-            .insert(PeerNode::from_address("192.168.0.1:666"))
-            .expect_err("this should be an error");
-        assert!(if let NodeInsertError::Invalid(_) = res {
-            true
-        } else {
-            false
-        });
     }
+}
+
+pub struct KadcastProtoBuilder<'a, TListener: KadcastBroadcastListener> {
+    tree_builder: TreeBuilder<PeerInfo>,
+    bootstrapping_nodes: Vec<String>,
+    listener: Option<TListener>,
+    public_ip: &'a str,
+}
+
+impl<'a, TListener: KadcastBroadcastListener> KadcastProtoBuilder<'a, TListener> {
+    pub fn new(
+        public_ip: &str,
+        bootstrapping_nodes: Vec<String>,
+    ) -> KadcastProtoBuilder<TListener> {
+        KadcastProtoBuilder {
+            tree_builder: TreeBuilder::new(PeerNode::from_address(public_ip)),
+            bootstrapping_nodes: bootstrapping_nodes,
+            listener: None,
+            public_ip,
+        }
+    }
+
+    pub fn set_broadcast_listener(mut self, listener: TListener) -> Self {
+        self.listener = Some(listener);
+        self
+    }
+
+    pub fn tree_builder(self) -> TreeBuilder<PeerInfo> {
+        self.tree_builder
+    }
+
+    pub fn build(self) -> KadcastProto<TListener> {
+        KadcastProto {
+            mantainer: TableMantainer::new(self.bootstrapping_nodes, self.tree_builder.build()),
+            listener: self.listener,
+            network: WireNetwork::new(self.public_ip),
+        }
+    }
+}
+
+pub trait KadcastBroadcastListener {
+    //this should handle onky BroadcastMessages
+    fn on_broadcast(&self, message: Vec<u8>);
 }

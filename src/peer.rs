@@ -12,6 +12,12 @@ pub struct PeerInfo {
     address: SocketAddr,
 }
 
+impl PeerInfo {
+    pub fn address(&self) -> &SocketAddr {
+        &self.address
+    }
+}
+
 impl PeerNode {
     pub fn from_address(address: &str) -> PeerNode {
         let server: SocketAddr = address.parse().expect("Unable to parse address");

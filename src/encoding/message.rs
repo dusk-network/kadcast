@@ -5,7 +5,7 @@ use std::{
 
 use crate::encoding::error::EncodingError;
 
-use super::payload::{BroadcastPayload, NodePayload};
+pub(crate) use super::payload::{BroadcastPayload, NodePayload};
 pub use super::{header::Header, Marshallable};
 
 // PingMsg wire Ping message id.
