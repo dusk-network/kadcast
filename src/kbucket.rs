@@ -11,8 +11,6 @@ pub use node::Node;
 pub use bucket::InsertError;
 pub use bucket::InsertOk;
 
-use crate::encoding::message::Header;
-
 const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
 const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
 

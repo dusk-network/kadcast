@@ -9,4 +9,13 @@ edition = "2018"
 arrayvec = "~0.7"
 blake2 = "~0.9"
 rand = "~0.8"
-tokio = { version = "1", features = ["rt", "net"] }
+tokio = { version = "1", features = ["rt", "net", "sync"] }
+
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "net", "sync", "macros"] }
+
+
+[[bin]]
+name = "p2pbin"
+path = "bin/main.rs"

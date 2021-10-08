@@ -1,10 +1,11 @@
-use std::convert::TryInto;
+use std::{convert::TryInto, net::SocketAddr};
 
 use encoding::{message::KadcastMessage, payload::BroadcastPayload};
-use kbucket::{Tree, TreeBuilder};
+use kbucket::TreeBuilder;
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
-use transport::WireNetwork;
+use tokio::sync::mpsc::{self, Sender};
+use transport::{MessageBeanOut, WireNetwork};
 
 mod encoding;
 pub mod kbucket;
@@ -26,18 +27,23 @@ const K_BETA: usize = 3;
 
 const K_CHUNK_SIZE: usize = 1024;
 
-pub struct KadcastProto<TListener: KadcastBroadcastListener> {
-    listener: Option<TListener>, //FIX_ME: No need to use this pattern, better rely on https://docs.rs/tokio/1.12.0/tokio/sync/index.html#watch-channel
+pub struct KadcastServer {
     mantainer: TableMantainer,
     network: WireNetwork,
+    outbound_sender: Sender<MessageBeanOut>,
 }
 
-impl<TListener: KadcastBroadcastListener> KadcastProto<TListener> {
-    pub fn bootstrap(&mut self) {
-        self.mantainer.bootstrap();
+impl KadcastServer {
+    pub async fn bootstrap(self) {
+        let a = self.mantainer.start();
+        // let runner_out= self.network.listen_out();
+        let runner = self.network.start();
+        // let mn = self.mantainer;
+        // mn.bootstrap();
+        tokio::join!(a, runner);
     }
 
-    pub fn send_message(&self, message: Vec<u8>) {
+    pub fn broadcast(&self, message: Vec<u8>) {
         for (idx, peers) in self.mantainer.ktable().extract(None) {
             let msg = KadcastMessage::Broadcast(
                 self.mantainer.ktable().root().as_header(),
@@ -46,52 +52,46 @@ impl<TListener: KadcastBroadcastListener> KadcastProto<TListener> {
                     gossip_frame: message.clone(), //FIX_ME: avoid clone
                 },
             );
-            for ele in peers {
-                self.network.send_message(&msg, ele.value().address())
-            }
+            let targets: Vec<SocketAddr> = peers.map(|s| *s.value().address()).collect();
+            // let targets: Vec<SocketAddr> = targets.iter().map(|&s| s.clone()).collect();
+            self.outbound_sender
+                .blocking_send((msg, targets))
+                .unwrap_or_default(); //FIX_ME: handle correctly
         }
     }
 }
 
-pub struct KadcastProtoBuilder<'a, TListener: KadcastBroadcastListener> {
+pub struct KadcastServerBuilder {
     tree_builder: TreeBuilder<PeerInfo>,
     bootstrapping_nodes: Vec<String>,
-    listener: Option<TListener>,
-    public_ip: &'a str,
+    public_ip: String,
 }
 
-impl<'a, TListener: KadcastBroadcastListener> KadcastProtoBuilder<'a, TListener> {
-    pub fn new(
-        public_ip: &str,
-        bootstrapping_nodes: Vec<String>,
-    ) -> KadcastProtoBuilder<TListener> {
-        KadcastProtoBuilder {
+impl KadcastServerBuilder {
+    pub fn new(public_ip: &str, bootstrapping_nodes: Vec<String>) -> Self {
+        KadcastServerBuilder {
             tree_builder: TreeBuilder::new(PeerNode::from_address(public_ip)),
-            bootstrapping_nodes: bootstrapping_nodes,
-            listener: None,
-            public_ip,
+            bootstrapping_nodes,
+            public_ip: public_ip.to_string(),
         }
-    }
-
-    pub fn set_broadcast_listener(mut self, listener: TListener) -> Self {
-        self.listener = Some(listener);
-        self
     }
 
     pub fn tree_builder(self) -> TreeBuilder<PeerInfo> {
         self.tree_builder
     }
 
-    pub fn build(self) -> KadcastProto<TListener> {
-        KadcastProto {
-            mantainer: TableMantainer::new(self.bootstrapping_nodes, self.tree_builder.build()),
-            listener: self.listener,
-            network: WireNetwork::new(self.public_ip),
+    pub fn build(self) -> KadcastServer {
+        let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
+        let network = WireNetwork::new(&self.public_ip, inbound_channel_tx);
+        KadcastServer {
+            mantainer: TableMantainer::new(
+                self.bootstrapping_nodes,
+                self.tree_builder.build(),
+                network.sender(),
+                inbound_channel_rx,
+            ),
+            outbound_sender: network.sender(),
+            network,
         }
     }
-}
-
-pub trait KadcastBroadcastListener {
-    //this should handle onky BroadcastMessages
-    fn on_broadcast(&self, message: Vec<u8>);
 }

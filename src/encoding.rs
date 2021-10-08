@@ -98,6 +98,7 @@ mod tests {
         c.read_to_end(&mut bytes).unwrap();
         c.rewind().unwrap();
         println!("bytes: {:?}", bytes);
+        println!("byhex: {:02X?}", bytes);
         // c.rewind().unwrap();
         let mut reader = BufReader::new(c);
         let deser = KadcastMessage::unmarshal_binary(&mut reader).unwrap();

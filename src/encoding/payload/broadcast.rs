@@ -6,8 +6,8 @@ use std::{
 use crate::encoding::Marshallable;
 #[derive(Debug, PartialEq)]
 pub(crate) struct BroadcastPayload {
-    pub(crate) height: u8,            //HELP: what this height refer to?
-    pub(crate) gossip_frame: Vec<u8>, //Is this the result of any internal protocol message serialization?
+    pub(crate) height: u8,
+    pub(crate) gossip_frame: Vec<u8>,
 }
 
 impl Marshallable for BroadcastPayload {
