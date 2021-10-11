@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{Read, Write},
 };
 
 use crate::encoding::error::EncodingError;
@@ -24,7 +24,7 @@ const ID_MSG_NODES: u8 = 3;
 const ID_MSG_BROADCAST: u8 = 10;
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum KadcastMessage {
+pub(crate) enum Message {
     Ping(Header),
     Pong(Header),
     FindNodes(Header, NodePayload),
@@ -32,38 +32,38 @@ pub(crate) enum KadcastMessage {
     Broadcast(Header, BroadcastPayload),
 }
 
-impl KadcastMessage {
+impl Message {
     fn type_byte(&self) -> u8 {
         match self {
-            KadcastMessage::Ping(_) => ID_MSG_PING,
-            KadcastMessage::Pong(_) => ID_MSG_PONG,
-            KadcastMessage::FindNodes(_, _) => ID_MSG_FIND_NODES,
-            KadcastMessage::Nodes(_, _) => ID_MSG_NODES,
-            KadcastMessage::Broadcast(_, _) => ID_MSG_BROADCAST,
+            Message::Ping(_) => ID_MSG_PING,
+            Message::Pong(_) => ID_MSG_PONG,
+            Message::FindNodes(_, _) => ID_MSG_FIND_NODES,
+            Message::Nodes(_, _) => ID_MSG_NODES,
+            Message::Broadcast(_, _) => ID_MSG_BROADCAST,
         }
     }
 
     pub(crate) fn header(&self) -> &Header {
         match self {
-            KadcastMessage::Ping(header) => header,
-            KadcastMessage::Pong(header) => header,
-            KadcastMessage::FindNodes(header, _) => header,
-            KadcastMessage::Nodes(header, _) => header,
-            KadcastMessage::Broadcast(header, _) => header,
+            Message::Ping(header) => header,
+            Message::Pong(header) => header,
+            Message::FindNodes(header, _) => header,
+            Message::Nodes(header, _) => header,
+            Message::Broadcast(header, _) => header,
         }
     }
 }
 
-impl Marshallable for KadcastMessage {
-    fn marshal_binary<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), Box<dyn Error>> {
+impl Marshallable for Message {
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
         writer.write_all(&[self.type_byte()])?;
         match self {
-            KadcastMessage::Ping(h) | KadcastMessage::Pong(h) => h.marshal_binary(writer)?,
-            KadcastMessage::FindNodes(h, p) | KadcastMessage::Nodes(h, p) => {
+            Message::Ping(h) | Message::Pong(h) => h.marshal_binary(writer)?,
+            Message::FindNodes(h, p) | Message::Nodes(h, p) => {
                 h.marshal_binary(writer)?;
                 p.marshal_binary(writer)?;
             }
-            KadcastMessage::Broadcast(h, p) => {
+            Message::Broadcast(h, p) => {
                 h.marshal_binary(writer)?;
                 p.marshal_binary(writer)?;
             }
@@ -71,26 +71,24 @@ impl Marshallable for KadcastMessage {
         Ok(writer.flush()?)
     }
 
-    fn unmarshal_binary<W: Read>(
-        reader: &mut BufReader<W>,
-    ) -> Result<KadcastMessage, Box<dyn Error>> {
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> Result<Message, Box<dyn Error>> {
         let mut message_type = [0; 1];
         reader.read_exact(&mut message_type)?;
         let header = Header::unmarshal_binary(reader)?;
         match message_type[0] {
-            ID_MSG_PING => Ok(KadcastMessage::Ping(header)),
-            ID_MSG_PONG => Ok(KadcastMessage::Pong(header)),
+            ID_MSG_PING => Ok(Message::Ping(header)),
+            ID_MSG_PONG => Ok(Message::Pong(header)),
             ID_MSG_FIND_NODES => {
                 let payload = NodePayload::unmarshal_binary(reader)?;
-                Ok(KadcastMessage::FindNodes(header, payload))
+                Ok(Message::FindNodes(header, payload))
             }
             ID_MSG_NODES => {
                 let payload = NodePayload::unmarshal_binary(reader)?;
-                Ok(KadcastMessage::Nodes(header, payload))
+                Ok(Message::Nodes(header, payload))
             }
             ID_MSG_BROADCAST => {
                 let payload = BroadcastPayload::unmarshal_binary(reader)?;
-                Ok(KadcastMessage::Broadcast(header, payload))
+                Ok(Message::Broadcast(header, payload))
             }
             unknown => Err(Box::new(EncodingError::new(&format!(
                 "Invalid message type: '{}'",

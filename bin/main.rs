@@ -1,4 +1,4 @@
-use p2p::KadcastServerBuilder;
+use kadcast::ServerBuilder;
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() {
@@ -7,6 +7,6 @@ pub async fn main() {
         "voucher.dusk.network:555".to_string(),
         "voucher2.dusk.network:555".to_string(),
     ];
-    let server = KadcastServerBuilder::new(public_ip, bootstrapping_nodes).build();
+    let server = ServerBuilder::new(public_ip, bootstrapping_nodes).build();
     server.bootstrap().await;
 }

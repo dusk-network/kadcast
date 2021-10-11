@@ -1,6 +1,6 @@
 use std::{convert::TryInto, net::SocketAddr};
 
-use encoding::{message::KadcastMessage, payload::BroadcastPayload};
+use encoding::{message::Message, payload::BroadcastPayload};
 use kbucket::TreeBuilder;
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
@@ -27,13 +27,13 @@ const K_BETA: usize = 3;
 
 const K_CHUNK_SIZE: usize = 1024;
 
-pub struct KadcastServer {
+pub struct Server {
     mantainer: TableMantainer,
     network: WireNetwork,
     outbound_sender: Sender<MessageBeanOut>,
 }
 
-impl KadcastServer {
+impl Server {
     pub async fn bootstrap(self) {
         let mantainer = self.mantainer.start();
         let network = self.network.start();
@@ -42,7 +42,7 @@ impl KadcastServer {
 
     pub fn broadcast(&self, message: Vec<u8>) {
         for (height, nodes) in self.mantainer.ktable().extract(None) {
-            let msg = KadcastMessage::Broadcast(
+            let msg = Message::Broadcast(
                 self.mantainer.ktable().root().as_header(),
                 BroadcastPayload {
                     height: height.try_into().unwrap(),
@@ -58,15 +58,15 @@ impl KadcastServer {
     }
 }
 
-pub struct KadcastServerBuilder {
+pub struct ServerBuilder {
     tree_builder: TreeBuilder<PeerInfo>,
     bootstrapping_nodes: Vec<String>,
     public_ip: String,
 }
 
-impl KadcastServerBuilder {
+impl ServerBuilder {
     pub fn new(public_ip: &str, bootstrapping_nodes: Vec<String>) -> Self {
-        KadcastServerBuilder {
+        ServerBuilder {
             tree_builder: TreeBuilder::new(PeerNode::from_address(public_ip)),
             bootstrapping_nodes,
             public_ip: public_ip.to_string(),
@@ -77,10 +77,10 @@ impl KadcastServerBuilder {
         self.tree_builder
     }
 
-    pub fn build(self) -> KadcastServer {
+    pub fn build(self) -> Server {
         let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
         let network = WireNetwork::new(&self.public_ip, inbound_channel_tx);
-        KadcastServer {
+        Server {
             mantainer: TableMantainer::new(
                 self.bootstrapping_nodes,
                 self.tree_builder.build(),
