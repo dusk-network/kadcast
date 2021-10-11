@@ -2,6 +2,7 @@ use std::{
     convert::TryInto,
     error::Error,
     io::{BufReader, BufWriter, Read, Write},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
 };
 
 use crate::{
@@ -24,6 +25,19 @@ pub(crate) struct PeerEncodedInfo {
 pub enum IpInfo {
     IPv4([u8; 4]),
     IPv6([u8; 16]),
+}
+
+impl PeerEncodedInfo {
+    pub(crate) fn to_socket_address(&self) -> SocketAddr {
+        match self.ip {
+            IpInfo::IPv4(bytes) => {
+                SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::from(bytes), self.port))
+            }
+            IpInfo::IPv6(bytes) => {
+                SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::from(bytes), self.port, 0, 0))
+            }
+        }
+    }
 }
 
 impl Marshallable for PeerEncodedInfo {

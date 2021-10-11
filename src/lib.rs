@@ -35,24 +35,21 @@ pub struct KadcastServer {
 
 impl KadcastServer {
     pub async fn bootstrap(self) {
-        let a = self.mantainer.start();
-        // let runner_out= self.network.listen_out();
-        let runner = self.network.start();
-        // let mn = self.mantainer;
-        // mn.bootstrap();
-        tokio::join!(a, runner);
+        let mantainer = self.mantainer.start();
+        let network = self.network.start();
+        tokio::join!(mantainer, network);
     }
 
     pub fn broadcast(&self, message: Vec<u8>) {
-        for (idx, peers) in self.mantainer.ktable().extract(None) {
+        for (height, nodes) in self.mantainer.ktable().extract(None) {
             let msg = KadcastMessage::Broadcast(
                 self.mantainer.ktable().root().as_header(),
                 BroadcastPayload {
-                    height: idx.try_into().unwrap(),
+                    height: height.try_into().unwrap(),
                     gossip_frame: message.clone(), //FIX_ME: avoid clone
                 },
             );
-            let targets: Vec<SocketAddr> = peers.map(|s| *s.value().address()).collect();
+            let targets: Vec<SocketAddr> = nodes.map(|node| *node.value().address()).collect();
             // let targets: Vec<SocketAddr> = targets.iter().map(|&s| s.clone()).collect();
             self.outbound_sender
                 .blocking_send((msg, targets))

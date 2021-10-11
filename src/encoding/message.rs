@@ -42,6 +42,16 @@ impl KadcastMessage {
             KadcastMessage::Broadcast(_, _) => ID_MSG_BROADCAST,
         }
     }
+
+    pub(crate) fn header(&self) -> &Header {
+        match self {
+            KadcastMessage::Ping(header) => header,
+            KadcastMessage::Pong(header) => header,
+            KadcastMessage::FindNodes(header, _) => header,
+            KadcastMessage::Nodes(header, _) => header,
+            KadcastMessage::Broadcast(header, _) => header,
+        }
+    }
 }
 
 impl Marshallable for KadcastMessage {
