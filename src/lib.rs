@@ -1,10 +1,13 @@
-use std::{convert::TryInto, net::SocketAddr};
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
 use encoding::{message::Message, payload::BroadcastPayload};
-use kbucket::TreeBuilder;
+use kbucket::{Tree, TreeBuilder};
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
-use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::{
+    mpsc::{self, Sender},
+    RwLock,
+};
 use transport::{MessageBeanOut, WireNetwork};
 
 mod encoding;
@@ -28,67 +31,51 @@ const K_BETA: usize = 3;
 const K_CHUNK_SIZE: usize = 1024;
 
 pub struct Server {
-    mantainer: TableMantainer,
-    network: WireNetwork,
+    // mantainer: TableMantainer,
+    // network: WireNetwork,
     outbound_sender: Sender<MessageBeanOut>,
+    ktable: Arc<RwLock<Tree<PeerInfo>>>,
 }
 
 impl Server {
-    pub async fn bootstrap(self) {
-        let mantainer = self.mantainer.start();
-        let network = self.network.start();
-        tokio::join!(mantainer, network);
+    pub fn new(public_ip: String, bootstrapping_nodes: Vec<String>) -> Self {
+        let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
+        let (outbound_channel_tx, outbound_channel_rx) = mpsc::channel(32);
+
+        // let network = WireNetwork::new(public_ip, inbound_channel_tx);
+        let tree = TreeBuilder::new(PeerNode::from_address(&public_ip)).build();
+        let table = Arc::new(RwLock::new(tree));
+        let mantainer = TableMantainer::new(bootstrapping_nodes, table.clone());
+        let s = Server {
+            // mantainer,
+            outbound_sender: outbound_channel_tx.clone(),
+            ktable: table,
+        };
+        tokio::spawn(async move {
+            WireNetwork::start(&inbound_channel_tx, &public_ip, outbound_channel_rx).await;
+        });
+        tokio::spawn(async move {
+            mantainer
+                .start(inbound_channel_rx, outbound_channel_tx)
+                .await;
+        });
+        s
     }
 
-    pub fn broadcast(&self, message: Vec<u8>) {
-        for (height, nodes) in self.mantainer.ktable().extract(None) {
+    pub async fn broadcast(&self, message: Vec<u8>) {
+        for (height, nodes) in self.ktable.read().await.extract(None) {
             let msg = Message::Broadcast(
-                self.mantainer.ktable().root().as_header(),
+                self.ktable.read().await.root().as_header(),
                 BroadcastPayload {
                     height: height.try_into().unwrap(),
                     gossip_frame: message.clone(), //FIX_ME: avoid clone
                 },
             );
             let targets: Vec<SocketAddr> = nodes.map(|node| *node.value().address()).collect();
-            // let targets: Vec<SocketAddr> = targets.iter().map(|&s| s.clone()).collect();
             self.outbound_sender
-                .blocking_send((msg, targets))
+                .send((msg, targets))
+                .await
                 .unwrap_or_default(); //FIX_ME: handle correctly
-        }
-    }
-}
-
-pub struct ServerBuilder {
-    tree_builder: TreeBuilder<PeerInfo>,
-    bootstrapping_nodes: Vec<String>,
-    public_ip: String,
-}
-
-impl ServerBuilder {
-    pub fn new(public_ip: &str, bootstrapping_nodes: Vec<String>) -> Self {
-        ServerBuilder {
-            tree_builder: TreeBuilder::new(PeerNode::from_address(public_ip)),
-            bootstrapping_nodes,
-            public_ip: public_ip.to_string(),
-        }
-    }
-
-    pub fn tree_builder(self) -> TreeBuilder<PeerInfo> {
-        self.tree_builder
-    }
-
-    pub fn build(self) -> Server {
-        let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
-        let network = WireNetwork::new(&self.public_ip, inbound_channel_tx);
-        Server {
-            mantainer: TableMantainer::new(
-                self.bootstrapping_nodes,
-                self.tree_builder.build(),
-                network.sender(),
-                inbound_channel_rx,
-            ),
-            outbound_sender: network.sender(),
-            network,
         }
     }
 }

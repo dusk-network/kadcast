@@ -1,4 +1,4 @@
-use kadcast::ServerBuilder;
+use tokio::time::{sleep, Duration};
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() {
@@ -7,6 +7,12 @@ pub async fn main() {
         "voucher.dusk.network:555".to_string(),
         "voucher2.dusk.network:555".to_string(),
     ];
-    let server = ServerBuilder::new(public_ip, bootstrapping_nodes).build();
-    server.bootstrap().await;
+    let server = kadcast::Server::new(public_ip.to_string(), bootstrapping_nodes);
+    async move {
+        loop {
+            sleep(Duration::from_millis(1000)).await;
+            server.broadcast(vec![0u8]).await;
+        }
+    }
+    .await;
 }
