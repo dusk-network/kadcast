@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{error::Error, net::SocketAddr};
 
 use tokio::{
     io,
@@ -6,7 +6,7 @@ use tokio::{
     sync::mpsc::{Receiver, Sender},
 };
 
-use crate::encoding::{message::Message, Marshallable};
+use crate::{MAX_DATAGRAM_SIZE, encoding::{message::Message, Marshallable}};
 
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
 pub(crate) type MessageBeanIn = (Message, SocketAddr);
@@ -35,7 +35,7 @@ impl WireNetwork {
         let socket = UdpSocket::bind(public_address).await?;
         println!("Listening on: {}", socket.local_addr()?);
         loop {
-            let mut bytes = [0; 65_535];
+            let mut bytes = [0; MAX_DATAGRAM_SIZE];
             let received = socket.recv_from(&mut bytes).await?;
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
@@ -51,7 +51,26 @@ impl WireNetwork {
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
                 println!("< Message to send to ({:?}) - {:?} ", to, message);
+                let mut bytes = vec![];
+                message.marshal_binary(&mut bytes).unwrap();
+                for remote_addr in to.iter() {
+                    WireNetwork::send(&bytes, remote_addr).await.unwrap();
+                }
             }
         }
+    }
+
+    async fn send(data: &[u8], remote_addr: &SocketAddr) -> Result<(), Box<dyn Error>> {
+        let local_addr: SocketAddr = if remote_addr.is_ipv4() {
+            "0.0.0.0:0"
+        } else {
+            "[::]:0"
+        }
+        .parse()?;
+        let socket = UdpSocket::bind(local_addr).await?;
+        // const MAX_DATAGRAM_SIZE: usize = 65_507;
+        socket.connect(&remote_addr).await?;
+        socket.send(data).await?;
+        Ok(())
     }
 }

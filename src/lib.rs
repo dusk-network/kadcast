@@ -22,6 +22,7 @@ pub const K_ID_LEN_BYTES: usize = 16;
 pub const K_NONCE_LEN: usize = 4;
 pub const K_DIFF_MIN_BIT: usize = 8;
 pub const K_DIFF_PRODUCED_BIT: usize = 8;
+const MAX_DATAGRAM_SIZE: usize = 65_507;
 
 //Redundacy factor for lookup
 const K_ALPHA: usize = 3;
@@ -63,6 +64,9 @@ impl Server {
     }
 
     pub async fn broadcast(&self, message: Vec<u8>) {
+        if message.is_empty() {
+            return;
+        }
         for (height, nodes) in self.ktable.read().await.extract(None) {
             let msg = Message::Broadcast(
                 self.ktable.read().await.root().as_header(),
@@ -72,10 +76,7 @@ impl Server {
                 },
             );
             let targets: Vec<SocketAddr> = nodes.map(|node| *node.value().address()).collect();
-            self.outbound_sender
-                .send((msg, targets))
-                .await
-                .unwrap_or_default(); //FIX_ME: handle correctly
+            let _ = self.outbound_sender.send((msg, targets)).await;
         }
     }
 }

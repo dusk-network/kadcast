@@ -9,13 +9,16 @@ edition = "2018"
 arrayvec = "~0.7"
 blake2 = "~0.9"
 rand = "~0.8"
-tokio = { version = "1", features = ["rt", "net", "sync", "time"] }
+tokio = { version = "1", features = ["rt", "net", "sync", "io-std", "rt-multi-thread", "macros"] }
+clap = "2.33.3"
+rustc_tools_util = "0.2"
 
+# [dev-dependencies]
+# tokio = { version = "1", features = ["rt", "net", "sync", "macros"] }
 
-[dev-dependencies]
-tokio = { version = "1", features = ["rt", "net", "sync", "macros"] }
-
+[build-dependencies]
+rustc_tools_util = "0.2"
 
 [[bin]]
-name = "p2pbin"
+name = "kadcast"
 path = "bin/main.rs"
