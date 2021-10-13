@@ -1,6 +1,7 @@
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
 use encoding::{message::Message, payload::BroadcastPayload};
+use itertools::Itertools;
 use kbucket::{Tree, TreeBuilder};
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
@@ -61,6 +62,12 @@ impl Server {
                 .await;
         });
         s
+    }
+
+    pub async fn report(&self){
+        self.ktable.read().await.all_sorted().for_each(|(h, nodes)|{
+            println!("H: {} - Nodes {}", h, nodes.map(|p| p.value().address()).join(","));
+        });
     }
 
     pub async fn broadcast(&self, message: Vec<u8>) {

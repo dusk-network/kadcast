@@ -1,4 +1,8 @@
-use std::{net::ToSocketAddrs, sync::Arc};
+use std::{
+    convert::TryInto,
+    net::{SocketAddr, ToSocketAddrs},
+    sync::Arc,
+};
 
 use tokio::sync::{
     mpsc::{Receiver, Sender},
@@ -6,7 +10,10 @@ use tokio::sync::{
 };
 
 use crate::{
-    encoding::{message::Message, payload::NodePayload},
+    encoding::{
+        message::Message,
+        payload::{BroadcastPayload, NodePayload},
+    },
     kbucket::Tree,
     peer::{PeerInfo, PeerNode},
     transport::{MessageBeanIn, MessageBeanOut},
@@ -92,8 +99,31 @@ impl TableMantainer {
                                     .unwrap_or_else(|op| println!("Unable to send PING {:?}", op));
                             }
                         }
-                        Message::Broadcast(_, _) => {
-                            println!("Broadcast message handler not implemented yet");
+                        Message::Broadcast(_, payload) => {
+                            println!("Received payload {:?}", payload);
+                            if payload.height > 0 {
+                                for (height, nodes) in self
+                                    .ktable
+                                    .read()
+                                    .await
+                                    .extract(Some((payload.height - 1).into()))
+                                {
+                                    let msg = Message::Broadcast(
+                                        my_header,
+                                        BroadcastPayload {
+                                            height: height.try_into().unwrap(),
+                                            gossip_frame: payload.gossip_frame.clone(), //FIX_ME: avoid clone
+                                        },
+                                    );
+                                    let targets: Vec<SocketAddr> =
+                                        nodes.map(|node| *node.value().address()).collect();
+                                    outbound_sender
+                                        .try_send((msg, targets))
+                                        .unwrap_or_else(|op| {
+                                            println!("Unable to send broadcast {:?}", op)
+                                        });
+                                }
+                            }
                         }
                     };
                 } else {

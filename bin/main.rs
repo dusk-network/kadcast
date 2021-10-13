@@ -43,7 +43,12 @@ pub async fn main() {
     loop {
         let stdin = io::stdin();
         for message in stdin.lock().lines().flatten() {
-            server.broadcast(message.as_bytes().to_vec()).await;
+            match &message[..] {
+                "report" => {
+                    server.report().await;
+                }
+                v => server.broadcast(v.as_bytes().to_vec()).await,
+            }
         }
     }
 }
