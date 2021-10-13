@@ -5,11 +5,7 @@ use std::{
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
 };
 
-use crate::{
-    encoding::{error::EncodingError, Marshallable},
-    kbucket::BinaryKey,
-    K_ID_LEN_BYTES,
-};
+use crate::{encoding::Marshallable, kbucket::BinaryKey, K_ID_LEN_BYTES};
 #[derive(Debug, PartialEq)]
 pub(crate) struct NodePayload {
     pub(crate) peers: Vec<PeerEncodedInfo>,
@@ -85,7 +81,7 @@ impl Marshallable for NodePayload {
     fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
         let len = self.peers.len() as u16;
         if len == 0 {
-            return Err(Box::new(EncodingError::new("Invalid peers count")));
+            return Ok(());
         }
         writer.write_all(&len.to_le_bytes())?;
         for peer in &self.peers {
@@ -98,11 +94,10 @@ impl Marshallable for NodePayload {
         let mut len = [0; 2];
         reader.read_exact(&mut len)?;
         let len = u16::from_le_bytes(len);
-        if len == 0 {
-            return Err(Box::new(EncodingError::new("Invalid peers count")));
-        }
-        for _ in 0..len {
-            peers.push(PeerEncodedInfo::unmarshal_binary(reader)?)
+        if len > 0 {
+            for _ in 0..len {
+                peers.push(PeerEncodedInfo::unmarshal_binary(reader)?)
+            }
         }
         Ok(NodePayload { peers })
     }

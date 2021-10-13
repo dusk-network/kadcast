@@ -6,12 +6,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arrayvec = "~0.7"
-blake2 = "~0.9"
-rand = "~0.8"
+arrayvec = "0.7"
+blake2 = "0.9"
+rand = "0.8"
 tokio = { version = "1", features = ["rt", "net", "sync", "io-std", "rt-multi-thread", "macros"] }
 clap = "2.33.3"
 rustc_tools_util = "0.2"
+itertools = "0.10"
 
 # [dev-dependencies]
 # tokio = { version = "1", features = ["rt", "net", "sync", "macros"] }

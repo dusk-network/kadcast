@@ -6,7 +6,10 @@ use tokio::{
     sync::mpsc::{Receiver, Sender},
 };
 
-use crate::{MAX_DATAGRAM_SIZE, encoding::{message::Message, Marshallable}};
+use crate::{
+    encoding::{message::Message, Marshallable},
+    MAX_DATAGRAM_SIZE,
+};
 
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
 pub(crate) type MessageBeanIn = (Message, SocketAddr);

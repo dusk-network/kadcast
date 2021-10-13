@@ -47,27 +47,54 @@ impl TableMantainer {
                 node_socket.set_port(message.header().sender_port);
                 let node = PeerNode::from_socket(node_socket);
                 let my_header = self.ktable.read().await.root().as_header();
-                if let Ok(node) = self.ktable.write().await.insert(node) {
-                    println!("Written node in ktable: {:?}", &node);
+                let id = *node.id();
+                let mut table_write = self.ktable.write().await;
+                if let Ok(result) = table_write.insert(node) {
+                    println!("Written node in ktable: {:?}", &result);
+                    if let Some(pending) = result.pending() {
+                        outbound_sender
+                            .try_send((Message::Ping(my_header), vec![*pending.value().address()]))
+                            .unwrap_or_else(|op| {
+                                println!("Unable to send PING to pending node {:?}", op)
+                            });
+                    }
+                    drop(result);
+                    drop(table_write);
                     match message {
                         Message::Ping(_) => {
                             let pong = Message::Pong(my_header);
                             outbound_sender
                                 .try_send((pong, vec![node_socket]))
-                                // .await
-                                .unwrap_or_else(|op| println!("Unable to send ping {:?}", op));
+                                .unwrap_or_else(|op| println!("Unable to send Pong {:?}", op));
                         }
                         Message::Pong(_) => {}
-                        Message::FindNodes(_, _) => todo!(),
-                        Message::Nodes(_, nodes) => {
-                            let targets =
-                                nodes.peers.iter().map(|n| n.to_socket_address()).collect();
+                        Message::FindNodes(_, _) => {
+                            let table_read = self.ktable.read().await;
+                            let nodes = Message::Nodes(
+                                my_header,
+                                NodePayload {
+                                    peers: table_read
+                                        .closest_peers(&id)
+                                        .map(|p| p.as_peer_info())
+                                        .collect(),
+                                },
+                            );
                             outbound_sender
-                                .try_send((Message::Ping(my_header), targets))
-                                // .await
-                                .unwrap_or_else(|op| println!("Unable to send nodes {:?}", op));
+                                .try_send((nodes, vec![node_socket]))
+                                .unwrap_or_else(|op| println!("Unable to send Nodes {:?}", op));
                         }
-                        Message::Broadcast(_, _) => todo!(),
+                        Message::Nodes(_, nodes) => {
+                            if !nodes.peers.is_empty() {
+                                let targets =
+                                    nodes.peers.iter().map(|n| n.to_socket_address()).collect();
+                                outbound_sender
+                                    .try_send((Message::Ping(my_header), targets))
+                                    .unwrap_or_else(|op| println!("Unable to send PING {:?}", op));
+                            }
+                        }
+                        Message::Broadcast(_, _) => {
+                            println!("Broadcast message handler not implemented yet");
+                        }
                     };
                 } else {
                     println!("Unable to insert node");

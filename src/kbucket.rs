@@ -5,6 +5,7 @@ mod key;
 mod node;
 use bucket::{Bucket, BucketConfig};
 pub use bucket::{NodeInsertError, NodeInsertOk};
+use itertools::Itertools;
 pub use key::{BinaryID, BinaryKey, BinaryNonce};
 pub use node::Node;
 
@@ -51,6 +52,20 @@ impl<V> Tree<V> {
     pub(crate) fn root(&self) -> &Node<V> {
         &self.root
     }
+
+    pub(crate) fn closest_peers(&self, other: &BinaryID) -> impl Iterator<Item = &Node<V>> {
+        self.buckets
+            .iter()
+            .flat_map(|(_, b)| b.peers())
+            .filter(|p| p.id() != other)
+            .sorted_by(|a, b| {
+                Ord::cmp(
+                    &a.id().calculate_distance(other),
+                    &b.id().calculate_distance(other),
+                )
+            })
+            .take(crate::K_K)
+    }
 }
 
 pub struct TreeBuilder<V> {
@@ -80,6 +95,7 @@ impl<V> TreeBuilder<V> {
 
     pub(crate) fn build(self) -> Tree<V> {
         let config = BucketConfig::new(self.node_ttl, self.node_evict_after);
+        println!("Built table with root: {:?}", self.root.id());
         Tree {
             root: self.root,
             buckets: HashMap::new(),

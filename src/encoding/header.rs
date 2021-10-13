@@ -6,7 +6,7 @@ use std::{
 use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
 
 use super::{error::EncodingError, Marshallable};
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Header {
     pub(crate) binary_id: BinaryID,
     pub(crate) sender_port: u16,
