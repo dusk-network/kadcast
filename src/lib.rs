@@ -9,6 +9,7 @@ use tokio::sync::{
     mpsc::{self, Sender},
     RwLock,
 };
+use tracing::info;
 use transport::{MessageBeanOut, WireNetwork};
 
 mod encoding;
@@ -66,7 +67,7 @@ impl Server {
 
     pub async fn report(&self){
         self.ktable.read().await.all_sorted().for_each(|(h, nodes)|{
-            println!("H: {} - Nodes {}", h, nodes.map(|p| p.value().address()).join(","));
+            info!("H: {} - Nodes {}", h, nodes.map(|p| p.value().address()).join(","));
         });
     }
 

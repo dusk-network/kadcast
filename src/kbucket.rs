@@ -11,6 +11,7 @@ pub use node::Node;
 
 pub use bucket::InsertError;
 pub use bucket::InsertOk;
+use tracing::debug;
 
 const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
 const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
@@ -109,7 +110,7 @@ impl<V> TreeBuilder<V> {
 
     pub(crate) fn build(self) -> Tree<V> {
         let config = BucketConfig::new(self.node_ttl, self.node_evict_after);
-        println!("Built table with root: {:?}", self.root.id());
+        debug!("Built table with root: {:?}", self.root.id());
         Tree {
             root: self.root,
             buckets: HashMap::new(),
