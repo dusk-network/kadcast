@@ -5,6 +5,7 @@ use tokio::{
     net::UdpSocket,
     sync::mpsc::{Receiver, Sender},
 };
+use tracing::*;
 
 use crate::{
     encoding::{message::Message, Marshallable},
@@ -36,16 +37,16 @@ impl WireNetwork {
         inbound_channel_tx: Sender<MessageBeanIn>,
     ) -> io::Result<()> {
         let socket = UdpSocket::bind(public_address).await?;
-        println!("Listening on: {}", socket.local_addr()?);
+        info!("Listening on: {}", socket.local_addr()?);
         loop {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
             let received = socket.recv_from(&mut bytes).await?;
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
-                    println!("> Received {:?}", deser);
+                    debug!("> Received {:?}", deser);
                     let _ = inbound_channel_tx.try_send((deser, received.1));
                 }
-                Err(e) => println!("Error deser from {} - {}", received.1, e),
+                Err(e) => error!("Error deser from {} - {}", received.1, e),
             }
         }
     }
@@ -53,7 +54,7 @@ impl WireNetwork {
     async fn listen_out(mut outbound_channel_rx: Receiver<MessageBeanOut>) -> io::Result<()> {
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
-                println!("< Message to send to ({:?}) - {:?} ", to, message);
+                debug!("< Message to send to ({:?}) - {:?} ", to, message);
                 let mut bytes = vec![];
                 message.marshal_binary(&mut bytes).unwrap();
                 for remote_addr in to.iter() {
