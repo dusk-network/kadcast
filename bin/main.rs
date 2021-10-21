@@ -46,9 +46,6 @@ pub async fn main() {
         .map(|s| s.to_string())
         .collect();
 
-
-
-
     // Match tracing desired level.
     let log = match matches
         .value_of("log-level")
@@ -70,11 +67,13 @@ pub async fn main() {
     // so this subscriber will be used as the default in all threads for the
     // remainder of the duration of the program, similar to how `loggers`
     // work in the `log` crate.
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("Failed on subscribe tracing");
+    tracing::subscriber::set_global_default(subscriber).expect("Failed on subscribe tracing");
 
-
-    let server = kadcast::Server::new(public_ip.to_string(), bootstrapping_nodes);
+    let server = kadcast::Server::new(
+        public_ip.to_string(),
+        bootstrapping_nodes,
+        crate::on_message,
+    );
     loop {
         let stdin = io::stdin();
         for message in stdin.lock().lines().flatten() {
@@ -86,4 +85,12 @@ pub async fn main() {
             }
         }
     }
+}
+
+fn on_message(message: Vec<u8>) {
+    println!(
+        "Received {}",
+        String::from_utf8(message.to_vec())
+            .unwrap_or_else(|_| "No UTF8 message received".to_string())
+    );
 }
