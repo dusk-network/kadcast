@@ -5,9 +5,12 @@ use itertools::Itertools;
 use kbucket::{Tree, TreeBuilder};
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
-use tokio::sync::{
-    mpsc::{self, Sender},
-    RwLock,
+use tokio::{
+    sync::{
+        mpsc::{self, Sender},
+        RwLock,
+    },
+    task,
 };
 use tracing::info;
 use transport::{MessageBeanOut, WireNetwork};
@@ -34,23 +37,24 @@ const K_BETA: usize = 3;
 const K_CHUNK_SIZE: usize = 1024;
 
 pub struct Server {
-    // mantainer: TableMantainer,
-    // network: WireNetwork,
     outbound_sender: Sender<MessageBeanOut>,
     ktable: Arc<RwLock<Tree<PeerInfo>>>,
 }
 
 impl Server {
-    pub fn new(public_ip: String, bootstrapping_nodes: Vec<String>) -> Self {
+    pub fn new(
+        public_ip: String,
+        bootstrapping_nodes: Vec<String>,
+        on_message: fn(Vec<u8>),
+    ) -> Self {
         let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
         let (outbound_channel_tx, outbound_channel_rx) = mpsc::channel(32);
+        let (listener_channel_tx, mut listener_channel_rx) = mpsc::channel(32);
 
-        // let network = WireNetwork::new(public_ip, inbound_channel_tx);
         let tree = TreeBuilder::new(PeerNode::from_address(&public_ip)).build();
         let table = Arc::new(RwLock::new(tree));
         let mantainer = TableMantainer::new(bootstrapping_nodes, table.clone());
-        let s = Server {
-            // mantainer,
+        let server = Server {
             outbound_sender: outbound_channel_tx.clone(),
             ktable: table,
         };
@@ -59,15 +63,26 @@ impl Server {
         });
         tokio::spawn(async move {
             mantainer
-                .start(inbound_channel_rx, outbound_channel_tx)
+                .start(inbound_channel_rx, outbound_channel_tx, listener_channel_tx)
                 .await;
         });
-        s
+
+        task::spawn(async move {
+            while let Some(message) = listener_channel_rx.recv().await {
+                on_message(message);
+            }
+        });
+        server
     }
 
-    pub async fn report(&self){
-        self.ktable.read().await.all_sorted().for_each(|(h, nodes)|{
-            info!("H: {} - Nodes {}", h, nodes.map(|p| p.value().address()).join(","));
+    pub async fn report(&self) {
+        let table_read = self.ktable.read().await;
+        table_read.all_sorted().for_each(|(h, nodes)| {
+            info!(
+                "H: {} - Nodes {}",
+                h,
+                nodes.map(|p| p.value().address()).join(",")
+            );
         });
     }
 
