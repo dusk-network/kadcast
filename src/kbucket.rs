@@ -68,17 +68,12 @@ impl<V> Tree<V> {
             .take(crate::K_K)
     }
 
-    pub(crate) fn all_sorted(&self) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)> {
+    pub(crate) fn all_sorted(
+        &self,
+    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)> {
         self.buckets
             .iter()
-            // .flat_map(|(_, b)| b.peers())
-            // .filter(|p| p.id() != other)
-            .sorted_by(|a, b| {
-                Ord::cmp(
-                    &a.0,
-                    &b.0,
-                )
-            })
+            .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
             .map(|(&height, bucket)| (height, bucket.peers()))
     }
 }
