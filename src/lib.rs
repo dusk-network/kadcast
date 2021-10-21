@@ -53,16 +53,16 @@ impl Server {
 
         let tree = TreeBuilder::new(PeerNode::from_address(&public_ip)).build();
         let table = Arc::new(RwLock::new(tree));
-        let mantainer = TableMantainer::new(bootstrapping_nodes, table.clone());
+        // let mantainer = TableMantainer::new(bootstrapping_nodes, table.clone());
         let server = Server {
             outbound_sender: outbound_channel_tx.clone(),
-            ktable: table,
+            ktable: table.clone(),
         };
         tokio::spawn(async move {
             WireNetwork::start(&inbound_channel_tx, &public_ip, outbound_channel_rx).await;
         });
         tokio::spawn(async move {
-            mantainer
+            TableMantainer::new(bootstrapping_nodes, table)
                 .start(inbound_channel_rx, outbound_channel_tx, listener_channel_tx)
                 .await;
         });

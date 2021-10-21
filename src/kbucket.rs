@@ -13,8 +13,12 @@ pub use bucket::InsertError;
 pub use bucket::InsertOk;
 use tracing::debug;
 
+use crate::K_ALPHA;
+use crate::K_BETA;
+
 const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
 const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
+pub(crate) const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
 
 pub type BucketHeight = usize;
 
@@ -47,7 +51,7 @@ impl<V> Tree<V> {
         self.buckets
             .iter()
             .filter(move |(&height, _)| height <= max_h.unwrap_or(usize::MAX))
-            .map(|(&height, bucket)| (height, bucket.pick()))
+            .map(|(&height, bucket)| (height, bucket.pick::<K_BETA>()))
     }
 
     pub(crate) fn root(&self) -> &Node<V> {
@@ -76,12 +80,23 @@ impl<V> Tree<V> {
             .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
             .map(|(&height, bucket)| (height, bucket.peers()))
     }
+
+    //pick at most Alpha nodes for each idle bucket
+    pub(crate) fn idle_buckets(
+        &self,
+    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)> {
+        self.buckets
+            .iter()
+            .filter(move |(_, bucket)| bucket.is_idle())
+            .map(|(&height, bucket)| (height, bucket.pick::<K_ALPHA>()))
+    }
 }
 
 pub struct TreeBuilder<V> {
     node_ttl: Duration,
     node_evict_after: Duration,
     root: Node<V>,
+    bucket_ttl: Duration,
 }
 
 impl<V> TreeBuilder<V> {
@@ -90,26 +105,36 @@ impl<V> TreeBuilder<V> {
             root,
             node_evict_after: Duration::from_millis(BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS),
             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
+            bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
         }
     }
 
-    pub fn set_node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
-        self.node_ttl = node_ttl;
+    pub fn set_node_ttl(mut self, node_ttl_millis: Duration) -> TreeBuilder<V> {
+        self.node_ttl = node_ttl_millis;
         self
     }
 
-    pub fn set_node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<V> {
-        self.node_evict_after = node_evict_after;
+    pub fn set_bucket_ttl(mut self, bucket_ttl_secs: Duration) -> TreeBuilder<V> {
+        self.bucket_ttl = bucket_ttl_secs;
+        self
+    }
+
+    pub fn set_node_evict_after(mut self, node_evict_after_millis: Duration) -> TreeBuilder<V> {
+        self.node_evict_after = node_evict_after_millis;
         self
     }
 
     pub(crate) fn build(self) -> Tree<V> {
-        let config = BucketConfig::new(self.node_ttl, self.node_evict_after);
+        // let config = BucketConfig::new(self.node_ttl, self.node_evict_after);
         debug!("Built table with root: {:?}", self.root.id());
         Tree {
             root: self.root,
             buckets: HashMap::new(),
-            config,
+            config: BucketConfig {
+                bucket_ttl: self.bucket_ttl,
+                node_evict_after: self.node_evict_after,
+                node_ttl: self.node_ttl,
+            },
         }
     }
 }
