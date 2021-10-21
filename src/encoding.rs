@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{Read, Write},
 };
 
 pub mod error;
@@ -9,8 +9,8 @@ pub mod message;
 pub(crate) mod payload;
 
 pub trait Marshallable {
-    fn marshal_binary<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), Box<dyn Error>>;
-    fn unmarshal_binary<R: Read>(reader: &mut BufReader<R>) -> Result<Self, Box<dyn Error>>
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>>;
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> Result<Self, Box<dyn Error>>
     where
         Self: Sized;
 }
@@ -21,7 +21,7 @@ mod tests {
 
     use crate::{
         encoding::{
-            message::KadcastMessage,
+            message::Message,
             payload::{BroadcastPayload, NodePayload},
         },
         peer::PeerNode,
@@ -32,13 +32,13 @@ mod tests {
     #[test]
     fn encode_ping() {
         let peer = PeerNode::from_address("192.168.0.1:666");
-        let a = KadcastMessage::Ping(peer.as_header());
+        let a = Message::Ping(peer.as_header());
         test_kadkast_marshal(a);
     }
     #[test]
     fn encode_pong() {
         let peer = PeerNode::from_address("192.168.0.1:666");
-        let a = KadcastMessage::Pong(peer.as_header());
+        let a = Message::Pong(peer.as_header());
         test_kadkast_marshal(a);
         assert_eq!(1, 1);
     }
@@ -53,7 +53,7 @@ mod tests {
         .iter()
         .map(|f| f.as_peer_info())
         .collect();
-        let a = KadcastMessage::FindNodes(peer.as_header(), NodePayload { peers: nodes });
+        let a = Message::FindNodes(peer.as_header(), NodePayload { peers: nodes });
         test_kadkast_marshal(a);
         assert_eq!(1, 1);
     }
@@ -68,7 +68,7 @@ mod tests {
         .iter()
         .map(|f| f.as_peer_info())
         .collect();
-        let a = KadcastMessage::Nodes(peer.as_header(), NodePayload { peers: nodes });
+        let a = Message::Nodes(peer.as_header(), NodePayload { peers: nodes });
         test_kadkast_marshal(a);
         assert_eq!(1, 1);
     }
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn encode_broadcast() {
         let peer = PeerNode::from_address("192.168.0.1:666");
-        let a = KadcastMessage::Broadcast(
+        let a = Message::Broadcast(
             peer.as_header(),
             BroadcastPayload {
                 height: 10,
@@ -87,7 +87,7 @@ mod tests {
         assert_eq!(1, 1);
     }
 
-    fn test_kadkast_marshal(messge: KadcastMessage) {
+    fn test_kadkast_marshal(messge: Message) {
         println!("orig: {:?}", messge);
         let mut c = Cursor::new(Vec::new());
         let mut writer = BufWriter::new(c);
@@ -98,9 +98,10 @@ mod tests {
         c.read_to_end(&mut bytes).unwrap();
         c.rewind().unwrap();
         println!("bytes: {:?}", bytes);
+        println!("byhex: {:02X?}", bytes);
         // c.rewind().unwrap();
         let mut reader = BufReader::new(c);
-        let deser = KadcastMessage::unmarshal_binary(&mut reader).unwrap();
+        let deser = Message::unmarshal_binary(&mut reader).unwrap();
 
         println!("dese: {:?}", deser);
         assert_eq!(messge, deser);

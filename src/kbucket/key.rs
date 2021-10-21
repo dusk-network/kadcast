@@ -22,7 +22,7 @@ impl BinaryID {
         &self.nonce
     }
 
-    // Returns the 0-based kadcast distance between 2 ID 
+    // Returns the 0-based kadcast distance between 2 ID
     // `None` if they are identical
     pub fn calculate_distance(&self, other: &BinaryID) -> Option<usize> {
         self.as_binary()
@@ -40,7 +40,7 @@ impl BinaryID {
     const fn msb(n: u8) -> Option<usize> {
         match u8::BITS - n.leading_zeros() {
             0 => None,
-            n @ _ => Some(n as usize),
+            n => Some(n as usize),
         }
     }
 
@@ -96,7 +96,43 @@ impl BinaryID {
 
 #[cfg(test)]
 mod tests {
-    use crate::kbucket::BinaryID;
+    use crate::{kbucket::BinaryID, peer::PeerNode};
+
+    impl BinaryID {
+        fn calculate_distance_native(&self, other: &BinaryID) -> Option<usize> {
+            let a = u128::from_le_bytes(*self.as_binary());
+            let b = u128::from_le_bytes(*other.as_binary());
+            let xor = a ^ b;
+            let ret = 128 - xor.leading_zeros() as usize;
+            if ret == 0 {
+                None
+            } else {
+                Some(ret - 1)
+            }
+        }
+    }
+
+    #[test]
+    fn test_distance() {
+        let n1 = PeerNode::from_address("192.168.0.1:666");
+        let n2 = PeerNode::from_address("192.168.0.1:666");
+        assert_eq!(n1.calculate_distance(&n2), None);
+        assert_eq!(n1.id().calculate_distance_native(n2.id()), None);
+        for i in 2..255 {
+            let n_in = PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]);
+            assert_eq!(
+                n1.calculate_distance(&n_in),
+                n1.id().calculate_distance_native(n_in.id())
+            );
+        }
+    }
+
+    #[test]
+    fn test_id_nonce() {
+        let root = PeerNode::from_address("192.168.0.1:666");
+        println!("Nonce is {:?}", root.id().nonce());
+        assert!(root.id().verify_nonce());
+    }
 
     #[test]
     fn test_difficulty() {

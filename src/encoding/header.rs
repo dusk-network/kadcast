@@ -1,12 +1,12 @@
 use std::{
     error::Error,
-    io::{BufWriter, Read, Write},
+    io::{Read, Write},
 };
 
 use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
 
 use super::{error::EncodingError, Marshallable};
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Header {
     pub(crate) binary_id: BinaryID,
     pub(crate) sender_port: u16,
@@ -14,7 +14,7 @@ pub struct Header {
 }
 
 impl Marshallable for Header {
-    fn marshal_binary<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
         if !self.binary_id.verify_nonce() {
             return Err(Box::new(EncodingError::new("Invalid Nonce")));
         }
@@ -25,9 +25,7 @@ impl Marshallable for Header {
         Ok(())
     }
 
-    fn unmarshal_binary<R: std::io::Read>(
-        reader: &mut std::io::BufReader<R>,
-    ) -> Result<Self, Box<dyn Error>>
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> Result<Self, Box<dyn Error>>
     where
         Self: Sized,
     {

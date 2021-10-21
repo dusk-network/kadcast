@@ -31,8 +31,11 @@ pub(super) struct Bucket<V> {
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NodeInsertOk<'a, TNode> {
-    Inserted,
+    Inserted {
+        inserted: &'a TNode,
+    },
     Updated {
+        updated: &'a TNode,
         pending_eviction: Option<&'a TNode>,
     },
     Pending {
@@ -48,14 +51,31 @@ pub enum NodeInsertError<TNode> {
 }
 
 impl<'a, TNode> NodeInsertOk<'a, TNode> {
-    pub fn get_pending(&self) -> Option<&TNode> {
+    pub fn pending(&self) -> Option<&TNode> {
         match self {
-            NodeInsertOk::Inserted => None,
+            NodeInsertOk::Inserted { inserted: _ } => None,
             NodeInsertOk::Pending {
                 pending_insert: _,
                 pending_eviction,
             } => *pending_eviction,
-            NodeInsertOk::Updated { pending_eviction } => *pending_eviction,
+            NodeInsertOk::Updated {
+                updated: _,
+                pending_eviction,
+            } => *pending_eviction,
+        }
+    }
+
+    pub fn node(&self) -> &TNode {
+        match self {
+            NodeInsertOk::Inserted { inserted } => *inserted,
+            NodeInsertOk::Pending {
+                pending_insert,
+                pending_eviction: _,
+            } => *pending_insert,
+            NodeInsertOk::Updated {
+                updated,
+                pending_eviction: _,
+            } => *updated,
         }
     }
 }
@@ -120,13 +140,17 @@ impl<V> Bucket<V> {
             return Err(NodeInsertError::Invalid(node));
         }
         if self.refresh_node(node.id().as_binary()).is_some() {
+            self.try_perform_eviction();
             return Ok(NodeInsertOk::Updated {
-                pending_eviction: self.try_perform_eviction(),
+                pending_eviction: self.pending_eviction_node(),
+                updated: self.nodes.last().unwrap(),
             });
         }
         self.try_perform_eviction();
         match self.nodes.try_push(node) {
-            Ok(_) => Ok(NodeInsertOk::Inserted),
+            Ok(_) => Ok(NodeInsertOk::Inserted {
+                inserted: self.nodes.last().unwrap(),
+            }),
             Err(err) => {
                 if self
                     .nodes
@@ -164,6 +188,10 @@ impl<V> Bucket<V> {
             .first()
             .filter(|n| n.eviction_status != NodeEvictionStatus::None)
     }
+
+    pub(super) fn peers(&self) -> impl Iterator<Item = &Node<V>> {
+        self.nodes.iter()
+    }
 }
 
 #[cfg(test)]
@@ -198,7 +226,7 @@ mod tests {
 
     impl<V> crate::kbucket::Tree<V> {
         fn bucket_for_test(&mut self) -> &mut Bucket<V> {
-            self.safe_get_bucket(1)
+            self.get_or_create_bucket(1)
         }
     }
 
@@ -206,8 +234,8 @@ mod tests {
     fn test_lru_base_5secs() {
         let root = PeerNode::from_address("127.0.0.1:666");
         let mut route_table = crate::kbucket::TreeBuilder::new(root)
-            .node_evict_after(Duration::from_millis(1000))
-            .node_ttl(Duration::from_secs(5))
+            .set_node_evict_after(Duration::from_millis(1000))
+            .set_node_ttl(Duration::from_secs(5))
             .build();
 
         let bucket = route_table.bucket_for_test();
@@ -233,7 +261,7 @@ mod tests {
         let id_node2 = node2.id().as_binary().clone();
 
         match bucket.insert(node2).expect("This should return an ok()") {
-            NodeInsertOk::Inserted => {}
+            NodeInsertOk::Inserted { inserted: _ } => {}
             _ => assert!(false),
         }
         let a = bucket.pick();
@@ -283,7 +311,7 @@ mod tests {
                         thread::sleep(Duration::from_secs(1));
                         let pending = PeerNode::from_address("192.168.1.21:8080");
                         match bucket.insert(pending).expect("this should be ok") {
-                            NodeInsertOk::Inserted => {}
+                            NodeInsertOk::Inserted { inserted: _ } => {}
                             v => {
                                 println!("{:?}", v);
                                 assert!(false)
