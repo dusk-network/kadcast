@@ -1,6 +1,7 @@
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
 use encoding::{message::Message, payload::BroadcastPayload};
+use handling::MessageHandler;
 use itertools::Itertools;
 use kbucket::{Tree, TreeBuilder};
 use mantainer::TableMantainer;
@@ -16,6 +17,7 @@ use tracing::info;
 use transport::{MessageBeanOut, WireNetwork};
 
 mod encoding;
+mod handling;
 pub mod kbucket;
 mod mantainer;
 mod peer;
@@ -53,18 +55,21 @@ impl Server {
 
         let tree = TreeBuilder::new(PeerNode::from_address(&public_ip)).build();
         let table = Arc::new(RwLock::new(tree));
-        // let mantainer = TableMantainer::new(bootstrapping_nodes, table.clone());
         let server = Server {
             outbound_sender: outbound_channel_tx.clone(),
             ktable: table.clone(),
         };
+        MessageHandler::start(
+            table.clone(),
+            inbound_channel_rx,
+            outbound_channel_tx.clone(),
+            listener_channel_tx,
+        );
         tokio::spawn(async move {
             WireNetwork::start(&inbound_channel_tx, &public_ip, outbound_channel_rx).await;
         });
         tokio::spawn(async move {
-            TableMantainer::new(bootstrapping_nodes, table)
-                .start(inbound_channel_rx, outbound_channel_tx, listener_channel_tx)
-                .await;
+            TableMantainer::start(bootstrapping_nodes, &table.clone(), outbound_channel_tx).await;
         });
 
         task::spawn(async move {

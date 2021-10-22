@@ -15,6 +15,7 @@ use tracing::debug;
 
 use crate::K_ALPHA;
 use crate::K_BETA;
+use crate::K_ID_LEN_BYTES;
 
 const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
 const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
@@ -22,10 +23,10 @@ pub(crate) const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
 
 pub type BucketHeight = usize;
 
-pub struct Tree<V> {
+pub(crate) struct Tree<V> {
     root: Node<V>,
     buckets: HashMap<BucketHeight, Bucket<V>>,
-    config: BucketConfig,
+    pub(crate) config: BucketConfig,
 }
 
 impl<V> Tree<V> {
@@ -58,18 +59,21 @@ impl<V> Tree<V> {
         &self.root
     }
 
-    pub(crate) fn closest_peers(&self, other: &BinaryID) -> impl Iterator<Item = &Node<V>> {
+    pub(crate) fn closest_peers<const ITEM_COUNT: usize>(
+        &self,
+        other: &BinaryKey,
+    ) -> impl Iterator<Item = &Node<V>> {
         self.buckets
             .iter()
             .flat_map(|(_, b)| b.peers())
-            .filter(|p| p.id() != other)
+            .filter(|p| p.id().as_binary() != other)
             .sorted_by(|a, b| {
                 Ord::cmp(
                     &a.id().calculate_distance(other),
                     &b.id().calculate_distance(other),
                 )
             })
-            .take(crate::K_K)
+            .take(ITEM_COUNT)
     }
 
     pub(crate) fn all_sorted(
@@ -79,6 +83,12 @@ impl<V> Tree<V> {
             .iter()
             .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
             .map(|(&height, bucket)| (height, bucket.peers()))
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn idle_or_empty_heigth(&'static self) -> impl Iterator<Item = BucketHeight> {
+        (0..K_ID_LEN_BYTES * 8)
+            .filter(move |h| self.buckets.get(h).map_or_else(|| true, |b| b.is_idle()))
     }
 
     //pick at most Alpha nodes for each idle bucket
@@ -109,18 +119,18 @@ impl<V> TreeBuilder<V> {
         }
     }
 
-    pub fn set_node_ttl(mut self, node_ttl_millis: Duration) -> TreeBuilder<V> {
-        self.node_ttl = node_ttl_millis;
+    pub fn set_node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
+        self.node_ttl = node_ttl;
         self
     }
 
-    pub fn set_bucket_ttl(mut self, bucket_ttl_secs: Duration) -> TreeBuilder<V> {
-        self.bucket_ttl = bucket_ttl_secs;
+    pub fn set_bucket_ttl(mut self, bucket_ttl: Duration) -> TreeBuilder<V> {
+        self.bucket_ttl = bucket_ttl;
         self
     }
 
-    pub fn set_node_evict_after(mut self, node_evict_after_millis: Duration) -> TreeBuilder<V> {
-        self.node_evict_after = node_evict_after_millis;
+    pub fn set_node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<V> {
+        self.node_evict_after = node_evict_after;
         self
     }
 

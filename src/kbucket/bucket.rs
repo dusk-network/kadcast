@@ -9,10 +9,10 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 #[derive(Debug, Copy, Clone)]
-pub(super) struct BucketConfig {
-    pub(super) node_ttl: Duration,
-    pub(super) node_evict_after: Duration,
-    pub(super) bucket_ttl: Duration,
+pub(crate) struct BucketConfig {
+    pub(crate) node_ttl: Duration,
+    pub(crate) node_evict_after: Duration,
+    pub(crate) bucket_ttl: Duration,
 }
 pub(super) struct Bucket<V> {
     nodes: arrayvec::ArrayVec<Node<V>, K_K>,
@@ -187,6 +187,17 @@ impl<V> Bucket<V> {
         self.nodes.first().map_or(false, |n| {
             n.seen_at.elapsed() > self.bucket_config.bucket_ttl
         })
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn remove_idle_nodes(&mut self) {
+        if let Some(idx) = self
+            .nodes
+            .iter()
+            .position(|n| n.is_alive(self.bucket_config.node_ttl))
+        {
+            self.nodes.truncate(idx)
+        }
     }
 }
 

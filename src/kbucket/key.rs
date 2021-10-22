@@ -24,10 +24,10 @@ impl BinaryID {
 
     // Returns the 0-based kadcast distance between 2 ID
     // `None` if they are identical
-    pub fn calculate_distance(&self, other: &BinaryID) -> Option<usize> {
+    pub fn calculate_distance(&self, other: &BinaryKey) -> Option<usize> {
         self.as_binary()
             .iter()
-            .zip(other.as_binary().iter())
+            .zip(other.iter())
             .map(|(&a, &b)| a ^ b)
             .enumerate()
             .rev()

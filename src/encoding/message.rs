@@ -3,7 +3,7 @@ use std::{
     io::{Read, Write},
 };
 
-use crate::encoding::error::EncodingError;
+use crate::{encoding::error::EncodingError, kbucket::BinaryKey, K_ID_LEN_BYTES};
 
 pub(crate) use super::payload::{BroadcastPayload, NodePayload};
 pub use super::{header::Header, Marshallable};
@@ -27,7 +27,7 @@ const ID_MSG_BROADCAST: u8 = 10;
 pub(crate) enum Message {
     Ping(Header),
     Pong(Header),
-    FindNodes(Header, NodePayload),
+    FindNodes(Header, BinaryKey),
     Nodes(Header, NodePayload), //should we pass node[] as ref?
     Broadcast(Header, BroadcastPayload),
 }
@@ -59,7 +59,11 @@ impl Marshallable for Message {
         writer.write_all(&[self.type_byte()])?;
         match self {
             Message::Ping(h) | Message::Pong(h) => h.marshal_binary(writer)?,
-            Message::FindNodes(h, p) | Message::Nodes(h, p) => {
+            Message::FindNodes(h, target) => {
+                h.marshal_binary(writer)?;
+                writer.write_all(target)?;
+            }
+            Message::Nodes(h, p) => {
                 h.marshal_binary(writer)?;
                 p.marshal_binary(writer)?;
             }
@@ -79,8 +83,9 @@ impl Marshallable for Message {
             ID_MSG_PING => Ok(Message::Ping(header)),
             ID_MSG_PONG => Ok(Message::Pong(header)),
             ID_MSG_FIND_NODES => {
-                let payload = NodePayload::unmarshal_binary(reader)?;
-                Ok(Message::FindNodes(header, payload))
+                let mut target = [0; K_ID_LEN_BYTES];
+                reader.read_exact(&mut target)?;
+                Ok(Message::FindNodes(header, target))
             }
             ID_MSG_NODES => {
                 let payload = NodePayload::unmarshal_binary(reader)?;
