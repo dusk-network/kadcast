@@ -227,8 +227,8 @@ mod tests {
     fn test_lru_base_5secs() {
         let root = PeerNode::from_address("127.0.0.1:666");
         let mut route_table = crate::kbucket::TreeBuilder::new(root)
-            .node_evict_after(Duration::from_millis(1000))
-            .node_ttl(Duration::from_secs(5))
+            .with_node_evict_after(Duration::from_millis(1000))
+            .with_node_ttl(Duration::from_secs(5))
             .build();
 
         let bucket = route_table.bucket_for_test();

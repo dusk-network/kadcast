@@ -127,17 +127,17 @@ pub struct ServerBuilder {
 }
 
 impl ServerBuilder {
-    pub fn set_node_ttl(mut self, node_ttl: Duration) -> ServerBuilder {
+    pub fn with_node_ttl(mut self, node_ttl: Duration) -> ServerBuilder {
         self.node_ttl = node_ttl;
         self
     }
 
-    pub fn set_bucket_ttl(mut self, bucket_ttl: Duration) -> ServerBuilder {
+    pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> ServerBuilder {
         self.bucket_ttl = bucket_ttl;
         self
     }
 
-    pub fn set_node_evict_after(mut self, node_evict_after: Duration) -> ServerBuilder {
+    pub fn with_node_evict_after(mut self, node_evict_after: Duration) -> ServerBuilder {
         self.node_evict_after = node_evict_after;
         self
     }
@@ -160,9 +160,9 @@ impl ServerBuilder {
 
     pub fn build(self) -> Server {
         let tree = TreeBuilder::new(PeerNode::from_address(&self.public_ip[..]))
-            .node_evict_after(self.node_evict_after)
-            .node_ttl(self.node_evict_after)
-            .bucket_ttl(self.bucket_ttl)
+            .with_node_evict_after(self.node_evict_after)
+            .with_node_ttl(self.node_evict_after)
+            .with_bucket_ttl(self.bucket_ttl)
             .build();
         Server::new(
             self.public_ip,

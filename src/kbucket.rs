@@ -120,17 +120,17 @@ impl<V> TreeBuilder<V> {
         }
     }
 
-    pub fn node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
+    pub fn with_node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
         self.node_ttl = node_ttl;
         self
     }
 
-    pub fn bucket_ttl(mut self, bucket_ttl: Duration) -> TreeBuilder<V> {
+    pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> TreeBuilder<V> {
         self.bucket_ttl = bucket_ttl;
         self
     }
 
-    pub fn node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<V> {
+    pub fn with_node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<V> {
         self.node_evict_after = node_evict_after;
         self
     }
@@ -162,8 +162,8 @@ mod tests {
     fn it_works() {
         let root = PeerNode::from_address("192.168.0.1:666");
         let mut route_table = TreeBuilder::new(root)
-            .node_evict_after(Duration::from_millis(5000))
-            .node_ttl(Duration::from_secs(60))
+            .with_node_evict_after(Duration::from_millis(5000))
+            .with_node_ttl(Duration::from_secs(60))
             .build();
         for i in 2..255 {
             let res =
