@@ -1,7 +1,5 @@
-use std::{
-    error::Error,
-    io::{Read, Write},
-};
+use std::error::Error;
+use std::io::{Read, Write};
 
 pub mod error;
 mod header;

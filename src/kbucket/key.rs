@@ -1,3 +1,4 @@
+use crate::encoding::Marshallable;
 use crate::K_ID_LEN_BYTES;
 use crate::K_NONCE_LEN;
 
@@ -12,6 +13,27 @@ use crate::{K_DIFF_MIN_BIT, K_DIFF_PRODUCED_BIT};
 pub struct BinaryID {
     bytes: BinaryKey,
     nonce: BinaryNonce,
+}
+
+impl Marshallable for BinaryKey {
+    fn marshal_binary<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        writer.write_all(self)?;
+        Ok(())
+    }
+
+    fn unmarshal_binary<R: std::io::Read>(
+        reader: &mut R,
+    ) -> Result<Self, Box<dyn std::error::Error>>
+    where
+        Self: Sized,
+    {
+        let mut target = [0; K_ID_LEN_BYTES];
+        reader.read_exact(&mut target)?;
+        Ok(target)
+    }
 }
 
 impl BinaryID {

@@ -22,7 +22,7 @@ impl MessageHandler {
     ) {
         tokio::spawn(async move {
             debug!("MessageHandler started");
-            'read: while let Some((message, mut remote_node_addr)) = inbound_receiver.recv().await {
+            while let Some((message, mut remote_node_addr)) = inbound_receiver.recv().await {
                 debug!("Mantainer received message {:?}", message);
                 remote_node_addr.set_port(message.header().sender_port);
                 let remote_node = PeerNode::from_socket(remote_node_addr);
@@ -30,7 +30,7 @@ impl MessageHandler {
                 match ktable.write().await.insert(remote_node) {
                     Err(_) => {
                         error!("Unable to insert node");
-                        continue 'read;
+                        continue;
                     }
                     Ok(result) => {
                         debug!("Written node in ktable: {:?}", &result);

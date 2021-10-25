@@ -19,20 +19,19 @@ impl TableMantainer {
         ktable: &Arc<RwLock<Tree<PeerInfo>>>,
         outbound_sender: Sender<MessageBeanOut>,
     ) {
+        let find_nodes = Message::FindNodes(
+            ktable.read().await.root().as_header(),
+            *ktable.read().await.root().id().as_binary(),
+        );
+        let bootstrapping_nodes_addr = bootstrapping_nodes
+            .iter()
+            .flat_map(|boot| {
+                boot.to_socket_addrs()
+                    .expect("Unable to resolve domain for {}")
+            })
+            .collect();
         outbound_sender
-            .send((
-                Message::FindNodes(
-                    ktable.read().await.root().as_header(),
-                    *ktable.read().await.root().id().as_binary(),
-                ),
-                bootstrapping_nodes
-                    .iter()
-                    .flat_map(|boot| {
-                        boot.to_socket_addrs()
-                            .expect("Unable to resolve domain for {}")
-                    })
-                    .collect(),
-            ))
+            .send((find_nodes, bootstrapping_nodes_addr))
             .await
             .unwrap_or_else(|op| error!("Unable to send generic {:?}", op));
         TableMantainer::monitor_buckets(ktable.clone(), outbound_sender).await;

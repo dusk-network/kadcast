@@ -1,7 +1,5 @@
-use std::{
-    error::Error,
-    io::{Read, Write},
-};
+use std::error::Error;
+use std::io::{Read, Write};
 
 use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
 

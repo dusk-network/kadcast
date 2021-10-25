@@ -1,9 +1,6 @@
-use std::{
-    convert::TryInto,
-    error::Error,
-    io::{Read, Write},
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
-};
+use std::io::{Read, Write};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::{convert::TryInto, error::Error};
 
 use crate::{encoding::Marshallable, kbucket::BinaryKey, K_ID_LEN_BYTES};
 #[derive(Debug, PartialEq)]

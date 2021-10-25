@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::time::Duration;
-mod bucket;
-mod key;
-mod node;
+
 use bucket::{Bucket, BucketConfig};
 pub use bucket::{NodeInsertError, NodeInsertOk};
 use itertools::Itertools;
@@ -13,13 +11,16 @@ pub use bucket::InsertError;
 pub use bucket::InsertOk;
 use tracing::debug;
 
+mod bucket;
+mod key;
+mod node;
 use crate::K_ALPHA;
 use crate::K_BETA;
 use crate::K_ID_LEN_BYTES;
 
 const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
 const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
-pub(crate) const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
+const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
 
 pub type BucketHeight = usize;
 
@@ -119,23 +120,22 @@ impl<V> TreeBuilder<V> {
         }
     }
 
-    pub fn set_node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
+    pub fn node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
         self.node_ttl = node_ttl;
         self
     }
 
-    pub fn set_bucket_ttl(mut self, bucket_ttl: Duration) -> TreeBuilder<V> {
+    pub fn bucket_ttl(mut self, bucket_ttl: Duration) -> TreeBuilder<V> {
         self.bucket_ttl = bucket_ttl;
         self
     }
 
-    pub fn set_node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<V> {
+    pub fn node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<V> {
         self.node_evict_after = node_evict_after;
         self
     }
 
     pub(crate) fn build(self) -> Tree<V> {
-        // let config = BucketConfig::new(self.node_ttl, self.node_evict_after);
         debug!("Built table with root: {:?}", self.root.id());
         Tree {
             root: self.root,
@@ -162,8 +162,8 @@ mod tests {
     fn it_works() {
         let root = PeerNode::from_address("192.168.0.1:666");
         let mut route_table = TreeBuilder::new(root)
-            .set_node_evict_after(Duration::from_millis(5000))
-            .set_node_ttl(Duration::from_secs(60))
+            .node_evict_after(Duration::from_millis(5000))
+            .node_ttl(Duration::from_secs(60))
             .build();
         for i in 2..255 {
             let res =

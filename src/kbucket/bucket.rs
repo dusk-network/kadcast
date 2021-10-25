@@ -55,20 +55,6 @@ impl<'a, TNode> NodeInsertOk<'a, TNode> {
             } => *pending_eviction,
         }
     }
-
-    pub fn node(&self) -> &TNode {
-        match self {
-            NodeInsertOk::Inserted { inserted } => *inserted,
-            NodeInsertOk::Pending {
-                pending_insert,
-                pending_eviction: _,
-            } => *pending_insert,
-            NodeInsertOk::Updated {
-                updated,
-                pending_eviction: _,
-            } => *updated,
-        }
-    }
 }
 pub type InsertOk<'a, V> = NodeInsertOk<'a, Node<V>>;
 pub type InsertError<V> = NodeInsertError<Node<V>>;
@@ -241,8 +227,8 @@ mod tests {
     fn test_lru_base_5secs() {
         let root = PeerNode::from_address("127.0.0.1:666");
         let mut route_table = crate::kbucket::TreeBuilder::new(root)
-            .set_node_evict_after(Duration::from_millis(1000))
-            .set_node_ttl(Duration::from_secs(5))
+            .node_evict_after(Duration::from_millis(1000))
+            .node_ttl(Duration::from_secs(5))
             .build();
 
         let bucket = route_table.bucket_for_test();
