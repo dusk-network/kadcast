@@ -68,10 +68,3 @@ impl PeerNode {
         }
     }
 }
-
-impl Header {
-    //TODO: demote me as pub(crate) so this method will be used internally by the protocol itself
-    pub fn from_peer(peer: &PeerNode) -> Header {
-        peer.as_header()
-    }
-}

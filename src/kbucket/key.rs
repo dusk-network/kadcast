@@ -1,3 +1,4 @@
+use crate::encoding::Marshallable;
 use crate::K_ID_LEN_BYTES;
 use crate::K_NONCE_LEN;
 
@@ -14,6 +15,27 @@ pub struct BinaryID {
     nonce: BinaryNonce,
 }
 
+impl Marshallable for BinaryKey {
+    fn marshal_binary<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        writer.write_all(self)?;
+        Ok(())
+    }
+
+    fn unmarshal_binary<R: std::io::Read>(
+        reader: &mut R,
+    ) -> Result<Self, Box<dyn std::error::Error>>
+    where
+        Self: Sized,
+    {
+        let mut target = [0; K_ID_LEN_BYTES];
+        reader.read_exact(&mut target)?;
+        Ok(target)
+    }
+}
+
 impl BinaryID {
     pub fn as_binary(&self) -> &BinaryKey {
         &self.bytes
@@ -24,10 +46,10 @@ impl BinaryID {
 
     // Returns the 0-based kadcast distance between 2 ID
     // `None` if they are identical
-    pub fn calculate_distance(&self, other: &BinaryID) -> Option<usize> {
+    pub fn calculate_distance(&self, other: &BinaryKey) -> Option<usize> {
         self.as_binary()
             .iter()
-            .zip(other.as_binary().iter())
+            .zip(other.iter())
             .map(|(&a, &b)| a ^ b)
             .enumerate()
             .rev()

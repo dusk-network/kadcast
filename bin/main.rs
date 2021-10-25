@@ -1,4 +1,5 @@
 use clap::{App, Arg};
+use kadcast::Server;
 use rustc_tools_util::{get_version_info, VersionInfo};
 use std::io::{self, BufRead};
 
@@ -69,11 +70,12 @@ pub async fn main() {
     // work in the `log` crate.
     tracing::subscriber::set_global_default(subscriber).expect("Failed on subscribe tracing");
 
-    let server = kadcast::Server::new(
+    let server = Server::builder(
         public_ip.to_string(),
         bootstrapping_nodes,
         crate::on_message,
-    );
+    )
+    .build();
     loop {
         let stdin = io::stdin();
         for message in stdin.lock().lines().flatten() {

@@ -23,7 +23,6 @@ impl WireNetwork {
         public_ip: &str,
         outbound_channel_rx: Receiver<MessageBeanOut>,
     ) {
-        // let (outbound_channel_tx, outbound_channel_rx) = mpsc::channel(32);
         let public_address = public_ip
             .parse()
             .expect("Unable to parse public_ip address");
@@ -36,6 +35,7 @@ impl WireNetwork {
         public_address: SocketAddr,
         inbound_channel_tx: Sender<MessageBeanIn>,
     ) -> io::Result<()> {
+        debug!("WireNetwork::listen_in started");
         let socket = UdpSocket::bind(public_address).await?;
         info!("Listening on: {}", socket.local_addr()?);
         loop {
@@ -43,7 +43,7 @@ impl WireNetwork {
             let received = socket.recv_from(&mut bytes).await?;
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
-                    debug!("> Received {:?}", deser);
+                    trace!("> Received {:?}", deser);
                     let _ = inbound_channel_tx.try_send((deser, received.1));
                 }
                 Err(e) => error!("Error deser from {} - {}", received.1, e),
@@ -52,9 +52,10 @@ impl WireNetwork {
     }
 
     async fn listen_out(mut outbound_channel_rx: Receiver<MessageBeanOut>) -> io::Result<()> {
+        debug!("WireNetwork::listen_out started");
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
-                debug!("< Message to send to ({:?}) - {:?} ", to, message);
+                trace!("< Message to send to ({:?}) - {:?} ", to, message);
                 let mut bytes = vec![];
                 message.marshal_binary(&mut bytes).unwrap();
                 for remote_addr in to.iter() {

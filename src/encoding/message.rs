@@ -3,7 +3,7 @@ use std::{
     io::{Read, Write},
 };
 
-use crate::encoding::error::EncodingError;
+use crate::{encoding::error::EncodingError, kbucket::BinaryKey};
 
 pub(crate) use super::payload::{BroadcastPayload, NodePayload};
 pub use super::{header::Header, Marshallable};
@@ -27,7 +27,7 @@ const ID_MSG_BROADCAST: u8 = 10;
 pub(crate) enum Message {
     Ping(Header),
     Pong(Header),
-    FindNodes(Header, NodePayload),
+    FindNodes(Header, BinaryKey),
     Nodes(Header, NodePayload), //should we pass node[] as ref?
     Broadcast(Header, BroadcastPayload),
 }
@@ -58,14 +58,18 @@ impl Marshallable for Message {
     fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
         writer.write_all(&[self.type_byte()])?;
         match self {
-            Message::Ping(h) | Message::Pong(h) => h.marshal_binary(writer)?,
-            Message::FindNodes(h, p) | Message::Nodes(h, p) => {
-                h.marshal_binary(writer)?;
-                p.marshal_binary(writer)?;
+            Message::Ping(header) | Message::Pong(header) => header.marshal_binary(writer)?,
+            Message::FindNodes(header, target) => {
+                header.marshal_binary(writer)?;
+                target.marshal_binary(writer)?;
             }
-            Message::Broadcast(h, p) => {
-                h.marshal_binary(writer)?;
-                p.marshal_binary(writer)?;
+            Message::Nodes(header, node_payload) => {
+                header.marshal_binary(writer)?;
+                node_payload.marshal_binary(writer)?;
+            }
+            Message::Broadcast(header, broadcast_payload) => {
+                header.marshal_binary(writer)?;
+                broadcast_payload.marshal_binary(writer)?;
             }
         };
         Ok(writer.flush()?)
@@ -79,8 +83,8 @@ impl Marshallable for Message {
             ID_MSG_PING => Ok(Message::Ping(header)),
             ID_MSG_PONG => Ok(Message::Pong(header)),
             ID_MSG_FIND_NODES => {
-                let payload = NodePayload::unmarshal_binary(reader)?;
-                Ok(Message::FindNodes(header, payload))
+                let target = BinaryKey::unmarshal_binary(reader)?;
+                Ok(Message::FindNodes(header, target))
             }
             ID_MSG_NODES => {
                 let payload = NodePayload::unmarshal_binary(reader)?;

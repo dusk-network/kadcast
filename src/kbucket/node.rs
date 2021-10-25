@@ -26,7 +26,7 @@ impl<TValue> Node<TValue> {
     }
 
     pub fn calculate_distance(&self, other: &Node<TValue>) -> Option<usize> {
-        self.id.calculate_distance(&other.id)
+        self.id.calculate_distance(other.id.as_binary())
     }
 
     //maybe we can move this outside of node impl, nonce must be verified when a node is deserialized IMHO

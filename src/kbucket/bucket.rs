@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{K_BETA, K_K};
+use crate::K_K;
 
 use super::node::{Node, NodeEvictionStatus};
 use super::BinaryKey;
@@ -9,20 +9,11 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 #[derive(Debug, Copy, Clone)]
-pub(super) struct BucketConfig {
-    node_ttl: Duration,
-    node_evict_after: Duration,
+pub(crate) struct BucketConfig {
+    pub(crate) node_ttl: Duration,
+    pub(crate) node_evict_after: Duration,
+    pub(crate) bucket_ttl: Duration,
 }
-
-impl BucketConfig {
-    pub(super) fn new(node_ttl: Duration, node_evict_after: Duration) -> Self {
-        BucketConfig {
-            node_ttl,
-            node_evict_after,
-        }
-    }
-}
-
 pub(super) struct Bucket<V> {
     nodes: arrayvec::ArrayVec<Node<V>, K_K>,
     pending_node: Option<Node<V>>,
@@ -51,7 +42,7 @@ pub enum NodeInsertError<TNode> {
 }
 
 impl<'a, TNode> NodeInsertOk<'a, TNode> {
-    pub fn pending(&self) -> Option<&TNode> {
+    pub fn pending_eviction(&self) -> Option<&TNode> {
         match self {
             NodeInsertOk::Inserted { inserted: _ } => None,
             NodeInsertOk::Pending {
@@ -62,20 +53,6 @@ impl<'a, TNode> NodeInsertOk<'a, TNode> {
                 updated: _,
                 pending_eviction,
             } => *pending_eviction,
-        }
-    }
-
-    pub fn node(&self) -> &TNode {
-        match self {
-            NodeInsertOk::Inserted { inserted } => *inserted,
-            NodeInsertOk::Pending {
-                pending_insert,
-                pending_eviction: _,
-            } => *pending_insert,
-            NodeInsertOk::Updated {
-                updated,
-                pending_eviction: _,
-            } => *updated,
         }
     }
 }
@@ -103,7 +80,6 @@ impl<V> Bucket<V> {
         If it's already flagged, check if timeout is expired and then replace with the pending node.
         The method return the candidate for eviction (if any)
     */
-
     fn try_perform_eviction(&mut self) -> Option<&Node<V>> {
         if !self.nodes.is_full() {
             return None;
@@ -173,12 +149,12 @@ impl<V> Bucket<V> {
         }
     }
 
-    //pick at most Beta random nodes from this bucket
-    pub fn pick(&self) -> impl Iterator<Item = &Node<V>> {
+    //pick at most `ITEM_COUNT` random nodes from this bucket
+    pub fn pick<const ITEM_COUNT: usize>(&self) -> impl Iterator<Item = &Node<V>> {
         let mut idxs: Vec<usize> = (0..self.nodes.len()).collect();
         idxs.shuffle(&mut thread_rng());
         idxs.into_iter()
-            .take(K_BETA)
+            .take(ITEM_COUNT)
             .filter_map(move |idx| self.nodes.get(idx))
     }
 
@@ -191,6 +167,23 @@ impl<V> Bucket<V> {
 
     pub(super) fn peers(&self) -> impl Iterator<Item = &Node<V>> {
         self.nodes.iter()
+    }
+
+    pub(crate) fn is_idle(&self) -> bool {
+        self.nodes.first().map_or(false, |n| {
+            n.seen_at.elapsed() > self.bucket_config.bucket_ttl
+        })
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn remove_idle_nodes(&mut self) {
+        if let Some(idx) = self
+            .nodes
+            .iter()
+            .position(|n| n.is_alive(self.bucket_config.node_ttl))
+        {
+            self.nodes.truncate(idx)
+        }
     }
 }
 
@@ -234,8 +227,8 @@ mod tests {
     fn test_lru_base_5secs() {
         let root = PeerNode::from_address("127.0.0.1:666");
         let mut route_table = crate::kbucket::TreeBuilder::new(root)
-            .set_node_evict_after(Duration::from_millis(1000))
-            .set_node_ttl(Duration::from_secs(5))
+            .with_node_evict_after(Duration::from_millis(1000))
+            .with_node_ttl(Duration::from_secs(5))
             .build();
 
         let bucket = route_table.bucket_for_test();
@@ -246,7 +239,7 @@ mod tests {
             NodeInsertOk::Inserted { .. } => {}
             _ => assert!(false),
         }
-        let a = bucket.pick();
+        let a = bucket.pick::<K_BETA>();
         assert_eq!(a.count(), 1);
 
         match bucket
@@ -264,7 +257,7 @@ mod tests {
             NodeInsertOk::Inserted { inserted: _ } => {}
             _ => assert!(false),
         }
-        let a = bucket.pick();
+        let a = bucket.pick::<K_BETA>();
         assert_eq!(a.count(), 2);
         assert_eq!(Some(&id_node2), bucket.last_id());
         assert_eq!(Some(&id_node1), bucket.least_used_id());
@@ -276,7 +269,7 @@ mod tests {
             NodeInsertOk::Updated { .. } => {}
             _ => assert!(false),
         }
-        let a = bucket.pick();
+        let a = bucket.pick::<K_BETA>();
         assert_eq!(a.count(), 2);
         assert_eq!(Some(&id_node1), bucket.last_id());
         assert_eq!(Some(&id_node2), bucket.least_used_id());
@@ -290,12 +283,12 @@ mod tests {
                 .expect("This should return an ok()")
             {
                 NodeInsertOk::Inserted { .. } => {
-                    assert!(bucket.pick().count() <= K_BETA);
+                    assert!(bucket.pick::<K_BETA>().count() <= K_BETA);
                 }
                 _ => assert!(false),
             }
         }
-        assert_eq!(bucket.pick().count(), K_BETA);
+        assert_eq!(bucket.pick::<K_BETA>().count(), K_BETA);
         let pending = PeerNode::from_address("192.168.1.21:8080");
         let pending_id = pending.id().as_binary().clone();
         match bucket.insert(pending).expect_err("this should be error") {
