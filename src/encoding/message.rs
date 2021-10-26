@@ -55,10 +55,15 @@ impl Message {
 }
 
 impl Marshallable for Message {
-    fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Box<dyn Error>> {
         writer.write_all(&[self.type_byte()])?;
         match self {
-            Message::Ping(header) | Message::Pong(header) => header.marshal_binary(writer)?,
+            Message::Ping(header) | Message::Pong(header) => {
+                header.marshal_binary(writer)?
+            }
             Message::FindNodes(header, target) => {
                 header.marshal_binary(writer)?;
                 target.marshal_binary(writer)?;
@@ -75,7 +80,9 @@ impl Marshallable for Message {
         Ok(writer.flush()?)
     }
 
-    fn unmarshal_binary<R: Read>(reader: &mut R) -> Result<Message, Box<dyn Error>> {
+    fn unmarshal_binary<R: Read>(
+        reader: &mut R,
+    ) -> Result<Message, Box<dyn Error>> {
         let mut message_type = [0; 1];
         reader.read_exact(&mut message_type)?;
         let header = Header::unmarshal_binary(reader)?;

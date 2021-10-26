@@ -48,17 +48,21 @@ impl TableMantainer {
             debug!("TableMantainer::monitor_buckets woke up");
             let table_lock_read = ktable.read().await;
             let root = table_lock_read.root();
-            table_lock_read
-                .idle_buckets()
-                .flat_map(|h| h.1)
-                .for_each(|target| {
+            table_lock_read.idle_buckets().flat_map(|h| h.1).for_each(
+                |target| {
                     outbound_sender
                         .try_send((
-                            Message::FindNodes(root.as_header(), *target.id().as_binary()),
+                            Message::FindNodes(
+                                root.as_header(),
+                                *target.id().as_binary(),
+                            ),
                             vec![*target.value().address()],
                         ))
-                        .unwrap_or_else(|op| error!("Unable to send broadcast {:?}", op));
-                });
+                        .unwrap_or_else(|op| {
+                            error!("Unable to send broadcast {:?}", op)
+                        });
+                },
+            );
         }
     }
 }

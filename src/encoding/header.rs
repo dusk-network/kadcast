@@ -12,7 +12,10 @@ pub struct Header {
 }
 
 impl Marshallable for Header {
-    fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Box<dyn Error>> {
         if !self.binary_id.verify_nonce() {
             return Err(Box::new(EncodingError::new("Invalid Nonce")));
         }

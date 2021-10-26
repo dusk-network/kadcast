@@ -66,10 +66,20 @@ impl Server {
             listener_channel_tx,
         );
         tokio::spawn(async move {
-            WireNetwork::start(&inbound_channel_tx, &public_ip, outbound_channel_rx).await;
+            WireNetwork::start(
+                &inbound_channel_tx,
+                &public_ip,
+                outbound_channel_rx,
+            )
+            .await;
         });
         tokio::spawn(async move {
-            TableMantainer::start(bootstrapping_nodes, &table.clone(), outbound_channel_tx).await;
+            TableMantainer::start(
+                bootstrapping_nodes,
+                &table.clone(),
+                outbound_channel_tx,
+            )
+            .await;
         });
 
         task::spawn(async move {
@@ -103,7 +113,8 @@ impl Server {
                     gossip_frame: message.clone(), //FIX_ME: avoid clone
                 },
             );
-            let targets: Vec<SocketAddr> = nodes.map(|node| *node.value().address()).collect();
+            let targets: Vec<SocketAddr> =
+                nodes.map(|node| *node.value().address()).collect();
             let _ = self.outbound_sender.send((msg, targets)).await;
         }
     }
@@ -137,7 +148,10 @@ impl ServerBuilder {
         self
     }
 
-    pub fn with_node_evict_after(mut self, node_evict_after: Duration) -> ServerBuilder {
+    pub fn with_node_evict_after(
+        mut self,
+        node_evict_after: Duration,
+    ) -> ServerBuilder {
         self.node_evict_after = node_evict_after;
         self
     }
@@ -152,18 +166,21 @@ impl ServerBuilder {
             bootstrapping_nodes,
             on_message,
 
-            node_evict_after: Duration::from_millis(BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS),
+            node_evict_after: Duration::from_millis(
+                BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
+            ),
             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
         }
     }
 
     pub fn build(self) -> Server {
-        let tree = TreeBuilder::new(PeerNode::from_address(&self.public_ip[..]))
-            .with_node_evict_after(self.node_evict_after)
-            .with_node_ttl(self.node_evict_after)
-            .with_bucket_ttl(self.bucket_ttl)
-            .build();
+        let tree =
+            TreeBuilder::new(PeerNode::from_address(&self.public_ip[..]))
+                .with_node_evict_after(self.node_evict_after)
+                .with_node_ttl(self.node_ttl)
+                .with_bucket_ttl(self.bucket_ttl)
+                .build();
         Server::new(
             self.public_ip,
             self.bootstrapping_nodes,

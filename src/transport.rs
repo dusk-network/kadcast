@@ -27,7 +27,8 @@ impl WireNetwork {
             .parse()
             .expect("Unable to parse public_ip address");
         let a = WireNetwork::listen_out(outbound_channel_rx);
-        let b = WireNetwork::listen_in(public_address, inbound_channel_tx.clone());
+        let b =
+            WireNetwork::listen_in(public_address, inbound_channel_tx.clone());
         let _ = tokio::join!(a, b);
     }
 
@@ -51,7 +52,9 @@ impl WireNetwork {
         }
     }
 
-    async fn listen_out(mut outbound_channel_rx: Receiver<MessageBeanOut>) -> io::Result<()> {
+    async fn listen_out(
+        mut outbound_channel_rx: Receiver<MessageBeanOut>,
+    ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
@@ -65,7 +68,10 @@ impl WireNetwork {
         }
     }
 
-    async fn send(data: &[u8], remote_addr: &SocketAddr) -> Result<(), Box<dyn Error>> {
+    async fn send(
+        data: &[u8],
+        remote_addr: &SocketAddr,
+    ) -> Result<(), Box<dyn Error>> {
         let local_addr: SocketAddr = if remote_addr.is_ipv4() {
             "0.0.0.0:0"
         } else {
