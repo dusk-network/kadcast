@@ -23,18 +23,25 @@ pub enum IpInfo {
 impl PeerEncodedInfo {
     pub(crate) fn to_socket_address(&self) -> SocketAddr {
         match self.ip {
-            IpInfo::IPv4(bytes) => {
-                SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::from(bytes), self.port))
-            }
-            IpInfo::IPv6(bytes) => {
-                SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::from(bytes), self.port, 0, 0))
-            }
+            IpInfo::IPv4(bytes) => SocketAddr::V4(SocketAddrV4::new(
+                Ipv4Addr::from(bytes),
+                self.port,
+            )),
+            IpInfo::IPv6(bytes) => SocketAddr::V6(SocketAddrV6::new(
+                Ipv6Addr::from(bytes),
+                self.port,
+                0,
+                0,
+            )),
         }
     }
 }
 
 impl Marshallable for PeerEncodedInfo {
-    fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Box<dyn Error>> {
         match &self.ip {
             IpInfo::IPv6(bytes) => {
                 writer.write_all(&[0u8])?;
@@ -49,8 +56,12 @@ impl Marshallable for PeerEncodedInfo {
         Ok(())
     }
 
-    fn unmarshal_binary<R: Read>(reader: &mut R) -> Result<PeerEncodedInfo, Box<dyn Error>> {
-        let concat_u8 = |first: &[u8], second: &[u8]| -> Vec<u8> { [first, second].concat() };
+    fn unmarshal_binary<R: Read>(
+        reader: &mut R,
+    ) -> Result<PeerEncodedInfo, Box<dyn Error>> {
+        let concat_u8 = |first: &[u8], second: &[u8]| -> Vec<u8> {
+            [first, second].concat()
+        };
         let mut ipv4 = [0; 4];
         let ip: IpInfo;
         reader.read_exact(&mut ipv4)?;
@@ -75,7 +86,10 @@ impl Marshallable for PeerEncodedInfo {
     }
 }
 impl Marshallable for NodePayload {
-    fn marshal_binary<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Box<dyn Error>> {
         let len = self.peers.len() as u16;
         if len == 0 {
             return Ok(());
@@ -86,7 +100,9 @@ impl Marshallable for NodePayload {
         }
         Ok(())
     }
-    fn unmarshal_binary<R: Read>(reader: &mut R) -> Result<NodePayload, Box<dyn Error>> {
+    fn unmarshal_binary<R: Read>(
+        reader: &mut R,
+    ) -> Result<NodePayload, Box<dyn Error>> {
         let mut peers: Vec<PeerEncodedInfo> = vec![];
         let mut len = [0; 2];
         reader.read_exact(&mut len)?;

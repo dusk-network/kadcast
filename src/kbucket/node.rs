@@ -29,7 +29,8 @@ impl<TValue> Node<TValue> {
         self.id.calculate_distance(other.id.as_binary())
     }
 
-    //maybe we can move this outside of node impl, nonce must be verified when a node is deserialized IMHO
+    //maybe we can move this outside of node impl, nonce must be verified when
+    // a node is deserialized IMHO
     pub fn is_id_valid(&self) -> bool {
         self.id.verify_nonce()
     }

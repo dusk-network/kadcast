@@ -20,7 +20,8 @@ impl PeerInfo {
 
 impl PeerNode {
     pub fn from_address(address: &str) -> Self {
-        let server: SocketAddr = address.parse().expect("Unable to parse address");
+        let server: SocketAddr =
+            address.parse().expect("Unable to parse address");
         PeerNode::from_socket(server)
     }
 
@@ -48,7 +49,8 @@ impl PeerNode {
         x.try_into().expect("Wrong length")
     }
 
-    //TODO: demote me as pub(crate) so this method will be used internally by the protocol itself
+    //TODO: demote me as pub(crate) so this method will be used internally by
+    // the protocol itself
     pub fn as_header(&self) -> Header {
         Header {
             binary_id: *self.id(),

@@ -68,7 +68,8 @@ pub async fn main() {
     // so this subscriber will be used as the default in all threads for the
     // remainder of the duration of the program, similar to how `loggers`
     // work in the `log` crate.
-    tracing::subscriber::set_global_default(subscriber).expect("Failed on subscribe tracing");
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("Failed on subscribe tracing");
 
     let server = Server::builder(
         public_ip.to_string(),

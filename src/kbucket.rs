@@ -31,7 +31,10 @@ pub(crate) struct Tree<V> {
 }
 
 impl<V> Tree<V> {
-    pub fn insert(&mut self, node: Node<V>) -> Result<InsertOk<V>, InsertError<V>> {
+    pub fn insert(
+        &mut self,
+        node: Node<V>,
+    ) -> Result<InsertOk<V>, InsertError<V>> {
         match self.root.calculate_distance(&node) {
             None => Err(NodeInsertError::Invalid(node)),
             Some(height) => self.get_or_create_bucket(height).insert(node),
@@ -41,15 +44,19 @@ impl<V> Tree<V> {
     fn get_or_create_bucket(&mut self, height: BucketHeight) -> &mut Bucket<V> {
         return match self.buckets.entry(height) {
             std::collections::hash_map::Entry::Occupied(o) => o.into_mut(),
-            std::collections::hash_map::Entry::Vacant(v) => v.insert(Bucket::new(self.config)),
+            std::collections::hash_map::Entry::Vacant(v) => {
+                v.insert(Bucket::new(self.config))
+            }
         };
     }
 
-    //iter the buckets (up to max_height, inclusive) and pick at most Beta nodes for each bucket
+    //iter the buckets (up to max_height, inclusive) and pick at most Beta
+    // nodes for each bucket
     pub(crate) fn extract(
         &self,
         max_h: Option<usize>,
-    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)> {
+    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>
+    {
         self.buckets
             .iter()
             .filter(move |(&height, _)| height <= max_h.unwrap_or(usize::MAX))
@@ -79,7 +86,8 @@ impl<V> Tree<V> {
 
     pub(crate) fn all_sorted(
         &self,
-    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)> {
+    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>
+    {
         self.buckets
             .iter()
             .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
@@ -87,15 +95,19 @@ impl<V> Tree<V> {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn idle_or_empty_heigth(&'static self) -> impl Iterator<Item = BucketHeight> {
-        (0..K_ID_LEN_BYTES * 8)
-            .filter(move |h| self.buckets.get(h).map_or_else(|| true, |b| b.is_idle()))
+    pub(crate) fn idle_or_empty_heigth(
+        &'static self,
+    ) -> impl Iterator<Item = BucketHeight> {
+        (0..K_ID_LEN_BYTES * 8).filter(move |h| {
+            self.buckets.get(h).map_or_else(|| true, |b| b.is_idle())
+        })
     }
 
     //pick at most Alpha nodes for each idle bucket
     pub(crate) fn idle_buckets(
         &self,
-    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)> {
+    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>
+    {
         self.buckets
             .iter()
             .filter(move |(_, bucket)| bucket.is_idle())
@@ -114,7 +126,9 @@ impl<V> TreeBuilder<V> {
     pub(crate) fn new(root: Node<V>) -> TreeBuilder<V> {
         TreeBuilder {
             root,
-            node_evict_after: Duration::from_millis(BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS),
+            node_evict_after: Duration::from_millis(
+                BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
+            ),
             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
         }
@@ -130,7 +144,10 @@ impl<V> TreeBuilder<V> {
         self
     }
 
-    pub fn with_node_evict_after(mut self, node_evict_after: Duration) -> TreeBuilder<V> {
+    pub fn with_node_evict_after(
+        mut self,
+        node_evict_after: Duration,
+    ) -> TreeBuilder<V> {
         self.node_evict_after = node_evict_after;
         self
     }
@@ -166,8 +183,9 @@ mod tests {
             .with_node_ttl(Duration::from_secs(60))
             .build();
         for i in 2..255 {
-            let res =
-                route_table.insert(PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]));
+            let res = route_table.insert(PeerNode::from_address(
+                &format!("192.168.0.{}:666", i)[..],
+            ));
             match res {
                 Ok(_) => {}
                 Err(error) => match error {

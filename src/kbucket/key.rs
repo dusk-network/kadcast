@@ -54,7 +54,9 @@ impl BinaryID {
             .enumerate()
             .rev()
             .find(|(_, b)| b != &0b0)
-            .map(|(i, b)| BinaryID::msb(b).expect("Can't be None") + (i << 3) - 1)
+            .map(|(i, b)| {
+                BinaryID::msb(b).expect("Can't be None") + (i << 3) - 1
+            })
     }
 
     // Returns the position of the most-significant bit set in a byte,
@@ -97,10 +99,16 @@ impl BinaryID {
         let mut hasher = Blake2s::new();
         hasher.update(self.bytes);
         hasher.update(self.nonce);
-        BinaryID::verify_difficulty(&mut hasher.finalize().iter().rev(), K_DIFF_MIN_BIT)
+        BinaryID::verify_difficulty(
+            &mut hasher.finalize().iter().rev(),
+            K_DIFF_MIN_BIT,
+        )
     }
 
-    pub(crate) fn verify_difficulty<'a, I>(bytes: &mut I, difficulty: usize) -> bool
+    pub(crate) fn verify_difficulty<'a, I>(
+        bytes: &mut I,
+        difficulty: usize,
+    ) -> bool
     where
         I: Iterator<Item = &'a u8>,
     {
@@ -141,7 +149,8 @@ mod tests {
         assert_eq!(n1.calculate_distance(&n2), None);
         assert_eq!(n1.id().calculate_distance_native(n2.id()), None);
         for i in 2..255 {
-            let n_in = PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]);
+            let n_in =
+                PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]);
             assert_eq!(
                 n1.calculate_distance(&n_in),
                 n1.id().calculate_distance_native(n_in.id())
