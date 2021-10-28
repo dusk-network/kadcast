@@ -15,7 +15,7 @@ impl Encoder for PlainEncoder {
         vec![msg]
     }
 
-    fn decode(&self, chunk: Message) -> Option<Message> {
+    fn decode(&mut self, chunk: Message) -> Option<Message> {
         if let Message::Broadcast(header, payload) = chunk {
             Some(Message::Broadcast(header, payload))
         } else {

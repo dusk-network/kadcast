@@ -47,7 +47,7 @@ impl WireNetwork {
         inbound_channel_tx: Sender<MessageBeanIn>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
-        let encoder = PlainEncoder {};
+        let mut decoder = PlainEncoder {};
         let socket = UdpSocket::bind(public_address)
             .await
             .expect("Unable to bind address");
@@ -59,7 +59,7 @@ impl WireNetwork {
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
                     trace!("> Received {:?}", deser);
-                    let to_process = encoder.decode(deser);
+                    let to_process = decoder.decode(deser);
                     if let Some(message) = to_process {
                         let _ =
                             inbound_channel_tx.try_send((message, received.1));
