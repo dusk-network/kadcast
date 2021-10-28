@@ -22,7 +22,7 @@ pub(crate) struct TableMantainer {}
 impl TableMantainer {
     pub async fn start(
         bootstrapping_nodes: Vec<String>,
-        ktable: &Arc<RwLock<Tree<PeerInfo>>>,
+        ktable: Arc<RwLock<Tree<PeerInfo>>>,
         outbound_sender: Sender<MessageBeanOut>,
     ) {
         let find_nodes = Message::FindNodes(

@@ -12,7 +12,7 @@ use itertools::Itertools;
 use kbucket::{Tree, TreeBuilder};
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
-use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::RwLock;
 use tokio::task;
 use tracing::info;
@@ -65,7 +65,7 @@ impl Server {
     ) -> Self {
         let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
         let (outbound_channel_tx, outbound_channel_rx) = mpsc::channel(32);
-        let (listener_channel_tx, mut listener_channel_rx) = mpsc::channel(32);
+        let (notification_channel_tx, listener_channel_rx) = mpsc::channel(32);
 
         let table = Arc::new(RwLock::new(tree));
         let server = Server {
@@ -76,31 +76,29 @@ impl Server {
             table.clone(),
             inbound_channel_rx,
             outbound_channel_tx.clone(),
-            listener_channel_tx,
+            notification_channel_tx,
         );
-        tokio::spawn(async move {
-            WireNetwork::start(
-                &inbound_channel_tx,
-                &public_ip,
-                outbound_channel_rx,
-            )
-            .await;
-        });
-        tokio::spawn(async move {
-            TableMantainer::start(
-                bootstrapping_nodes,
-                &table.clone(),
-                outbound_channel_tx,
-            )
-            .await;
-        });
-
-        task::spawn(async move {
-            while let Some(message) = listener_channel_rx.recv().await {
-                on_message(message);
-            }
-        });
+        tokio::spawn(WireNetwork::start(
+            inbound_channel_tx,
+            public_ip,
+            outbound_channel_rx,
+        ));
+        tokio::spawn(TableMantainer::start(
+            bootstrapping_nodes,
+            table,
+            outbound_channel_tx,
+        ));
+        task::spawn(Server::notifier(listener_channel_rx, on_message));
         server
+    }
+
+    async fn notifier(
+        mut listener_channel_rx: Receiver<Vec<u8>>,
+        on_message: fn(Vec<u8>),
+    ) {
+        while let Some(message) = listener_channel_rx.recv().await {
+            on_message(message);
+        }
     }
 
     #[doc(hidden)]

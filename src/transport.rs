@@ -15,6 +15,7 @@ use tracing::*;
 
 use crate::{
     encoding::{message::Message, Marshallable},
+    transport::encoding::Encoder,
     MAX_DATAGRAM_SIZE,
 };
 
@@ -23,10 +24,13 @@ pub(crate) type MessageBeanIn = (Message, SocketAddr);
 
 pub(crate) struct WireNetwork {}
 
+mod encoding;
+use encoding::PlainEncoder;
+
 impl WireNetwork {
     pub async fn start(
-        inbound_channel_tx: &Sender<MessageBeanIn>,
-        public_ip: &str,
+        inbound_channel_tx: Sender<MessageBeanIn>,
+        public_ip: String,
         outbound_channel_rx: Receiver<MessageBeanOut>,
     ) {
         let public_address = public_ip
@@ -43,15 +47,31 @@ impl WireNetwork {
         inbound_channel_tx: Sender<MessageBeanIn>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
-        let socket = UdpSocket::bind(public_address).await?;
+        let encoder = PlainEncoder {};
+        let socket = UdpSocket::bind(public_address)
+            .await
+            .expect("Unable to bind address");
         info!("Listening on: {}", socket.local_addr()?);
         loop {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
             let received = socket.recv_from(&mut bytes).await?;
+
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
                     trace!("> Received {:?}", deser);
-                    let _ = inbound_channel_tx.try_send((deser, received.1));
+                    let to_process = {
+                        if let Message::Broadcast(header, payload) = deser {
+                            encoder.decode(payload).map(|decoded_payload| {
+                                Message::Broadcast(header, decoded_payload)
+                            })
+                        } else {
+                            Some(deser)
+                        }
+                    };
+                    if let Some(message) = to_process {
+                        let _ =
+                            inbound_channel_tx.try_send((message, received.1));
+                    }
                 }
                 Err(e) => error!("Error deser from {} - {}", received.1, e),
             }
