@@ -59,15 +59,7 @@ impl WireNetwork {
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
                     trace!("> Received {:?}", deser);
-                    let to_process = {
-                        if let Message::Broadcast(header, payload) = deser {
-                            encoder.decode(payload).map(|decoded_payload| {
-                                Message::Broadcast(header, decoded_payload)
-                            })
-                        } else {
-                            Some(deser)
-                        }
-                    };
+                    let to_process = encoder.decode(deser);
                     if let Some(message) = to_process {
                         let _ =
                             inbound_channel_tx.try_send((message, received.1));
@@ -85,10 +77,13 @@ impl WireNetwork {
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
                 trace!("< Message to send to ({:?}) - {:?} ", to, message);
-                let mut bytes = vec![];
-                message.marshal_binary(&mut bytes).unwrap();
-                for remote_addr in to.iter() {
-                    WireNetwork::send(&bytes, remote_addr).await.unwrap();
+                let encoder = PlainEncoder {};
+                for chunk in encoder.encode(message).iter() {
+                    let bytes = chunk.bytes();
+                    // chunk.marshal_binary(&mut bytes).unwrap();
+                    for remote_addr in to.iter() {
+                        WireNetwork::send(&bytes, remote_addr).await.unwrap();
+                    }
                 }
             }
         }

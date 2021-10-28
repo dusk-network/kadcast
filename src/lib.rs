@@ -38,7 +38,7 @@ const K_ALPHA: usize = 3;
 //Redundacy factor for broadcast
 const K_BETA: usize = 3;
 
-const K_CHUNK_SIZE: usize = 1024;
+const K_CHUNK_SIZE: u16 = 1024;
 
 /// Default value while which a node is considered alive (no eviction will be
 /// requested)

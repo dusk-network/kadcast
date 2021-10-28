@@ -4,18 +4,22 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::encoding::payload::BroadcastPayload;
+use crate::encoding::message::Message;
 
 use super::Encoder;
 
 pub(crate) struct PlainEncoder {}
 
 impl Encoder for PlainEncoder {
-    fn encode<'msg>(&self, msg: &'msg [u8]) -> Vec<&'msg [u8]> {
+    fn encode<'msg>(&self, msg: Message) -> Vec<Message> {
         vec![msg]
     }
 
-    fn decode(&self, chunk: BroadcastPayload) -> Option<BroadcastPayload> {
-        Some(chunk)
+    fn decode(&self, chunk: Message) -> Option<Message> {
+        if let Message::Broadcast(header, payload) = chunk {
+            Some(Message::Broadcast(header, payload))
+        } else {
+            Some(chunk)
+        }
     }
 }
