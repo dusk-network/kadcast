@@ -84,7 +84,7 @@ pub async fn main() {
                 "report" => {
                     server.report().await;
                 }
-                v => server.broadcast(v.as_bytes().to_vec()).await,
+                v => server.broadcast(v.as_bytes()).await,
             }
         }
     }
