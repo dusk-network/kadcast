@@ -5,11 +5,13 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 mod plain_encoder;
-pub(crate) use plain_encoder::PlainEncoder;
+mod raptorq_encoder;
 
-use crate::encoding::payload::BroadcastPayload;
+pub(crate) use raptorq_encoder::RaptorQEncoder;
+
+use crate::encoding::message::Message;
 pub(crate) trait Encoder {
-    fn encode<'msg>(&self, msg: &'msg [u8]) -> Vec<&'msg [u8]>;
+    fn encode(msg: Message) -> Vec<Message>;
 
-    fn decode(&self, chunk: BroadcastPayload) -> Option<BroadcastPayload>;
+    fn decode(&mut self, chunk: Message) -> Option<Message>;
 }

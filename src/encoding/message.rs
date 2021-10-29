@@ -58,6 +58,12 @@ impl Message {
             Message::Broadcast(header, _) => header,
         }
     }
+
+    pub(crate) fn bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        self.marshal_binary(&mut bytes).unwrap();
+        bytes
+    }
 }
 
 impl Marshallable for Message {
