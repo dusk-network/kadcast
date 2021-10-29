@@ -6,12 +6,12 @@
 
 mod plain_encoder;
 mod raptorq_encoder;
-pub(crate) use plain_encoder::PlainEncoder;
+
 pub(crate) use raptorq_encoder::RaptorQEncoder;
 
 use crate::encoding::message::Message;
 pub(crate) trait Encoder {
-    fn encode(&self, msg: Message) -> Vec<Message>;
+    fn encode(msg: Message) -> Vec<Message>;
 
     fn decode(&mut self, chunk: Message) -> Option<Message>;
 }

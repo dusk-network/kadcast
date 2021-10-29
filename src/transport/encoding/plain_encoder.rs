@@ -11,7 +11,7 @@ use super::Encoder;
 pub(crate) struct PlainEncoder {}
 
 impl Encoder for PlainEncoder {
-    fn encode<'msg>(&self, msg: Message) -> Vec<Message> {
+    fn encode<'msg>(msg: Message) -> Vec<Message> {
         vec![msg]
     }
 

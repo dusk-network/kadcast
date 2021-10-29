@@ -15,7 +15,7 @@ use tracing::*;
 
 use crate::{
     encoding::{message::Message, Marshallable},
-    transport::encoding::Encoder,
+    transport::encoding::{Encoder, RaptorQEncoder},
     MAX_DATAGRAM_SIZE,
 };
 
@@ -25,7 +25,6 @@ pub(crate) type MessageBeanIn = (Message, SocketAddr);
 pub(crate) struct WireNetwork {}
 
 mod encoding;
-use encoding::PlainEncoder;
 
 impl WireNetwork {
     pub async fn start(
@@ -47,25 +46,25 @@ impl WireNetwork {
         inbound_channel_tx: Sender<MessageBeanIn>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
-        let mut decoder = PlainEncoder {};
+        let mut decoder = RaptorQEncoder::new();
         let socket = UdpSocket::bind(public_address)
             .await
             .expect("Unable to bind address");
         info!("Listening on: {}", socket.local_addr()?);
         loop {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
-            let received = socket.recv_from(&mut bytes).await?;
+            let (_, addr) = socket.recv_from(&mut bytes).await?;
 
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
                     trace!("> Received {:?}", deser);
                     let to_process = decoder.decode(deser);
                     if let Some(message) = to_process {
-                        let _ =
-                            inbound_channel_tx.try_send((message, received.1));
+                        //FIX_ME: use send.await instead of try_send
+                        let _ = inbound_channel_tx.try_send((message, addr));
                     }
                 }
-                Err(e) => error!("Error deser from {} - {}", received.1, e),
+                Err(e) => error!("Error deser from {} - {}", addr, e),
             }
         }
     }
@@ -77,12 +76,12 @@ impl WireNetwork {
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
                 trace!("< Message to send to ({:?}) - {:?} ", to, message);
-                let encoder = PlainEncoder {};
-                for chunk in encoder.encode(message).iter() {
+                for chunk in RaptorQEncoder::encode(message).iter() {
                     let bytes = chunk.bytes();
-                    // chunk.marshal_binary(&mut bytes).unwrap();
                     for remote_addr in to.iter() {
-                        WireNetwork::send(&bytes, remote_addr).await.unwrap();
+                        let _ = WireNetwork::send(&bytes, remote_addr)
+                            .await
+                            .map_err(|e| warn!("Unable to send msg {}", e));
                     }
                 }
             }
