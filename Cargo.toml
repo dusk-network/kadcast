@@ -1,25 +1,30 @@
 [package]
 name = "kadcast"
 version = "0.1.0"
+authors = [
+  "herr-seppia <seppia@dusk.network>"
+]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description ="Implementation of the Kadcast Network Protocol."
+categories = ["network-programming"]
+keywords = ["p2p", "udp", "network", "kad", "peer-to-peer", "kadcast", "broadcast"]
+license = "MPL-2.0"
+repository = "https://github.com/dusk-network/kadcast"
 
 [dependencies]
 arrayvec = "0.7"
 blake2 = "0.9"
 rand = "0.8"
 tokio = { version = "1", features = ["rt", "net", "sync", "time", "io-std", "rt-multi-thread", "macros"] }
+raptorq = "1.6"
+tracing = "0.1"
+itertools = "0.10"
+
+[dev-dependencies]
 clap = "2.33.3"
 rustc_tools_util = "0.2"
-itertools = "0.10"
-tracing = "0.1"
 tracing-subscriber = "0.2"
-raptorq = "1.6"
 
-[build-dependencies]
-rustc_tools_util = "0.2"
-
-[[bin]]
+[[example]]
 name = "kadcast"
-path = "bin/main.rs"
+path = "examples/main.rs"
