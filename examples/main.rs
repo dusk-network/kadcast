@@ -9,8 +9,6 @@ use kadcast::Server;
 use rustc_tools_util::{get_version_info, VersionInfo};
 use std::io::{self, BufRead};
 
-use crate::version::show_version;
-mod version;
 #[tokio::main]
 pub async fn main() {
     let crate_info = get_version_info!();
@@ -102,4 +100,19 @@ fn on_message(message: Vec<u8>) {
         String::from_utf8(message.to_vec())
             .unwrap_or_else(|_| "No UTF8 message received".to_string())
     );
+}
+
+fn show_version(info: VersionInfo) -> String {
+    let version = format!("{}.{}.{}", info.major, info.minor, info.patch);
+    let build = format!(
+        "{} {}",
+        info.commit_hash.unwrap_or_default(),
+        info.commit_date.unwrap_or_default()
+    );
+
+    if build.len() > 1 {
+        format!("{} ({})", version, build)
+    } else {
+        version
+    }
 }

@@ -1,2 +1,2 @@
-# p2p
-Migration of dusk-blockchain version of Kadcast to rust
+# kadcast
+Dusk-blockchain version of Kadcast
