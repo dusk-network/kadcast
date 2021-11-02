@@ -34,7 +34,7 @@ Upon joining the Kadcast network, a peer retrieves from the so-called `bootstrap
 The bootstrap node will reply with a `PONG` message which also contains its node info.
 
 ### Network discovery.
-Starts just after the [bootstrapping] process.
+Starts just after the [bootstrapping](#bootstrapping) process.
 The main goal of this phase is to fill up the `k-buckets` with `k` different peers.
 - The process starts by sending a `FIND_NODE` message to the bootstraping nodes that have been added to the `k-bucket`s with the `PONG` messages received.
 - Then the *lookup process* starts:
