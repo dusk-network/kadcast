@@ -1,33 +1,35 @@
-# Internal Architecture
+# Architecture Layout
+
+This document explains the architecture of the library components. The low-level networking and threading infrastructure makes use of async [Tokio runtime](https://docs.rs/tokio). In the future, the code will be made modular so to allow the use of [different runtimes](https://rust-lang.github.io/async-book/08_ecosystem/00_chapter.html).
+
+The architecture follow the diagram below. For concrete usage examples please refer to the [crate's documentation](https://crates.io/crates/kadcast)
 
 ![architecture](architecture.jpg)
 
-## kadcast::Peer
-Your entry point
+## Kadcast Peer
+The `kadcast::peer` is the entry point of the library and the only public API. It implements the Kadcast Network Peer.
 
 ## Message Handler
-The core of the library. It handles the incoming messages and replies accordly to them
+The `Message Handler` represents the core component of the library. It handles the incoming messages and replies according to the specification.
 
 ## Mantainer
-Performs the initial bootstrap and starts the k-table maintenance. 
-Keep track of idle buckets and it's in charge of trigger the routing nodes lookup.
+The `Maintainer` performs the [initial bootstrap](../bootstrapping) as well as the `k-table` [maintenance](../periodic-network-manteinance).
+It keeps track of idle buckets and is in charge of triggering the routing nodes lookup.
 
 ## Wire Network
-It is responsible to instantiate the UDP server for receive the messages from the network. 
-It's in charge of outgoing communication too (UDP client).
-
-It performes message serialization/deserialization. If needed by the message type it applies the FEC encoding/decoding
+It is responsible to instantiate the UDP server that receives the messages from the network. It's also in charge of outgoing communication (UDP client).
+It performs message serialization/deserialization and applies the FEC encoding/decoding where appropriate.
 
 ### RaptorQ Encoder
-Splits a single broadcast message in multiple chunks applying the RaptorQ FEC algorithm
+The `RaptorQ Encoder` splits a single broadcast message in multiple chunks according to the RaptorQ FEC algorithm.
 
 ### RaptorQ Decoder
-Joins multiple encoded chunk in a single decoded broadcast message. It own a cache to avoid processing brodcasted identical messages multiple times
+The `RaptorQ Encoder` joins the encoded chunks in a single decoded broadcast message. It keeps a cache to avoid processing brodcasted identical messages multiple times.
 
 ## Channels
 ### Inbound Channel
-Message passing between incoming UDP packets (deserialized by the WireNetwork) and Message Handler
+Provides message passing between incoming UDP packets (deserialized by the WireNetwork) and Message Handler
 ### Outbound Channel
-Channel dedicated to any message which need to be transmitted to the network.
+Channel dedicated to any message which needs to be transmitted to the network.
 ### Notification Channel
-Once a broadcast message has been successfully received, it's put on this channel to decouple the notificated thread execution to the rest of the library threads
+Successfully received broadcast messages are dispatched to the `Notifier` through the `Notification Channel`. This is done in order to safely forward messages to the user's callback without any risk for the latter to block any other thread.
