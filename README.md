@@ -27,14 +27,14 @@ This implies that `i` buckets contain `K` Peers which distance `d` follow the fo
 > 💡 By following a `LRU` policy, the protocol inherently is biased toward the older and more stable peers on the network.
 
 ###  Bootstrapping
-Upon joining the Kadcast network, a peer retrieves from the so-called `boostrap nodes` the locations of other neighbour peers, so to fill its buckets.
+Upon joining the Kadcast network, a peer retrieves from the so-called `bootstrap nodes` the locations of other neighbour peers, so to fill its buckets.
 
 > 💡 From the specification: _When a peer first joins the network, it has to know the address of at least one bootstrapping node. It therefore sends `PING` messages to known peers to check whether they are actually online. Additionally, `PING` transmits the sending peer’s routing information to the recipient, thereby distributing its existence in the network._
 
 The bootstrap node will reply with a `PONG` message which also contains its node info.
 
 ### Network discovery.
-Starts just after the [Boostrapping] process.
+Starts just after the [bootstrapping] process.
 The main goal of this phase is to fill up the `k-buckets` with `k` different peers.
 - The process starts by sending a `FIND_NODE` message to the bootstraping nodes that have been added to the `k-bucket`s with the `PONG` messages received.
 - Then the *lookup process* starts:
