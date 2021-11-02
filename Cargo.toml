@@ -7,9 +7,15 @@ authors = [
 edition = "2018"
 description ="Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]
-keywords = ["p2p", "udp", "network", "kad", "peer-to-peer", "kadcast", "broadcast"]
+keywords = ["p2p", "network", "kad", "peer-to-peer", "kadcast"]
 license = "MPL-2.0"
 repository = "https://github.com/dusk-network/kadcast"
+
+exclude = [
+    ".git*",
+    "ARCHITECTURE.md",
+    "architecture.jpg"
+]
 
 [dependencies]
 arrayvec = "0.7"
