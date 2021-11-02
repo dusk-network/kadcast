@@ -50,13 +50,13 @@ pub const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
 /// Default value after which a bucket is considered idle
 pub const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
 
-/// Struct representing the Kadcast Network
-pub struct Server {
+/// Struct representing the Kadcast Network Peer
+pub struct Peer {
     outbound_sender: Sender<MessageBeanOut>,
     ktable: Arc<RwLock<Tree<PeerInfo>>>,
 }
 
-impl Server {
+impl Peer {
     fn new(
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
@@ -68,7 +68,7 @@ impl Server {
         let (notification_channel_tx, listener_channel_rx) = mpsc::channel(32);
 
         let table = Arc::new(RwLock::new(tree));
-        let server = Server {
+        let peer = Peer {
             outbound_sender: outbound_channel_tx.clone(),
             ktable: table.clone(),
         };
@@ -88,8 +88,8 @@ impl Server {
             table,
             outbound_channel_tx,
         ));
-        task::spawn(Server::notifier(listener_channel_rx, on_message));
-        server
+        task::spawn(Peer::notifier(listener_channel_rx, on_message));
+        peer
     }
 
     async fn notifier(
@@ -136,9 +136,9 @@ impl Server {
         }
     }
 
-    /// Instantiate a [ServerBuilder].
+    /// Instantiate a [PeerBuilder].
     ///
-    /// * `public_ip` - public `SocketAddress` of the `Server`. No domain name
+    /// * `public_ip` - public `SocketAddress` of the [Peer]. No domain name
     ///   allowed
     /// * `bootstrapping_nodes` - List of known bootstrapping kadcast nodes. It
     ///   accepts the same representation of `public_ip` but with domain names
@@ -149,13 +149,13 @@ impl Server {
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
         on_message: fn(Vec<u8>),
-    ) -> ServerBuilder {
-        ServerBuilder::new(public_ip, bootstrapping_nodes, on_message)
+    ) -> PeerBuilder {
+        PeerBuilder::new(public_ip, bootstrapping_nodes, on_message)
     }
 }
 
-/// ServerBuilder instantiates a Kadcast [Server].
-pub struct ServerBuilder {
+/// PeerBuilder instantiates a Kadcast [Peer].
+pub struct PeerBuilder {
     node_ttl: Duration,
     node_evict_after: Duration,
     bucket_ttl: Duration,
@@ -164,12 +164,12 @@ pub struct ServerBuilder {
     on_message: fn(Vec<u8>),
 }
 
-impl ServerBuilder {
+impl PeerBuilder {
     /// Sets the maximum duration for a node to be considered alive (no eviction
     /// will be requested).
     ///
     /// Default value [BUCKET_DEFAULT_NODE_TTL_MILLIS]
-    pub fn with_node_ttl(mut self, node_ttl: Duration) -> ServerBuilder {
+    pub fn with_node_ttl(mut self, node_ttl: Duration) -> PeerBuilder {
         self.node_ttl = node_ttl;
         self
     }
@@ -177,7 +177,7 @@ impl ServerBuilder {
     /// Set duration after which a bucket is considered idle
     ///
     /// Default value [BUCKET_DEFAULT_TTL_SECS]
-    pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> ServerBuilder {
+    pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> PeerBuilder {
         self.bucket_ttl = bucket_ttl;
         self
     }
@@ -188,7 +188,7 @@ impl ServerBuilder {
     pub fn with_node_evict_after(
         mut self,
         node_evict_after: Duration,
-    ) -> ServerBuilder {
+    ) -> PeerBuilder {
         self.node_evict_after = node_evict_after;
         self
     }
@@ -197,8 +197,8 @@ impl ServerBuilder {
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
         on_message: fn(Vec<u8>),
-    ) -> ServerBuilder {
-        ServerBuilder {
+    ) -> PeerBuilder {
+        PeerBuilder {
             public_ip,
             bootstrapping_nodes,
             on_message,
@@ -211,15 +211,15 @@ impl ServerBuilder {
         }
     }
 
-    /// Builds the [Server]
-    pub fn build(self) -> Server {
+    /// Builds the [Peer]
+    pub fn build(self) -> Peer {
         let tree =
             TreeBuilder::new(PeerNode::from_address(&self.public_ip[..]))
                 .with_node_evict_after(self.node_evict_after)
                 .with_node_ttl(self.node_ttl)
                 .with_bucket_ttl(self.bucket_ttl)
                 .build();
-        Server::new(
+        Peer::new(
             self.public_ip,
             self.bootstrapping_nodes,
             self.on_message,

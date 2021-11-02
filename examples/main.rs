@@ -5,7 +5,7 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use clap::{App, Arg};
-use kadcast::Server;
+use kadcast::Peer;
 use rustc_tools_util::{get_version_info, VersionInfo};
 use std::io::{self, BufRead};
 
@@ -75,7 +75,7 @@ pub async fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed on subscribe tracing");
 
-    let server = Server::builder(
+    let peer = Peer::builder(
         public_ip.to_string(),
         bootstrapping_nodes,
         crate::on_message,
@@ -86,9 +86,9 @@ pub async fn main() {
         for message in stdin.lock().lines().flatten() {
             match &message[..] {
                 "report" => {
-                    server.report().await;
+                    peer.report().await;
                 }
-                v => server.broadcast(v.as_bytes()).await,
+                v => peer.broadcast(v.as_bytes()).await,
             }
         }
     }

@@ -73,4 +73,4 @@ ATM, the paper gives solutions for DOS, Sybil and Eclipse attacks and obstructio
 
 ## Internal Architecture
 
-![architecture](architecture.jpg)
+For more information related to the internal architecture check [this](ARCHITECTURE.md)
