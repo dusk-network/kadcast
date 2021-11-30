@@ -33,9 +33,9 @@ const K_DIFF_MIN_BIT: usize = 8;
 const K_DIFF_PRODUCED_BIT: usize = 8;
 const MAX_DATAGRAM_SIZE: usize = 65_507;
 
-//Redundacy factor for lookup
+// Redundacy factor for lookup
 const K_ALPHA: usize = 3;
-//Redundacy factor for broadcast
+// Redundacy factor for broadcast
 const K_BETA: usize = 3;
 
 const K_CHUNK_SIZE: u16 = 1024;
@@ -49,6 +49,9 @@ pub const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
 
 /// Default value after which a bucket is considered idle
 pub const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
+
+/// Default behaviour for propagation of broadcast messages
+pub const ENABLE_BROADCAST_PROPAGATION: bool = true;
 
 /// Struct representing the Kadcast Network Peer
 pub struct Peer {
@@ -83,6 +86,7 @@ impl Peer {
             inbound_channel_rx,
             outbound_channel_tx.clone(),
             notification_channel_tx,
+            auto_broadcast,
         );
         tokio::spawn(WireNetwork::start(
             inbound_channel_tx,
@@ -175,6 +179,7 @@ pub struct PeerBuilder<L: NetworkListen + 'static> {
     node_ttl: Duration,
     node_evict_after: Duration,
     bucket_ttl: Duration,
+    auto_broadcast: bool,
     public_ip: String,
     bootstrapping_nodes: Vec<String>,
     listener: L,
@@ -209,6 +214,14 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
         self
     }
 
+    /// Enable automatic propagation of received broadcast messages
+    ///
+    /// Default value [ENABLE_BROADCAST_PROPAGATION]
+    pub fn with_auto_broadcast(mut self, auto_broadcast: bool) -> PeerBuilder {
+        self.auto_broadcast = auto_broadcast;
+        self
+    }
+
     fn new(
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
@@ -224,6 +237,7 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
             ),
             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
+            auto_broadcast: ENABLE_BROADCAST_PROPAGATION,
         }
     }
 
