@@ -104,12 +104,22 @@ impl Peer {
     #[doc(hidden)]
     pub async fn report(&self) {
         let table_read = self.ktable.read().await;
+        /*
+        The usage of `info!` macro can potentially raise a compilation error
+        depending of which `tracing` crate features are used.
+
+        Eg: if you use the `log` feature (or if you have any dependency which
+        enables it), the `info` macro perform some `move` internally which
+        conflicts with the `move` performed by the `map` method.
+
+        Refactoring this way, we are sure there will be only one `move`
+        independently to which features are you using
+
+        See also: https://github.com/dusk-network/kadcast/issues/60
+        */
         table_read.all_sorted().for_each(|(h, nodes)| {
-            info!(
-                "H: {} - Nodes {}",
-                h,
-                nodes.map(|p| p.value().address()).join(",")
-            );
+            let nodes_joined = nodes.map(|p| p.value().address()).join(",");
+            info!("H: {} - Nodes {}", h, nodes_joined);
         });
     }
 
