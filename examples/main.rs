@@ -5,7 +5,7 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use clap::{App, Arg};
-use kadcast::Peer;
+use kadcast::{NetworkListen, Peer};
 use rustc_tools_util::{get_version_info, VersionInfo};
 use std::io::{self, BufRead};
 
@@ -78,7 +78,7 @@ pub async fn main() {
     let peer = Peer::builder(
         public_ip.to_string(),
         bootstrapping_nodes,
-        crate::on_message,
+        DummyListener {},
     )
     .build();
     loop {
@@ -93,13 +93,15 @@ pub async fn main() {
         }
     }
 }
-
-fn on_message(message: Vec<u8>) {
-    println!(
-        "Received {}",
-        String::from_utf8(message.to_vec())
-            .unwrap_or_else(|_| "No UTF8 message received".to_string())
-    );
+pub struct DummyListener {}
+impl NetworkListen for DummyListener {
+    fn on_message(&self, message: Vec<u8>) {
+        println!(
+            "Received {}",
+            String::from_utf8(message.to_vec())
+                .unwrap_or_else(|_| "No UTF8 message received".to_string())
+        );
+    }
 }
 
 fn show_version(info: VersionInfo) -> String {
