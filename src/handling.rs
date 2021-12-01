@@ -112,37 +112,39 @@ impl MessageHandler {
                             .unwrap_or_else(|op| {
                                 error!("Unable to notify client {:?}", op)
                             });
-                        let table_read = ktable.read().await;
-                        if payload.height > 0 && auto_broadcast {
-                            debug!(
-                                "Extracting for height {:?}",
-                                payload.height - 1
-                            );
+                        if auto_broadcast {
+                            let table_read = ktable.read().await;
+                            if payload.height > 0 {
+                                debug!(
+                                    "Extracting for height {:?}",
+                                    payload.height - 1
+                                );
 
-                            table_read
-                                .extract(Some((payload.height - 1).into()))
-                                .for_each(|(height, nodes)| {
-                                    let msg = Message::Broadcast(
-                                        my_header,
-                                        BroadcastPayload {
-                                            height: height.try_into().unwrap(),
-                                            gossip_frame: payload
-                                                .gossip_frame
-                                                .clone(), //FIX_ME: avoid clone
-                                        },
-                                    );
-                                    let targets: Vec<SocketAddr> = nodes
-                                        .map(|node| *node.value().address())
-                                        .collect();
-                                    outbound_sender
-                                        .try_send((msg, targets))
-                                        .unwrap_or_else(|op| {
-                                            error!(
-                                                "Unable to send broadcast {:?}",
-                                                op
-                                            )
-                                        });
-                                });
+                                table_read
+                                    .extract(Some((payload.height - 1).into()))
+                                    .for_each(|(height, nodes)| {
+                                        let msg = Message::Broadcast(
+                                            my_header,
+                                            BroadcastPayload {
+                                                height: height.try_into().unwrap(),
+                                                gossip_frame: payload
+                                                    .gossip_frame
+                                                    .clone(), //FIX_ME: avoid clone
+                                            },
+                                        );
+                                        let targets: Vec<SocketAddr> = nodes
+                                            .map(|node| *node.value().address())
+                                            .collect();
+                                        outbound_sender
+                                            .try_send((msg, targets))
+                                            .unwrap_or_else(|op| {
+                                                error!(
+                                                    "Unable to send broadcast {:?}",
+                                                    op
+                                                )
+                                            });
+                                    });
+                            }
                         }
                     }
                 }
