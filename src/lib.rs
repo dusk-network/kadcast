@@ -56,11 +56,17 @@ pub struct Peer {
     ktable: Arc<RwLock<Tree<PeerInfo>>>,
 }
 
+/// [NetworkListen] is notified each time a broadcasted
+/// message is received from the network
+pub trait NetworkListen: Send {
+    fn on_message(&self, message: Vec<u8>);
+}
+
 impl Peer {
-    fn new(
+    fn new<L: NetworkListen + 'static>(
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
-        on_message: fn(Vec<u8>),
+        listener: L,
         tree: Tree<PeerInfo>,
     ) -> Self {
         let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
@@ -88,16 +94,16 @@ impl Peer {
             table,
             outbound_channel_tx,
         ));
-        task::spawn(Peer::notifier(listener_channel_rx, on_message));
+        task::spawn(Peer::notifier(listener_channel_rx, listener));
         peer
     }
 
     async fn notifier(
         mut listener_channel_rx: Receiver<Vec<u8>>,
-        on_message: fn(Vec<u8>),
+        listener: impl NetworkListen,
     ) {
         while let Some(message) = listener_channel_rx.recv().await {
-            on_message(message);
+            listener.on_message(message);
         }
     }
 
@@ -153,33 +159,33 @@ impl Peer {
     /// * `bootstrapping_nodes` - List of known bootstrapping kadcast nodes. It
     ///   accepts the same representation of `public_ip` but with domain names
     ///   allowed
-    /// * `on_message` - Function called each time a broadcasted message is
-    ///   received from the network
-    pub fn builder(
+    /// * `listener` - The [NetworkListen] impl notified each time a broadcasted
+    ///   message is received from the network
+    pub fn builder<L: NetworkListen>(
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
-        on_message: fn(Vec<u8>),
-    ) -> PeerBuilder {
-        PeerBuilder::new(public_ip, bootstrapping_nodes, on_message)
+        listener: L,
+    ) -> PeerBuilder<L> {
+        PeerBuilder::new(public_ip, bootstrapping_nodes, listener)
     }
 }
 
 /// PeerBuilder instantiates a Kadcast [Peer].
-pub struct PeerBuilder {
+pub struct PeerBuilder<L: NetworkListen + 'static> {
     node_ttl: Duration,
     node_evict_after: Duration,
     bucket_ttl: Duration,
     public_ip: String,
     bootstrapping_nodes: Vec<String>,
-    on_message: fn(Vec<u8>),
+    listener: L,
 }
 
-impl PeerBuilder {
+impl<L: NetworkListen + 'static> PeerBuilder<L> {
     /// Sets the maximum duration for a node to be considered alive (no eviction
     /// will be requested).
     ///
     /// Default value [BUCKET_DEFAULT_NODE_TTL_MILLIS]
-    pub fn with_node_ttl(mut self, node_ttl: Duration) -> PeerBuilder {
+    pub fn with_node_ttl(mut self, node_ttl: Duration) -> PeerBuilder<L> {
         self.node_ttl = node_ttl;
         self
     }
@@ -187,7 +193,7 @@ impl PeerBuilder {
     /// Set duration after which a bucket is considered idle
     ///
     /// Default value [BUCKET_DEFAULT_TTL_SECS]
-    pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> PeerBuilder {
+    pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> PeerBuilder<L> {
         self.bucket_ttl = bucket_ttl;
         self
     }
@@ -198,7 +204,7 @@ impl PeerBuilder {
     pub fn with_node_evict_after(
         mut self,
         node_evict_after: Duration,
-    ) -> PeerBuilder {
+    ) -> PeerBuilder<L> {
         self.node_evict_after = node_evict_after;
         self
     }
@@ -206,12 +212,12 @@ impl PeerBuilder {
     fn new(
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
-        on_message: fn(Vec<u8>),
-    ) -> PeerBuilder {
+        listener: L,
+    ) -> PeerBuilder<L> {
         PeerBuilder {
             public_ip,
             bootstrapping_nodes,
-            on_message,
+            listener,
 
             node_evict_after: Duration::from_millis(
                 BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
@@ -232,7 +238,7 @@ impl PeerBuilder {
         Peer::new(
             self.public_ip,
             self.bootstrapping_nodes,
-            self.on_message,
+            self.listener,
             tree,
         )
     }

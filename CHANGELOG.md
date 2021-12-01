@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Change `on_message` callback into a trait [#63]
+
 ### Fixed
 
 - Fix build with `tonic` dependency [#60]
@@ -26,3 +28,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples in `example` dir
 
 [#60]: https://github.com/dusk-network/kadcast/issues/60
+[#60]: https://github.com/dusk-network/kadcast/issues/63
