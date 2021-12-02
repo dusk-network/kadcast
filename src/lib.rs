@@ -50,7 +50,7 @@ pub const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
 /// Default value after which a bucket is considered idle
 pub const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
 
-/// Default behaviour for propagation of broadcast messages
+/// Default behaviour for propagation of incoming broadcast messages
 pub const ENABLE_BROADCAST_PROPAGATION: bool = true;
 
 /// Struct representing the Kadcast Network Peer
@@ -69,6 +69,7 @@ impl Peer {
     fn new<L: NetworkListen + 'static>(
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
+        auto_propagate: bool,
         listener: L,
         tree: Tree<PeerInfo>,
     ) -> Self {
@@ -86,7 +87,7 @@ impl Peer {
             inbound_channel_rx,
             outbound_channel_tx.clone(),
             notification_channel_tx,
-            auto_broadcast,
+            auto_propagate,
         );
         tokio::spawn(WireNetwork::start(
             inbound_channel_tx,
@@ -179,7 +180,7 @@ pub struct PeerBuilder<L: NetworkListen + 'static> {
     node_ttl: Duration,
     node_evict_after: Duration,
     bucket_ttl: Duration,
-    auto_broadcast: bool,
+    auto_propagate: bool,
     public_ip: String,
     bootstrapping_nodes: Vec<String>,
     listener: L,
@@ -214,11 +215,11 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
         self
     }
 
-    /// Enable automatic propagation of received broadcast messages
+    /// Enable automatic propagation of incoming broadcast messages
     ///
     /// Default value [ENABLE_BROADCAST_PROPAGATION]
-    pub fn with_auto_broadcast(mut self, auto_broadcast: bool) -> PeerBuilder {
-        self.auto_broadcast = auto_broadcast;
+    pub fn with_auto_propagate(mut self, auto_propagate: bool) -> PeerBuilder<L> {
+        self.auto_propagate = auto_propagate;
         self
     }
 
@@ -231,13 +232,12 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
             public_ip,
             bootstrapping_nodes,
             listener,
-
             node_evict_after: Duration::from_millis(
                 BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
             ),
             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
-            auto_broadcast: ENABLE_BROADCAST_PROPAGATION,
+            auto_propagate: ENABLE_BROADCAST_PROPAGATION,
         }
     }
 
@@ -252,6 +252,7 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
         Peer::new(
             self.public_ip,
             self.bootstrapping_nodes,
+            self.auto_propagate,
             self.listener,
             tree,
         )
