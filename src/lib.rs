@@ -157,6 +157,28 @@ impl Peer {
         }
     }
 
+    /// Send a message to a peer in the network.
+    ///
+    /// Note:
+    /// The function returns just after the message is put on the internal queue
+    /// system. It **does not guarantee** the message will be broadcasted
+    pub async fn send(&self, message: &[u8], target: SocketAddr) {
+        if message.is_empty() {
+            return;
+        }
+        // We use the Broadcast message type while setting height to 0
+        // to prevent further propagation at the receiver
+        let msg = Message::Broadcast(
+            self.ktable.read().await.root().as_header(),
+            BroadcastPayload {
+                height: 0,
+                gossip_frame: message.to_vec(), //FIX_ME: avoid clone
+            },
+        );
+        let targets = vec![target];
+        let _ = self.outbound_sender.send((msg, targets)).await;
+    }
+
     /// Instantiate a [PeerBuilder].
     ///
     /// * `public_ip` - public `SocketAddress` of the [Peer]. No domain name
