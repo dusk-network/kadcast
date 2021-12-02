@@ -218,7 +218,10 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
     /// Enable automatic propagation of incoming broadcast messages
     ///
     /// Default value [ENABLE_BROADCAST_PROPAGATION]
-    pub fn with_auto_propagate(mut self, auto_propagate: bool) -> PeerBuilder<L> {
+    pub fn with_auto_propagate(
+        mut self,
+        auto_propagate: bool,
+    ) -> PeerBuilder<L> {
         self.auto_propagate = auto_propagate;
         self
     }

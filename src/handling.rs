@@ -114,7 +114,6 @@ impl MessageHandler {
                             });
                         if auto_propagate && payload.height > 0 {
                             let table_read = ktable.read().await;
-                            
                             debug!(
                                 "Extracting for height {:?}",
                                 payload.height - 1
@@ -144,7 +143,6 @@ impl MessageHandler {
                                             )
                                         });
                                 });
-                            
                         }
                     }
                 }
