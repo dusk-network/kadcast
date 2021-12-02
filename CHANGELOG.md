@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `auto_propagate` flag to Peer [#57]
+
 ### Changed
 
 - Change `on_message` callback into a trait [#63]
