@@ -10,11 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `auto_propagate` flag to Peer [#57]
-<<<<<<< HEAD
 - Add optional `height` parameter to `broadcast` method [#57]
-=======
 - Add `send` method to public API [#58]
->>>>>>> Add send method to Peer
 
 ### Changed
 
@@ -35,6 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples in `example` dir
 
 [#57]: https://github.com/dusk-network/kadcast/issues/57
-[#58]: https://github.com/dusk-network/kadcast/issues/57
+[#58]: https://github.com/dusk-network/kadcast/issues/58
 [#60]: https://github.com/dusk-network/kadcast/issues/60
 [#63]: https://github.com/dusk-network/kadcast/issues/63
