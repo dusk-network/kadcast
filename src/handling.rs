@@ -17,6 +17,24 @@ use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
 use crate::K_K;
 
+/// Message metadata for incoming message notifications
+#[derive(Debug)]
+pub struct MessageInfo {
+    pub(crate) src: SocketAddr,
+    pub(crate) height: u8,
+}
+
+impl MessageInfo {
+    /// Returns the incoming message sender's address
+    pub fn src(&self) -> SocketAddr {
+        self.src
+    }
+    /// Returns current kadcast broadcast height
+    pub fn height(&self) -> u8 {
+        self.height
+    }
+}
+
 pub(crate) struct MessageHandler;
 
 impl MessageHandler {
@@ -24,7 +42,7 @@ impl MessageHandler {
         ktable: Arc<RwLock<Tree<PeerInfo>>>,
         mut inbound_receiver: Receiver<MessageBeanIn>,
         outbound_sender: Sender<MessageBeanOut>,
-        listener_sender: Sender<Vec<u8>>,
+        listener_sender: Sender<(Vec<u8>, MessageInfo)>,
         auto_propagate: bool,
     ) {
         tokio::spawn(async move {
@@ -107,11 +125,18 @@ impl MessageHandler {
                     }
                     Message::Broadcast(_, payload) => {
                         debug!("Received payload with height {:?}", payload);
-                        listener_sender
-                            .try_send(payload.gossip_frame.clone())
-                            .unwrap_or_else(|op| {
-                                error!("Unable to notify client {:?}", op)
-                            });
+
+                        // Aggregate message + metadata for lib client
+                        let msg = payload.gossip_frame.clone();
+                        let md = MessageInfo {
+                            src: remote_node_addr,
+                            height: payload.height,
+                        };
+
+                        // Notify lib client
+                        listener_sender.try_send((msg, md)).unwrap_or_else(
+                            |op| error!("Unable to notify client {:?}", op),
+                        );
                         if auto_propagate && payload.height > 0 {
                             let table_read = ktable.read().await;
                             debug!(
