@@ -25,6 +25,7 @@ impl MessageHandler {
         mut inbound_receiver: Receiver<MessageBeanIn>,
         outbound_sender: Sender<MessageBeanOut>,
         listener_sender: Sender<Vec<u8>>,
+        auto_propagate: bool,
     ) {
         tokio::spawn(async move {
             debug!("MessageHandler started");
@@ -111,8 +112,8 @@ impl MessageHandler {
                             .unwrap_or_else(|op| {
                                 error!("Unable to notify client {:?}", op)
                             });
-                        let table_read = ktable.read().await;
-                        if payload.height > 0 {
+                        if auto_propagate && payload.height > 0 {
+                            let table_read = ktable.read().await;
                             debug!(
                                 "Extracting for height {:?}",
                                 payload.height - 1

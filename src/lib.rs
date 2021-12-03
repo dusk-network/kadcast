@@ -33,9 +33,9 @@ const K_DIFF_MIN_BIT: usize = 8;
 const K_DIFF_PRODUCED_BIT: usize = 8;
 const MAX_DATAGRAM_SIZE: usize = 65_507;
 
-//Redundacy factor for lookup
+// Redundacy factor for lookup
 const K_ALPHA: usize = 3;
-//Redundacy factor for broadcast
+// Redundacy factor for broadcast
 const K_BETA: usize = 3;
 
 const K_CHUNK_SIZE: u16 = 1024;
@@ -49,6 +49,9 @@ pub const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
 
 /// Default value after which a bucket is considered idle
 pub const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
+
+/// Default behaviour for propagation of incoming broadcast messages
+pub const ENABLE_BROADCAST_PROPAGATION: bool = true;
 
 /// Struct representing the Kadcast Network Peer
 pub struct Peer {
@@ -66,6 +69,7 @@ impl Peer {
     fn new<L: NetworkListen + 'static>(
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
+        auto_propagate: bool,
         listener: L,
         tree: Tree<PeerInfo>,
     ) -> Self {
@@ -83,6 +87,7 @@ impl Peer {
             inbound_channel_rx,
             outbound_channel_tx.clone(),
             notification_channel_tx,
+            auto_propagate,
         );
         tokio::spawn(WireNetwork::start(
             inbound_channel_tx,
@@ -134,15 +139,15 @@ impl Peer {
     /// Note:
     /// The function returns just after the message is put on the internal queue
     /// system. It **does not guarantee** the message will be broadcasted
-    pub async fn broadcast(&self, message: &[u8]) {
+    pub async fn broadcast(&self, message: &[u8], height: Option<usize>) {
         if message.is_empty() {
             return;
         }
-        for (height, nodes) in self.ktable.read().await.extract(None) {
+        for (h, nodes) in self.ktable.read().await.extract(height) {
             let msg = Message::Broadcast(
                 self.ktable.read().await.root().as_header(),
                 BroadcastPayload {
-                    height: height.try_into().unwrap(),
+                    height: h.try_into().unwrap(),
                     gossip_frame: message.to_vec(), //FIX_ME: avoid clone
                 },
             );
@@ -175,6 +180,7 @@ pub struct PeerBuilder<L: NetworkListen + 'static> {
     node_ttl: Duration,
     node_evict_after: Duration,
     bucket_ttl: Duration,
+    auto_propagate: bool,
     public_ip: String,
     bootstrapping_nodes: Vec<String>,
     listener: L,
@@ -209,6 +215,17 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
         self
     }
 
+    /// Enable automatic propagation of incoming broadcast messages
+    ///
+    /// Default value [ENABLE_BROADCAST_PROPAGATION]
+    pub fn with_auto_propagate(
+        mut self,
+        auto_propagate: bool,
+    ) -> PeerBuilder<L> {
+        self.auto_propagate = auto_propagate;
+        self
+    }
+
     fn new(
         public_ip: String,
         bootstrapping_nodes: Vec<String>,
@@ -218,12 +235,12 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
             public_ip,
             bootstrapping_nodes,
             listener,
-
             node_evict_after: Duration::from_millis(
                 BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
             ),
             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
+            auto_propagate: ENABLE_BROADCAST_PROPAGATION,
         }
     }
 
@@ -238,6 +255,7 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
         Peer::new(
             self.public_ip,
             self.bootstrapping_nodes,
+            self.auto_propagate,
             self.listener,
             tree,
         )

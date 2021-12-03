@@ -88,7 +88,7 @@ pub async fn main() {
                 "report" => {
                     peer.report().await;
                 }
-                v => peer.broadcast(v.as_bytes()).await,
+                v => peer.broadcast(v.as_bytes(), None).await,
             }
         }
     }
