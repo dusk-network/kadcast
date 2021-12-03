@@ -139,15 +139,15 @@ impl Peer {
     /// Note:
     /// The function returns just after the message is put on the internal queue
     /// system. It **does not guarantee** the message will be broadcasted
-    pub async fn broadcast(&self, message: &[u8]) {
+    pub async fn broadcast(&self, message: &[u8], height: Option<usize>) {
         if message.is_empty() {
             return;
         }
-        for (height, nodes) in self.ktable.read().await.extract(None) {
+        for (h, nodes) in self.ktable.read().await.extract(height) {
             let msg = Message::Broadcast(
                 self.ktable.read().await.root().as_header(),
                 BroadcastPayload {
-                    height: height.try_into().unwrap(),
+                    height: h.try_into().unwrap(),
                     gossip_frame: message.to_vec(), //FIX_ME: avoid clone
                 },
             );

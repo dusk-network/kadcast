@@ -2,7 +2,7 @@
 
 This document explains the architecture of the library components. The low-level networking and threading infrastructure makes use of async [Tokio runtime](https://docs.rs/tokio). In the future, the code will be made modular so to allow the use of [different runtimes](https://rust-lang.github.io/async-book/08_ecosystem/00_chapter.html).
 
-The architecture follow the diagram below. For concrete usage examples please refer to the [crate's documentation](https://crates.io/crates/kadcast)
+The architecture follows the diagram below. For usage examples please refer to the [crate's documentation](https://crates.io/crates/kadcast)
 
 ![architecture](architecture.jpg)
 

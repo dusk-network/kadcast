@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `auto_propagate` flag to Peer [#57]
+- Add optional `height` parameter to `broadcast` method [#57]
 
 ### Changed
 
