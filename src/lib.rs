@@ -8,6 +8,7 @@ use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::Duration};
 
 use encoding::{message::Message, payload::BroadcastPayload};
 use handling::MessageHandler;
+pub use handling::MessageInfo;
 use itertools::Itertools;
 use kbucket::{Tree, TreeBuilder};
 use mantainer::TableMantainer;
@@ -62,7 +63,7 @@ pub struct Peer {
 /// [NetworkListen] is notified each time a broadcasted
 /// message is received from the network
 pub trait NetworkListen: Send {
-    fn on_message(&self, message: Vec<u8>);
+    fn on_message(&self, message: Vec<u8>, metadata: MessageInfo);
 }
 
 impl Peer {
@@ -104,11 +105,11 @@ impl Peer {
     }
 
     async fn notifier(
-        mut listener_channel_rx: Receiver<Vec<u8>>,
+        mut listener_channel_rx: Receiver<(Vec<u8>, MessageInfo)>,
         listener: impl NetworkListen,
     ) {
-        while let Some(message) = listener_channel_rx.recv().await {
-            listener.on_message(message);
+        while let Some(notif) = listener_channel_rx.recv().await {
+            listener.on_message(notif.0, notif.1);
         }
     }
 
@@ -134,7 +135,12 @@ impl Peer {
         });
     }
 
-    /// Broadcast a message to the network.
+    /// Broadcast a message to the network
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - Byte array containing the message to be broadcasted
+    /// * `height` - (Optional) Overrides default Kadcast broadcast height
     ///
     /// Note:
     /// The function returns just after the message is put on the internal queue
@@ -157,7 +163,12 @@ impl Peer {
         }
     }
 
-    /// Send a message to a peer in the network.
+    /// Send a message to a peer in the network
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - Byte array containing the message to be sent
+    /// * `target` - Receiver address
     ///
     /// Note:
     /// The function returns just after the message is put on the internal queue

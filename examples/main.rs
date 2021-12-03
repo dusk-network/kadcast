@@ -5,7 +5,7 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use clap::{App, Arg};
-use kadcast::{NetworkListen, Peer};
+use kadcast::{MessageInfo, NetworkListen, Peer};
 use rustc_tools_util::{get_version_info, VersionInfo};
 use std::io::{self, BufRead};
 
@@ -95,11 +95,13 @@ pub async fn main() {
 }
 pub struct DummyListener {}
 impl NetworkListen for DummyListener {
-    fn on_message(&self, message: Vec<u8>) {
+    fn on_message(&self, message: Vec<u8>, md: MessageInfo) {
         println!(
-            "Received {}",
+            "Received {} from {} (height: {})",
             String::from_utf8(message.to_vec())
-                .unwrap_or_else(|_| "No UTF8 message received".to_string())
+                .unwrap_or_else(|_| "No UTF8 message received".to_string()),
+            md.src(),
+            md.height(),
         );
     }
 }
