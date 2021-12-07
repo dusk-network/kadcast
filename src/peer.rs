@@ -33,15 +33,21 @@ impl PeerNode {
 
     pub fn from_socket(server: SocketAddr) -> Self {
         let info = PeerInfo { address: server };
-        let binary = PeerNode::compute_id(&info);
+        let binary =
+            PeerNode::compute_id(&info.address.ip(), info.address.port());
         let id = BinaryID::new(binary);
         Node::new(id, info)
     }
 
-    fn compute_id(info: &PeerInfo) -> BinaryKey {
+    pub(crate) fn verify_header(header: &Header, ip: &IpAddr) -> bool {
+        *header.binary_id.as_binary()
+            == PeerNode::compute_id(ip, header.sender_port)
+    }
+
+    pub(crate) fn compute_id(ip: &IpAddr, port: u16) -> BinaryKey {
         let mut hasher = Blake2s::new();
-        hasher.update(info.address.port().to_le_bytes());
-        match info.address.ip() {
+        hasher.update(port.to_le_bytes());
+        match ip {
             IpAddr::V4(ip) => hasher.update(ip.octets()),
             IpAddr::V6(ip) => hasher.update(ip.octets()),
         };
@@ -74,5 +80,31 @@ impl PeerNode {
             },
             port: self.value().address.port(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::peer::PeerNode;
+
+    #[test]
+    fn verify_header() {
+        let wrong_header = PeerNode::from_address("10.0.0.1:333").as_header();
+        let wrong_header_sameport =
+            PeerNode::from_address("10.0.0.1:666").as_header();
+        vec![
+            PeerNode::from_address("192.168.1.1:666"),
+            PeerNode::from_address(
+                "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666",
+            ),
+        ]
+        .iter()
+        .for_each(|n| {
+            let ip = &n.value().address.ip();
+            PeerNode::verify_header(&n.as_header(), ip);
+            assert!(PeerNode::verify_header(&n.as_header(), ip));
+            assert!(!PeerNode::verify_header(&wrong_header, ip));
+            assert!(!PeerNode::verify_header(&wrong_header_sameport, ip));
+        });
     }
 }

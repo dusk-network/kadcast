@@ -17,10 +17,18 @@ pub async fn main() {
         .author("Dusk Network B.V. All Rights Reserved.")
         .about("Kadcast Network impl.")
         .arg(
-            Arg::with_name("host")
-                .short("h")
-                .long("host")
-                .help("Address you want to use")
+            Arg::with_name("listen_address")
+                .short("l")
+                .long("listen")
+                .help("Internal address you want to use to listen incoming connections. Eg: 127.0.0.1:696")
+                .takes_value(true)
+                .required(false),
+        )
+        .arg(
+            Arg::with_name("public_address")
+                .short("p")
+                .long("address")
+                .help("Public address you want to be identified with. Eg: 193.xxx.xxx.198:696")
                 .takes_value(true)
                 .required(true),
         )
@@ -43,13 +51,6 @@ pub async fn main() {
                 .takes_value(true),
         )
         .get_matches();
-
-    let public_ip = matches.value_of("host").unwrap();
-    let bootstrapping_nodes = matches
-        .values_of("bootstrap")
-        .unwrap_or_default()
-        .map(|s| s.to_string())
-        .collect();
 
     // Match tracing desired level.
     let log = match matches
@@ -75,12 +76,22 @@ pub async fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed on subscribe tracing");
 
-    let peer = Peer::builder(
-        public_ip.to_string(),
-        bootstrapping_nodes,
-        DummyListener {},
-    )
-    .build();
+    let public_address =
+        matches.value_of("public_address").unwrap().to_string();
+
+    let listen_address =
+        matches.value_of("listen_address").map(|a| a.to_string());
+
+    let bootstrapping_nodes = matches
+        .values_of("bootstrap")
+        .unwrap_or_default()
+        .map(|s| s.to_string())
+        .collect();
+
+    let peer =
+        Peer::builder(public_address, bootstrapping_nodes, DummyListener {})
+            .with_listen_address(listen_address)
+            .build();
     loop {
         let stdin = io::stdin();
         for message in stdin.lock().lines().flatten() {
