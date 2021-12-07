@@ -15,6 +15,7 @@ use tracing::*;
 
 use crate::{
     encoding::{message::Message, Marshallable},
+    peer::PeerNode,
     transport::encoding::{Encoder, RaptorQEncoder},
     MAX_DATAGRAM_SIZE,
 };
@@ -60,8 +61,24 @@ impl WireNetwork {
                     trace!("> Received {:?}", deser);
                     let to_process = decoder.decode(deser);
                     if let Some(message) = to_process {
-                        //FIX_ME: use send.await instead of try_send
-                        let _ = inbound_channel_tx.try_send((message, addr));
+                        let valid_header = PeerNode::verify_header(
+                            message.header(),
+                            &addr.ip(),
+                        );
+                        match valid_header {
+                            true => {
+                                //FIX_ME: use send.await instead of try_send
+                                let _ = inbound_channel_tx
+                                    .try_send((message, addr));
+                            }
+                            false => {
+                                error!(
+                                    "Invalid Id {:?} - {}",
+                                    message.header(),
+                                    &addr.ip()
+                                );
+                            }
+                        }
                     }
                 }
                 Err(e) => error!("Error deser from {} - {}", addr, e),
