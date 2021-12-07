@@ -30,31 +30,31 @@ mod encoding;
 impl WireNetwork {
     pub async fn start(
         inbound_channel_tx: Sender<MessageBeanIn>,
-        public_ip: String,
+        listen_address: String,
         outbound_channel_rx: Receiver<MessageBeanOut>,
     ) {
-        let public_address = public_ip
+        let listen_address = listen_address
             .parse()
             .expect("Unable to parse public_ip address");
         let a = WireNetwork::listen_out(outbound_channel_rx);
         let b =
-            WireNetwork::listen_in(public_address, inbound_channel_tx.clone());
+            WireNetwork::listen_in(listen_address, inbound_channel_tx.clone());
         let _ = tokio::join!(a, b);
     }
 
     async fn listen_in(
-        public_address: SocketAddr,
+        listen_address: SocketAddr,
         inbound_channel_tx: Sender<MessageBeanIn>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
         let mut decoder = RaptorQEncoder::new();
-        let socket = UdpSocket::bind(public_address)
+        let socket = UdpSocket::bind(listen_address)
             .await
             .expect("Unable to bind address");
         info!("Listening on: {}", socket.local_addr()?);
         loop {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
-            let (_, addr) = socket.recv_from(&mut bytes).await?;
+            let (_, remote_address) = socket.recv_from(&mut bytes).await?;
 
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
@@ -63,25 +63,25 @@ impl WireNetwork {
                     if let Some(message) = to_process {
                         let valid_header = PeerNode::verify_header(
                             message.header(),
-                            &addr.ip(),
+                            &remote_address.ip(),
                         );
                         match valid_header {
                             true => {
                                 //FIX_ME: use send.await instead of try_send
                                 let _ = inbound_channel_tx
-                                    .try_send((message, addr));
+                                    .try_send((message, remote_address));
                             }
                             false => {
                                 error!(
                                     "Invalid Id {:?} - {}",
                                     message.header(),
-                                    &addr.ip()
+                                    &remote_address.ip()
                                 );
                             }
                         }
                     }
                 }
-                Err(e) => error!("Error deser from {} - {}", addr, e),
+                Err(e) => error!("Error deser from {} - {}", remote_address, e),
             }
         }
     }

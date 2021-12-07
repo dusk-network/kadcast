@@ -68,7 +68,7 @@ pub trait NetworkListen: Send {
 
 impl Peer {
     fn new<L: NetworkListen + 'static>(
-        public_ip: String,
+        listen_address: String,
         bootstrapping_nodes: Vec<String>,
         auto_propagate: bool,
         listener: L,
@@ -92,7 +92,7 @@ impl Peer {
         );
         tokio::spawn(WireNetwork::start(
             inbound_channel_tx,
-            public_ip,
+            listen_address,
             outbound_channel_rx,
         ));
         tokio::spawn(TableMantainer::start(
@@ -192,19 +192,19 @@ impl Peer {
 
     /// Instantiate a [PeerBuilder].
     ///
-    /// * `public_ip` - public `SocketAddress` of the [Peer]. No domain name
-    ///   allowed
+    /// * `public_address` - public `SocketAddress` of the [Peer]. No domain
+    ///   name allowed
     /// * `bootstrapping_nodes` - List of known bootstrapping kadcast nodes. It
-    ///   accepts the same representation of `public_ip` but with domain names
-    ///   allowed
+    ///   accepts the same representation of `public_address` but with domain
+    ///   names allowed
     /// * `listener` - The [NetworkListen] impl notified each time a broadcasted
     ///   message is received from the network
     pub fn builder<L: NetworkListen>(
-        public_ip: String,
+        public_address: String,
         bootstrapping_nodes: Vec<String>,
         listener: L,
     ) -> PeerBuilder<L> {
-        PeerBuilder::new(public_ip, bootstrapping_nodes, listener)
+        PeerBuilder::new(public_address, bootstrapping_nodes, listener)
     }
 }
 
@@ -214,7 +214,8 @@ pub struct PeerBuilder<L: NetworkListen + 'static> {
     node_evict_after: Duration,
     bucket_ttl: Duration,
     auto_propagate: bool,
-    public_ip: String,
+    public_address: String,
+    listen_address: Option<String>,
     bootstrapping_nodes: Vec<String>,
     listener: L,
 }
@@ -248,6 +249,18 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
         self
     }
 
+    /// Set the address listening to incoming connections
+    /// If not set, the public address will be used
+    ///
+    /// Default value NONE
+    pub fn with_listen_address(
+        mut self,
+        listen_address: Option<String>,
+    ) -> PeerBuilder<L> {
+        self.listen_address = listen_address;
+        self
+    }
+
     /// Enable automatic propagation of incoming broadcast messages
     ///
     /// Default value [ENABLE_BROADCAST_PROPAGATION]
@@ -260,12 +273,13 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
     }
 
     fn new(
-        public_ip: String,
+        public_address: String,
         bootstrapping_nodes: Vec<String>,
         listener: L,
     ) -> PeerBuilder<L> {
         PeerBuilder {
-            public_ip,
+            public_address,
+            listen_address: None,
             bootstrapping_nodes,
             listener,
             node_evict_after: Duration::from_millis(
@@ -280,13 +294,13 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
     /// Builds the [Peer]
     pub fn build(self) -> Peer {
         let tree =
-            TreeBuilder::new(PeerNode::from_address(&self.public_ip[..]))
+            TreeBuilder::new(PeerNode::from_address(&self.public_address[..]))
                 .with_node_evict_after(self.node_evict_after)
                 .with_node_ttl(self.node_ttl)
                 .with_bucket_ttl(self.bucket_ttl)
                 .build();
         Peer::new(
-            self.public_ip,
+            self.listen_address.unwrap_or(self.public_address),
             self.bootstrapping_nodes,
             self.auto_propagate,
             self.listener,
