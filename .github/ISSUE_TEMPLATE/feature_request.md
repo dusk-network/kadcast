@@ -2,7 +2,7 @@
 name: Feature request
 about: Describe missing stuff that needs to be implemented
 title: ''
-labels: team:Boris
+labels: ''
 assignees: ''
 
 ---
