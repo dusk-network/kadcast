@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `send` method to public API [#58]
 - Add metadata to `on_message` callback [#59]
 - Add `listen_address` parameter [#69]
+- Add the auto prune of expired items in RaptorQ cache [#68]
 
 ### Changed
 
@@ -38,4 +39,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#59]: https://github.com/dusk-network/kadcast/issues/59
 [#60]: https://github.com/dusk-network/kadcast/issues/60
 [#63]: https://github.com/dusk-network/kadcast/issues/63
+[#68]: https://github.com/dusk-network/kadcast/issues/68
 [#69]: https://github.com/dusk-network/kadcast/issues/69

@@ -4,7 +4,11 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{collections::HashMap, convert::TryInto};
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    time::{Duration, Instant},
+};
 
 use blake2::{Blake2s, Digest};
 use raptorq::{
@@ -12,25 +16,47 @@ use raptorq::{
 };
 use tracing::warn;
 
-use crate::{
-    encoding::{message::Message, payload::BroadcastPayload, Marshallable},
-    K_CHUNK_SIZE,
+use crate::encoding::{
+    message::Message, payload::BroadcastPayload, Marshallable,
 };
+
+const DEFAULT_REPAIR_PACKETS_PER_BLOCK: u32 = 15;
+const MAX_CHUNK_SIZE: u16 = 1024;
+const CACHE_DEFAULT_TTL_SECS: u64 = 60;
+const CACHE_PRUNED_EVERY_SECS: u64 = 60 * 5;
+
+const CACHE_DEFAULT_TTL_DURATION: Duration =
+    Duration::from_secs(CACHE_DEFAULT_TTL_SECS);
+const CACHE_PRUNED_EVERY_DURATION: Duration =
+    Duration::from_secs(CACHE_PRUNED_EVERY_SECS);
 
 pub(crate) struct RaptorQEncoder {
     cache: HashMap<[u8; 32], CacheStatus>,
+    last_pruned: Instant,
 }
 
 impl RaptorQEncoder {
     pub(crate) fn new() -> Self {
         RaptorQEncoder {
             cache: HashMap::new(),
+            last_pruned: Instant::now(),
         }
     }
 }
 enum CacheStatus {
-    Receiving(Decoder),
-    Processed,
+    Receiving(Decoder, Instant),
+    Processed(Instant),
+}
+
+impl CacheStatus {
+    fn expired(&self) -> bool {
+        match self {
+            CacheStatus::Receiving(_, date) => date,
+            CacheStatus::Processed(date) => date,
+        }
+        .elapsed()
+            > CACHE_DEFAULT_TTL_DURATION
+    }
 }
 
 struct ChunkedPayload<'a>(&'a BroadcastPayload);
@@ -96,9 +122,9 @@ impl super::Encoder for RaptorQEncoder {
         if let Message::Broadcast(header, payload) = msg {
             let uid = payload.generate_uid();
             let encoder =
-                Encoder::with_defaults(&payload.gossip_frame, K_CHUNK_SIZE);
+                Encoder::with_defaults(&payload.gossip_frame, MAX_CHUNK_SIZE);
             encoder
-                .get_encoded_packets(15)
+                .get_encoded_packets(DEFAULT_REPAIR_PACKETS_PER_BLOCK)
                 .iter()
                 .map(|encoded_packet| {
                     let mut packet_with_uid = uid.to_vec();
@@ -134,16 +160,17 @@ impl super::Encoder for RaptorQEncoder {
                 // CacheStatus::Receiving status and binds a new Decoder with
                 // the received transmission information
                 std::collections::hash_map::Entry::Vacant(v) => {
-                    v.insert(CacheStatus::Receiving(Decoder::new(
-                        chunked.transmission_info(),
-                    )))
+                    v.insert(CacheStatus::Receiving(
+                        Decoder::new(chunked.transmission_info()),
+                        Instant::now(),
+                    ))
                 }
             };
 
-            match status {
+            let decoded = match status {
                 // Avoid to repropagate already processed messages
-                CacheStatus::Processed => None,
-                CacheStatus::Receiving(decoder) => decoder
+                CacheStatus::Processed(_) => None,
+                CacheStatus::Receiving(decoder, _) => decoder
                     .decode(EncodingPacket::deserialize(
                         chunked.encoded_chunk(),
                     ))
@@ -165,11 +192,20 @@ impl super::Encoder for RaptorQEncoder {
                     // If the message is succesfully decoded, update the cache
                     // with new status. This will drop useless Decoder and avoid
                     // to propagate already processed messages
-                    .map(|a| {
-                        self.cache.insert(uid, CacheStatus::Processed);
-                        a
+                    .map(|decoded| {
+                        self.cache.insert(
+                            uid,
+                            CacheStatus::Processed(Instant::now()),
+                        );
+                        decoded
                     }),
+            };
+            // Every X time, prune dupemap cache
+            if self.last_pruned.elapsed() > CACHE_PRUNED_EVERY_DURATION {
+                self.cache.retain(|_, status| !status.expired());
+                self.last_pruned = Instant::now();
             }
+            decoded
         } else {
             Some(message)
         }
