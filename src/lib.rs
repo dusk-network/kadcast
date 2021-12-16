@@ -39,8 +39,6 @@ const K_ALPHA: usize = 3;
 // Redundacy factor for broadcast
 const K_BETA: usize = 3;
 
-const K_CHUNK_SIZE: u16 = 1024;
-
 /// Default value while a node is considered alive (no eviction will be
 /// requested)
 pub const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
