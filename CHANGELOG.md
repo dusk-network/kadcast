@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+
+## [0.2.0] - 16-12-21
+
 ### Added
 
 - Add `auto_propagate` flag to Peer [#57]
@@ -23,8 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix build with `tonic` dependency [#60]
-
-### Removed
 
 ## [0.1.0] - 29-10-21
 
