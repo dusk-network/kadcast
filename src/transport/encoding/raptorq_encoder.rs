@@ -20,6 +20,8 @@ use crate::encoding::{
     message::Message, payload::BroadcastPayload, Marshallable,
 };
 
+use super::Configurable;
+
 const DEFAULT_REPAIR_PACKETS_PER_BLOCK: u32 = 15;
 const MAX_CHUNK_SIZE: u16 = 1024;
 const CACHE_DEFAULT_TTL_SECS: u64 = 60;
@@ -30,17 +32,24 @@ const CACHE_DEFAULT_TTL_DURATION: Duration =
 const CACHE_PRUNED_EVERY_DURATION: Duration =
     Duration::from_secs(CACHE_PRUNED_EVERY_SECS);
 
-pub(crate) struct RaptorQEncoder {
+pub(crate) struct RaptorQDecoder {
     cache: HashMap<[u8; 32], CacheStatus>,
     last_pruned: Instant,
 }
-
-impl RaptorQEncoder {
-    pub(crate) fn new() -> Self {
-        RaptorQEncoder {
+impl Configurable for RaptorQDecoder {
+    fn configure(_: HashMap<String, String>) -> Self {
+        Self {
             cache: HashMap::new(),
             last_pruned: Instant::now(),
         }
+    }
+}
+
+pub(crate) struct RaptorQEncoder {}
+
+impl Configurable for RaptorQEncoder {
+    fn configure(_: HashMap<String, String>) -> Self {
+        Self {}
     }
 }
 enum CacheStatus {
@@ -118,7 +127,7 @@ impl<'a> ChunkedPayload<'a> {
 }
 
 impl super::Encoder for RaptorQEncoder {
-    fn encode<'msg>(msg: Message) -> Vec<Message> {
+    fn encode<'msg>(&self, msg: Message) -> Vec<Message> {
         if let Message::Broadcast(header, payload) = msg {
             let uid = payload.generate_uid();
             let encoder =
@@ -145,7 +154,8 @@ impl super::Encoder for RaptorQEncoder {
             vec![msg]
         }
     }
-
+}
+impl super::Decoder for RaptorQDecoder {
     fn decode(&mut self, message: Message) -> Option<Message> {
         if let Message::Broadcast(header, payload) = message {
             let chunked = ChunkedPayload(&payload);

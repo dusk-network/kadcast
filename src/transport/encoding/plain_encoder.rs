@@ -4,17 +4,27 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::{collections::HashMap};
+
 use crate::encoding::message::Message;
 
-use super::Encoder;
+use super::{Configurable, Decoder, Encoder};
 
 pub(crate) struct PlainEncoder {}
 
+impl Configurable for PlainEncoder {
+    fn configure(_: HashMap<String, String>) -> Self {
+        PlainEncoder {}
+    }
+}
+
 impl Encoder for PlainEncoder {
-    fn encode<'msg>(msg: Message) -> Vec<Message> {
+    fn encode<'msg>(&self, msg: Message) -> Vec<Message> {
         vec![msg]
     }
+}
 
+impl Decoder for PlainEncoder {
     fn decode(&mut self, chunk: Message) -> Option<Message> {
         if let Message::Broadcast(header, payload) = chunk {
             Some(Message::Broadcast(header, payload))

@@ -1,6 +1,6 @@
 [package]
 name = "kadcast"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
   "herr-seppia <seppia@dusk.network>"
 ]

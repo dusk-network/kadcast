@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{error::Error, net::SocketAddr};
+use std::{collections::HashMap, error::Error, net::SocketAddr};
 
 use tokio::{
     io,
@@ -16,7 +16,9 @@ use tracing::*;
 use crate::{
     encoding::{message::Message, Marshallable},
     peer::PeerNode,
-    transport::encoding::{Encoder, RaptorQEncoder},
+    transport::encoding::{
+        Configurable, Decoder, Encoder, RaptorQDecoder, RaptorQEncoder,
+    },
     MAX_DATAGRAM_SIZE,
 };
 
@@ -47,7 +49,7 @@ impl WireNetwork {
         inbound_channel_tx: Sender<MessageBeanIn>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
-        let mut decoder = RaptorQEncoder::new();
+        let mut decoder = RaptorQDecoder::configure(HashMap::new());
         let socket = UdpSocket::bind(listen_address)
             .await
             .expect("Unable to bind address");
@@ -90,10 +92,11 @@ impl WireNetwork {
         mut outbound_channel_rx: Receiver<MessageBeanOut>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
+        let encoder = RaptorQEncoder::configure(HashMap::new());
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
                 trace!("< Message to send to ({:?}) - {:?} ", to, message);
-                for chunk in RaptorQEncoder::encode(message).iter() {
+                for chunk in encoder.encode(message).iter() {
                     let bytes = chunk.bytes();
                     for remote_addr in to.iter() {
                         let _ = WireNetwork::send(&bytes, remote_addr)
