@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use crate::encoding::message::Message;
 

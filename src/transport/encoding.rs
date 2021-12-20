@@ -5,12 +5,12 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 mod plain_encoder;
-mod raptorq_encoder;
+mod raptorq;
 
 use std::collections::HashMap;
 
-pub(crate) use raptorq_encoder::RaptorQDecoder;
-pub(crate) use raptorq_encoder::RaptorQEncoder;
+pub(crate) use self::raptorq::RaptorQDecoder;
+pub(crate) use self::raptorq::RaptorQEncoder;
 
 use crate::encoding::message::Message;
 
