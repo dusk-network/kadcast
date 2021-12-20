@@ -9,13 +9,14 @@ mod raptorq;
 
 use std::collections::HashMap;
 
-pub(crate) use self::raptorq::RaptorQDecoder;
-pub(crate) use self::raptorq::RaptorQEncoder;
+pub(crate) use self::raptorq::RaptorQDecoder as TransportDecoder;
+pub(crate) use self::raptorq::RaptorQEncoder as TransportEncoder;
 
 use crate::encoding::message::Message;
 
 pub(crate) trait Configurable {
-    fn configure(conf: HashMap<String, String>) -> Self;
+    fn configure(conf: &HashMap<String, String>) -> Self;
+    fn default_configuration() -> HashMap<String, String>;
 }
 
 pub(crate) trait Encoder: Configurable {

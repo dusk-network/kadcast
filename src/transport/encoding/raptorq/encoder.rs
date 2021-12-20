@@ -12,15 +12,44 @@ use crate::encoding::{message::Message, payload::BroadcastPayload};
 use super::super::Configurable;
 
 const DEFAULT_REPAIR_PACKETS_PER_BLOCK: u32 = 15;
-const MAX_CHUNK_SIZE: u16 = 1024;
+const DEFAULT_MAX_CHUNK_SIZE: u16 = 1024;
 
 use raptorq::Encoder as ExtEncoder;
 
-pub(crate) struct RaptorQEncoder {}
+pub(crate) struct RaptorQEncoder {
+    repair_packets_per_block: u32,
+    max_chunk_size: u16,
+}
 
 impl Configurable for RaptorQEncoder {
-    fn configure(_: HashMap<String, String>) -> Self {
-        Self {}
+    fn configure(conf: &HashMap<String, String>) -> Self {
+        let repair_packets_per_block = conf
+            .get("repair_packets_per_block")
+            .map(|s| s.parse().ok())
+            .flatten()
+            .unwrap_or(DEFAULT_REPAIR_PACKETS_PER_BLOCK);
+
+        let max_chunk_size = conf
+            .get("max_chunk_size")
+            .map(|s| s.parse().ok())
+            .flatten()
+            .unwrap_or(DEFAULT_MAX_CHUNK_SIZE);
+        Self {
+            repair_packets_per_block,
+            max_chunk_size,
+        }
+    }
+    fn default_configuration() -> HashMap<String, String> {
+        let mut conf = HashMap::new();
+        conf.insert(
+            "repair_packets_per_block".to_string(),
+            DEFAULT_REPAIR_PACKETS_PER_BLOCK.to_string(),
+        );
+        conf.insert(
+            "max_chunk_size".to_string(),
+            DEFAULT_MAX_CHUNK_SIZE.to_string(),
+        );
+        conf
     }
 }
 
@@ -30,10 +59,10 @@ impl Encoder for RaptorQEncoder {
             let uid = payload.generate_uid();
             let encoder = ExtEncoder::with_defaults(
                 &payload.gossip_frame,
-                MAX_CHUNK_SIZE,
+                self.max_chunk_size,
             );
             encoder
-                .get_encoded_packets(DEFAULT_REPAIR_PACKETS_PER_BLOCK)
+                .get_encoded_packets(self.repair_packets_per_block)
                 .iter()
                 .map(|encoded_packet| {
                     let mut packet_with_uid = uid.to_vec();

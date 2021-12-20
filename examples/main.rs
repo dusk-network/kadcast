@@ -88,10 +88,13 @@ pub async fn main() {
         .map(|s| s.to_string())
         .collect();
 
-    let peer =
+    let mut builder =
         Peer::builder(public_address, bootstrapping_nodes, DummyListener {})
-            .with_listen_address(listen_address)
-            .build();
+            .with_listen_address(listen_address);
+    builder
+        .transport_conf()
+        .extend(kadcast::transport::default_configuration());
+    let peer = builder.build();
     loop {
         let stdin = io::stdin();
         for message in stdin.lock().lines().flatten() {

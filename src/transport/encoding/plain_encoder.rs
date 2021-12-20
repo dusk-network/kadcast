@@ -13,8 +13,11 @@ use super::{Configurable, Decoder, Encoder};
 pub(crate) struct PlainEncoder {}
 
 impl Configurable for PlainEncoder {
-    fn configure(_: HashMap<String, String>) -> Self {
+    fn configure(_: &HashMap<String, String>) -> Self {
         PlainEncoder {}
+    }
+    fn default_configuration() -> HashMap<String, String> {
+        HashMap::new()
     }
 }
 
