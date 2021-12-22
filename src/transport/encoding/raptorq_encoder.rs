@@ -123,8 +123,15 @@ impl super::Encoder for RaptorQEncoder {
             let uid = payload.generate_uid();
             let encoder =
                 Encoder::with_defaults(&payload.gossip_frame, MAX_CHUNK_SIZE);
+            let mut repair_packets = payload.gossip_frame.len() * 10
+                / (MAX_CHUNK_SIZE as usize)
+                / 100;
+            if repair_packets < 1 {
+                repair_packets = 1
+            }
+
             encoder
-                .get_encoded_packets(DEFAULT_REPAIR_PACKETS_PER_BLOCK)
+                .get_encoded_packets(repair_packets as u32)
                 .iter()
                 .map(|encoded_packet| {
                     let mut packet_with_uid = uid.to_vec();
