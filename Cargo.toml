@@ -1,6 +1,6 @@
 [package]
 name = "kadcast"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
   "herr-seppia <seppia@dusk.network>"
 ]
@@ -25,6 +25,7 @@ tokio = { version = "1", features = ["rt", "net", "sync", "time", "io-std", "rt-
 raptorq = "1.6"
 tracing = "0.1"
 itertools = "0.10"
+konst = "0.2"
 
 [dev-dependencies]
 clap = "2.33.3"

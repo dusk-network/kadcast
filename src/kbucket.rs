@@ -15,7 +15,7 @@ pub use node::Node;
 
 pub use bucket::InsertError;
 pub use bucket::InsertOk;
-use tracing::debug;
+use tracing::info;
 
 mod bucket;
 mod key;
@@ -159,7 +159,11 @@ impl<V> TreeBuilder<V> {
     }
 
     pub(crate) fn build(self) -> Tree<V> {
-        debug!("Built table with root: {:?}", self.root.id());
+        info!(
+            "Built table [K={}] with root: {:?}",
+            crate::K_K,
+            self.root.id()
+        );
         Tree {
             root: self.root,
             buckets: HashMap::new(),

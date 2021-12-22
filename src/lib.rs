@@ -27,12 +27,23 @@ mod peer;
 mod transport;
 
 // Max amount of nodes a bucket should contain
-const K_K: usize = 20;
+const DEFAULT_K_K: usize = 20;
+const K_K: usize = get_k_k();
 const K_ID_LEN_BYTES: usize = 16;
 const K_NONCE_LEN: usize = 4;
 const K_DIFF_MIN_BIT: usize = 8;
 const K_DIFF_PRODUCED_BIT: usize = 8;
 const MAX_DATAGRAM_SIZE: usize = 65_507;
+
+const fn get_k_k() -> usize {
+    match option_env!("KADCAST_K") {
+        Some(v) => match konst::primitive::parse_usize(v) {
+            Ok(e) => e,
+            Err(_) => DEFAULT_K_K,
+        },
+        None => DEFAULT_K_K,
+    }
+}
 
 // Redundacy factor for lookup
 const K_ALPHA: usize = 3;
