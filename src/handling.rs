@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 use tracing::*;
 
 use crate::encoding::message::{BroadcastPayload, Message, NodePayload};
-use crate::kbucket::Tree;
+use crate::kbucket::{NodeInsertError, Tree};
 use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
 use crate::K_K;
@@ -55,8 +55,21 @@ impl MessageHandler {
                 let remote_node = PeerNode::from_socket(remote_node_addr);
                 let my_header = ktable.read().await.root().as_header();
                 match ktable.write().await.insert(remote_node) {
-                    Err(_) => {
-                        error!("Unable to insert node");
+                    Err(e) => {
+                        match e {
+                            NodeInsertError::Full(n) => {
+                                info!(
+                                    "Unable to insert node - FULL {}",
+                                    n.value().address()
+                                )
+                            }
+                            NodeInsertError::Invalid(n) => {
+                                error!(
+                                    "Unable to insert node - INVALID {}",
+                                    n.value().address()
+                                )
+                            }
+                        }
                         continue;
                     }
                     Ok(result) => {
