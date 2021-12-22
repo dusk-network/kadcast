@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::{convert::TryInto, error::Error};
 
@@ -44,10 +44,7 @@ impl PeerEncodedInfo {
 }
 
 impl Marshallable for PeerEncodedInfo {
-    fn marshal_binary<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         match &self.ip {
             IpInfo::IPv6(bytes) => {
                 writer.write_all(&[0u8])?;
@@ -62,9 +59,7 @@ impl Marshallable for PeerEncodedInfo {
         Ok(())
     }
 
-    fn unmarshal_binary<R: Read>(
-        reader: &mut R,
-    ) -> Result<PeerEncodedInfo, Box<dyn Error>> {
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self> {
         let concat_u8 = |first: &[u8], second: &[u8]| -> Vec<u8> {
             [first, second].concat()
         };
@@ -92,10 +87,7 @@ impl Marshallable for PeerEncodedInfo {
     }
 }
 impl Marshallable for NodePayload {
-    fn marshal_binary<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         let len = self.peers.len() as u16;
         if len == 0 {
             return Ok(());
@@ -106,9 +98,7 @@ impl Marshallable for NodePayload {
         }
         Ok(())
     }
-    fn unmarshal_binary<R: Read>(
-        reader: &mut R,
-    ) -> Result<NodePayload, Box<dyn Error>> {
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self> {
         let mut peers: Vec<PeerEncodedInfo> = vec![];
         let mut len = [0; 2];
         reader.read_exact(&mut len)?;

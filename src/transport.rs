@@ -67,9 +67,9 @@ impl WireNetwork {
                         );
                         match valid_header {
                             true => {
-                                //FIX_ME: use send.await instead of try_send
                                 let _ = inbound_channel_tx
-                                    .try_send((message, remote_address))
+                                    .send((message, remote_address))
+                                    .await
                                     .unwrap_or_else(
                                         |op| error!("Unable to send to inbound channel {:?}", op),
                                     );

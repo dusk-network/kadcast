@@ -4,6 +4,8 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::io;
+
 use crate::encoding::Marshallable;
 use crate::K_ID_LEN_BYTES;
 use crate::K_NONCE_LEN;
@@ -25,14 +27,12 @@ impl Marshallable for BinaryKey {
     fn marshal_binary<W: std::io::Write>(
         &self,
         writer: &mut W,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> io::Result<()> {
         writer.write_all(self)?;
         Ok(())
     }
 
-    fn unmarshal_binary<R: std::io::Read>(
-        reader: &mut R,
-    ) -> Result<Self, Box<dyn std::error::Error>>
+    fn unmarshal_binary<R: std::io::Read>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
     {

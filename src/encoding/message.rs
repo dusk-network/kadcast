@@ -4,12 +4,9 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{
-    error::Error,
-    io::{Read, Write},
-};
+use std::io::{self, Error, ErrorKind, Read, Write};
 
-use crate::{encoding::error::EncodingError, kbucket::BinaryKey};
+use crate::kbucket::BinaryKey;
 
 pub(crate) use super::payload::{BroadcastPayload, NodePayload};
 pub use super::{header::Header, Marshallable};
@@ -67,10 +64,7 @@ impl Message {
 }
 
 impl Marshallable for Message {
-    fn marshal_binary<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_all(&[self.type_byte()])?;
         match self {
             Message::Ping(header) | Message::Pong(header) => {
@@ -92,9 +86,7 @@ impl Marshallable for Message {
         Ok(writer.flush()?)
     }
 
-    fn unmarshal_binary<R: Read>(
-        reader: &mut R,
-    ) -> Result<Message, Box<dyn Error>> {
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self> {
         let mut message_type = [0; 1];
         reader.read_exact(&mut message_type)?;
         let header = Header::unmarshal_binary(reader)?;
@@ -113,10 +105,10 @@ impl Marshallable for Message {
                 let payload = BroadcastPayload::unmarshal_binary(reader)?;
                 Ok(Message::Broadcast(header, payload))
             }
-            unknown => Err(Box::new(EncodingError::new(&format!(
-                "Invalid message type: '{}'",
-                unknown
-            )))),
+            unknown => Err(Error::new(
+                ErrorKind::Other,
+                format!("Invalid message type: '{}'", unknown),
+            )),
         }
     }
 }
