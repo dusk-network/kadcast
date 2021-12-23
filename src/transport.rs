@@ -93,13 +93,15 @@ impl WireNetwork {
         mut outbound_channel_rx: Receiver<MessageBeanOut>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
+        let output_sockets = MultipleSocket::new().await?;
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
                 trace!("< Message to send to ({:?}) - {:?} ", to, message);
                 for chunk in RaptorQEncoder::encode(message).iter() {
                     let bytes = chunk.bytes();
                     for remote_addr in to.iter() {
-                        let _ = WireNetwork::send(&bytes, remote_addr)
+                        let _ = output_sockets
+                            .send(&bytes, remote_addr)
                             .await
                             .map_err(|e| warn!("Unable to send msg {}", e));
                     }
@@ -107,21 +109,28 @@ impl WireNetwork {
             }
         }
     }
+}
 
+struct MultipleSocket {
+    ipv4: UdpSocket,
+    ipv6: UdpSocket,
+}
+
+impl MultipleSocket {
+    async fn new() -> io::Result<Self> {
+        let ipv4 = UdpSocket::bind("0.0.0.0:0").await?;
+        let ipv6 = UdpSocket::bind("[::]:0").await?;
+        Ok(MultipleSocket { ipv4, ipv6 })
+    }
     async fn send(
+        &self,
         data: &[u8],
         remote_addr: &SocketAddr,
     ) -> Result<(), Box<dyn Error>> {
-        let local_addr: SocketAddr = if remote_addr.is_ipv4() {
-            "0.0.0.0:0"
-        } else {
-            "[::]:0"
-        }
-        .parse()?;
-        let socket = UdpSocket::bind(local_addr).await?;
-        // const MAX_DATAGRAM_SIZE: usize = 65_507;
-        socket.connect(&remote_addr).await?;
-        socket.send(data).await?;
+        match remote_addr.is_ipv4() {
+            true => self.ipv4.send_to(data, &remote_addr).await?,
+            false => self.ipv6.send_to(data, &remote_addr).await?,
+        };
         Ok(())
     }
 }

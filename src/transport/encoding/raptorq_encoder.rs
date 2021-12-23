@@ -21,7 +21,7 @@ use crate::encoding::{
 };
 
 const DEFAULT_REPAIR_PACKETS_PER_BLOCK: u32 = 15;
-const MAX_CHUNK_SIZE: u16 = 1024;
+const MTU: u16 = 1400;
 const CACHE_DEFAULT_TTL_SECS: u64 = 60;
 const CACHE_PRUNED_EVERY_SECS: u64 = 60 * 5;
 
@@ -121,11 +121,9 @@ impl super::Encoder for RaptorQEncoder {
     fn encode<'msg>(msg: Message) -> Vec<Message> {
         if let Message::Broadcast(header, payload) = msg {
             let uid = payload.generate_uid();
-            let encoder =
-                Encoder::with_defaults(&payload.gossip_frame, MAX_CHUNK_SIZE);
-            let mut repair_packets = payload.gossip_frame.len() * 10
-                / (MAX_CHUNK_SIZE as usize)
-                / 100;
+            let encoder = Encoder::with_defaults(&payload.gossip_frame, MTU);
+            let mut repair_packets =
+                payload.gossip_frame.len() * 10 / (MTU as usize) / 100;
             if repair_packets < 1 {
                 repair_packets = 1
             }
