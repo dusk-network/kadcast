@@ -4,6 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::collections::HashMap;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::Duration};
 
 use encoding::{message::Message, payload::BroadcastPayload};
@@ -24,7 +25,7 @@ mod handling;
 mod kbucket;
 mod mantainer;
 mod peer;
-mod transport;
+pub mod transport;
 
 // Max amount of nodes a bucket should contain
 const K_K: usize = 20;
@@ -71,6 +72,7 @@ impl Peer {
         auto_propagate: bool,
         listener: L,
         tree: Tree<PeerInfo>,
+        transport_conf: HashMap<String, String>,
     ) -> Self {
         let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
         let (outbound_channel_tx, outbound_channel_rx) = mpsc::channel(32);
@@ -92,6 +94,7 @@ impl Peer {
             inbound_channel_tx,
             listen_address,
             outbound_channel_rx,
+            transport_conf,
         ));
         tokio::spawn(TableMantainer::start(
             bootstrapping_nodes,
@@ -216,6 +219,7 @@ pub struct PeerBuilder<L: NetworkListen + 'static> {
     listen_address: Option<String>,
     bootstrapping_nodes: Vec<String>,
     listener: L,
+    transport_conf: HashMap<String, String>,
 }
 
 impl<L: NetworkListen + 'static> PeerBuilder<L> {
@@ -259,6 +263,10 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
         self
     }
 
+    pub fn transport_conf(&mut self) -> &mut HashMap<String, String> {
+        &mut self.transport_conf
+    }
+
     /// Enable automatic propagation of incoming broadcast messages
     ///
     /// Default value [ENABLE_BROADCAST_PROPAGATION]
@@ -286,6 +294,7 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
             auto_propagate: ENABLE_BROADCAST_PROPAGATION,
+            transport_conf: transport::default_configuration(),
         }
     }
 
@@ -303,6 +312,7 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
             self.auto_propagate,
             self.listener,
             tree,
+            self.transport_conf,
         )
     }
 }

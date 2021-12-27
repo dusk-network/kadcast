@@ -1,3 +1,4 @@
 max_width = 80
 newline_style = "Unix"
 wrap_comments = true
+license_template_path = "HEADER_TEMPLATE"
