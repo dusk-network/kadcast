@@ -83,7 +83,8 @@ impl Marshallable for Message {
                 broadcast_payload.marshal_binary(writer)?;
             }
         };
-        Ok(writer.flush()?)
+        writer.flush()?;
+        Ok(())
     }
 
     fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self> {

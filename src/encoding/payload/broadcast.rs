@@ -4,7 +4,6 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::error::Error;
 use std::io::{self, Read, Write};
 
 use crate::encoding::Marshallable;

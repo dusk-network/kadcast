@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{error::Error, net::SocketAddr};
+use std::{collections::HashMap, error::Error, net::SocketAddr};
 
 use tokio::{
     io,
@@ -16,13 +16,14 @@ use tracing::*;
 use crate::{
     encoding::{message::Message, Marshallable},
     peer::PeerNode,
-    transport::encoding::{Encoder, RaptorQEncoder},
-    MAX_DATAGRAM_SIZE,
+    transport::encoding::{
+        Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
+    },
 };
-
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
 pub(crate) type MessageBeanIn = (Message, SocketAddr);
 
+const MAX_DATAGRAM_SIZE: usize = 65_507;
 pub(crate) struct WireNetwork {}
 
 mod encoding;
@@ -32,22 +33,27 @@ impl WireNetwork {
         inbound_channel_tx: Sender<MessageBeanIn>,
         listen_address: String,
         outbound_channel_rx: Receiver<MessageBeanOut>,
+        conf: HashMap<String, String>,
     ) {
         let listen_address = listen_address
             .parse()
             .expect("Unable to parse public_ip address");
-        let a = WireNetwork::listen_out(outbound_channel_rx);
-        let b =
-            WireNetwork::listen_in(listen_address, inbound_channel_tx.clone());
+        let a = WireNetwork::listen_out(outbound_channel_rx, &conf);
+        let b = WireNetwork::listen_in(
+            listen_address,
+            inbound_channel_tx.clone(),
+            &conf,
+        );
         let _ = tokio::join!(a, b);
     }
 
     async fn listen_in(
         listen_address: SocketAddr,
         inbound_channel_tx: Sender<MessageBeanIn>,
+        conf: &HashMap<String, String>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
-        let mut decoder = RaptorQEncoder::new();
+        let mut decoder = TransportDecoder::configure(conf);
         let socket = UdpSocket::bind(listen_address)
             .await
             .expect("Unable to bind address");
@@ -67,7 +73,7 @@ impl WireNetwork {
                         );
                         match valid_header {
                             true => {
-                                let _ = inbound_channel_tx
+                                inbound_channel_tx
                                     .send((message, remote_address))
                                     .await
                                     .unwrap_or_else(
@@ -91,19 +97,23 @@ impl WireNetwork {
 
     async fn listen_out(
         mut outbound_channel_rx: Receiver<MessageBeanOut>,
+        conf: &HashMap<String, String>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
         let output_sockets = MultipleSocket::new().await?;
+        let encoder = TransportEncoder::configure(conf);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
                 trace!("< Message to send to ({:?}) - {:?} ", to, message);
-                for chunk in RaptorQEncoder::encode(message).iter() {
+                for chunk in encoder.encode(message).iter() {
                     let bytes = chunk.bytes();
                     for remote_addr in to.iter() {
-                        let _ = output_sockets
+                        output_sockets
                             .send(&bytes, remote_addr)
                             .await
-                            .map_err(|e| warn!("Unable to send msg {}", e));
+                            .unwrap_or_else(|e| {
+                                warn!("Unable to send msg {}", e)
+                            });
                     }
                 }
             }
@@ -133,4 +143,10 @@ impl MultipleSocket {
         };
         Ok(())
     }
+}
+
+pub fn default_configuration() -> HashMap<String, String> {
+    let mut conf = TransportEncoder::default_configuration();
+    conf.extend(TransportDecoder::default_configuration());
+    conf
 }
