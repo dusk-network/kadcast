@@ -112,6 +112,7 @@ impl WireNetwork {
         let encoder = TransportEncoder::configure(conf);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
+                trace!("< Message to send to ({:?}) - {:?} ", to, message);
                 let chunks: Vec<Vec<u8>> =
                     encoder.encode(message).iter().map(|m| m.bytes()).collect();
                 for remote_addr in to.iter() {

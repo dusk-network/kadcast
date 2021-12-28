@@ -36,16 +36,15 @@ impl BroadcastPayload {
     }
 }
 impl<'a> ChunkedPayload<'a> {
-    fn uid(&self) -> [u8; 32] {
-        let mut uid: [u8; 32] = Default::default();
-        uid.copy_from_slice(&self.0.gossip_frame[0..32]);
-        uid
+    fn uid(&self) -> &[u8] {
+        &self.0.gossip_frame[0..32]
     }
 
     fn transmission_info(&self) -> ObjectTransmissionInformation {
-        let mut transmission_info: [u8; 12] = Default::default();
-        transmission_info.copy_from_slice(&self.0.gossip_frame[32..44]);
-        ObjectTransmissionInformation::deserialize(&transmission_info)
+        let slice = &self.0.gossip_frame[32..44];
+        let transmission_info: &[u8; 12] =
+            slice.try_into().expect("slice with incorrect length");
+        ObjectTransmissionInformation::deserialize(transmission_info)
     }
 
     fn encoded_chunk(&self) -> &[u8] {
@@ -72,5 +71,53 @@ impl<'a> ChunkedPayload<'a> {
             .as_slice()
             .try_into()
             .expect("Wrong length")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use std::collections::HashMap;
+
+    use crate::{
+        encoding::{message::Message, payload::BroadcastPayload},
+        peer::PeerNode,
+        transport::encoding::{
+            Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
+        },
+    };
+
+    #[test]
+    fn test_encode() {
+        let mut data: Vec<u8> = vec![0; 10_000];
+        for i in 0..data.len() {
+            data[i] = rand::Rng::gen(&mut rand::thread_rng());
+        }
+        let peer = PeerNode::from_address("192.168.0.1:666");
+        let header = peer.as_header();
+        let payload = BroadcastPayload {
+            height: 255,
+            gossip_frame: data,
+        };
+        println!("orig payload len {}", payload.bytes().len());
+        let message = Message::Broadcast(header, payload);
+        let message_bytes = message.bytes();
+        println!("orig message len {}", message_bytes.len());
+        let encoder = TransportEncoder::configure(&HashMap::new());
+        let chunks = encoder.encode(message);
+        println!("encoded chunks {}", chunks.len());
+
+        let mut decoder = TransportDecoder::configure(&HashMap::new());
+        let mut decoded = None;
+        let mut i = 0;
+        for chunk in chunks {
+            i = i + 1;
+            if let Some(d) = decoder.decode(chunk) {
+                decoded = Some(d);
+                println!("Decoder after {} messages ", i);
+                break;
+            }
+        }
+        assert_eq!(decoded.unwrap().bytes(), message_bytes, "Unable to decode");
     }
 }
