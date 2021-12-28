@@ -34,6 +34,7 @@ const K_ID_LEN_BYTES: usize = 16;
 const K_NONCE_LEN: usize = 4;
 const K_DIFF_MIN_BIT: usize = 8;
 const K_DIFF_PRODUCED_BIT: usize = 8;
+const DEFAULT_CHANNEL_SIZE: usize = 100;
 
 const fn get_k_k() -> usize {
     match option_env!("KADCAST_K") {
@@ -80,13 +81,18 @@ impl Peer {
         listen_address: String,
         bootstrapping_nodes: Vec<String>,
         auto_propagate: bool,
+        recursive_discovery: bool,
+        channel_size: usize,
         listener: L,
         tree: Tree<PeerInfo>,
         transport_conf: HashMap<String, String>,
     ) -> Self {
-        let (inbound_channel_tx, inbound_channel_rx) = mpsc::channel(32);
-        let (outbound_channel_tx, outbound_channel_rx) = mpsc::channel(32);
-        let (notification_channel_tx, listener_channel_rx) = mpsc::channel(32);
+        let (inbound_channel_tx, inbound_channel_rx) =
+            mpsc::channel(channel_size);
+        let (outbound_channel_tx, outbound_channel_rx) =
+            mpsc::channel(channel_size);
+        let (notification_channel_tx, listener_channel_rx) =
+            mpsc::channel(channel_size);
 
         let table = Arc::new(RwLock::new(tree));
         let peer = Peer {
@@ -99,13 +105,14 @@ impl Peer {
             outbound_channel_tx.clone(),
             notification_channel_tx,
             auto_propagate,
+            recursive_discovery,
         );
-        tokio::spawn(WireNetwork::start(
+        WireNetwork::start(
             inbound_channel_tx,
             listen_address,
             outbound_channel_rx,
             transport_conf,
-        ));
+        );
         tokio::spawn(TableMantainer::start(
             bootstrapping_nodes,
             table,
@@ -230,6 +237,8 @@ pub struct PeerBuilder<L: NetworkListen + 'static> {
     bootstrapping_nodes: Vec<String>,
     listener: L,
     transport_conf: HashMap<String, String>,
+    channel_size: usize,
+    recursive_discovery: bool,
 }
 
 impl<L: NetworkListen + 'static> PeerBuilder<L> {
@@ -288,6 +297,21 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
         self
     }
 
+    /// Default value [DEFAULT_CHANNEL_SIZE]
+    pub fn with_channel_size(mut self, channel_size: usize) -> PeerBuilder<L> {
+        self.channel_size = channel_size;
+        self
+    }
+
+    /// Default value true
+    pub fn with_recursive_discovery(
+        mut self,
+        recursive_discovery: bool,
+    ) -> PeerBuilder<L> {
+        self.recursive_discovery = recursive_discovery;
+        self
+    }
+
     fn new(
         public_address: String,
         bootstrapping_nodes: Vec<String>,
@@ -305,6 +329,8 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
             auto_propagate: ENABLE_BROADCAST_PROPAGATION,
             transport_conf: transport::default_configuration(),
+            channel_size: DEFAULT_CHANNEL_SIZE,
+            recursive_discovery: true,
         }
     }
 
@@ -320,6 +346,8 @@ impl<L: NetworkListen + 'static> PeerBuilder<L> {
             self.listen_address.unwrap_or(self.public_address),
             self.bootstrapping_nodes,
             self.auto_propagate,
+            self.recursive_discovery,
+            self.channel_size,
             self.listener,
             tree,
             self.transport_conf,
