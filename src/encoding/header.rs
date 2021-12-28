@@ -4,12 +4,11 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::error::Error;
-use std::io::{Read, Write};
+use std::io::{self, Error, ErrorKind, Read, Write};
 
 use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
 
-use super::{error::EncodingError, Marshallable};
+use super::Marshallable;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Header {
     pub(crate) binary_id: BinaryID,
@@ -18,12 +17,9 @@ pub struct Header {
 }
 
 impl Marshallable for Header {
-    fn marshal_binary<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         if !self.binary_id.verify_nonce() {
-            return Err(Box::new(EncodingError::new("Invalid Nonce")));
+            return Err(Error::new(ErrorKind::Other, "Invalid Nonce"));
         }
         writer.write_all(self.binary_id.as_binary())?;
         writer.write_all(self.binary_id.nonce())?;
@@ -32,7 +28,7 @@ impl Marshallable for Header {
         Ok(())
     }
 
-    fn unmarshal_binary<R: Read>(reader: &mut R) -> Result<Self, Box<dyn Error>>
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
     {
@@ -42,7 +38,7 @@ impl Marshallable for Header {
         reader.read_exact(&mut nonce)?;
         let binary_id = BinaryID::from_nonce(id, nonce);
         if !binary_id.verify_nonce() {
-            return Err(Box::new(EncodingError::new("Invalid Nonce")));
+            return Err(Error::new(ErrorKind::Other, "Invalid Nonce"));
         }
 
         let mut port_buffer = [0; 2];

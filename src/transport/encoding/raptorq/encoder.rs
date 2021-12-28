@@ -11,44 +11,41 @@ use crate::encoding::{message::Message, payload::BroadcastPayload};
 
 use super::super::Configurable;
 
-const DEFAULT_REPAIR_PACKETS_PER_BLOCK: u32 = 15;
-const DEFAULT_MAX_CHUNK_SIZE: u16 = 1024;
+const DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK: u32 = 5;
+const DEFAULT_MTU: u16 = 1400;
 
 use raptorq::Encoder as ExtEncoder;
 
 pub(crate) struct RaptorQEncoder {
-    repair_packets_per_block: u32,
-    max_chunk_size: u16,
+    min_repair_packets_per_block: u32,
+    mtu: u16,
 }
 
 impl Configurable for RaptorQEncoder {
     fn configure(conf: &HashMap<String, String>) -> Self {
-        let repair_packets_per_block = conf
-            .get("repair_packets_per_block")
+        let min_repair_packets_per_block = conf
+            .get("min_repair_packets_per_block")
             .map(|s| s.parse().ok())
             .flatten()
-            .unwrap_or(DEFAULT_REPAIR_PACKETS_PER_BLOCK);
+            .unwrap_or(DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK);
 
-        let max_chunk_size = conf
-            .get("max_chunk_size")
+        let mtu = conf
+            .get("mtu")
             .map(|s| s.parse().ok())
             .flatten()
-            .unwrap_or(DEFAULT_MAX_CHUNK_SIZE);
+            .unwrap_or(DEFAULT_MTU);
         Self {
-            repair_packets_per_block,
-            max_chunk_size,
+            min_repair_packets_per_block,
+            mtu,
         }
     }
     fn default_configuration() -> HashMap<String, String> {
         let mut conf = HashMap::new();
         conf.insert(
-            "repair_packets_per_block".to_string(),
-            DEFAULT_REPAIR_PACKETS_PER_BLOCK.to_string(),
+            "min_repair_packets_per_block".to_string(),
+            DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK.to_string(),
         );
-        conf.insert(
-            "max_chunk_size".to_string(),
-            DEFAULT_MAX_CHUNK_SIZE.to_string(),
-        );
+        conf.insert("mtu".to_string(), DEFAULT_MTU.to_string());
         conf
     }
 }
@@ -57,12 +54,17 @@ impl Encoder for RaptorQEncoder {
     fn encode<'msg>(&self, msg: Message) -> Vec<Message> {
         if let Message::Broadcast(header, payload) = msg {
             let uid = payload.generate_uid();
-            let encoder = ExtEncoder::with_defaults(
-                &payload.gossip_frame,
-                self.max_chunk_size,
-            );
+            let encoder =
+                ExtEncoder::with_defaults(&payload.gossip_frame, self.mtu);
+            let mut repair_packets = (payload.gossip_frame.len() * 10
+                / (self.mtu as usize)
+                / 100) as u32;
+            if repair_packets < self.min_repair_packets_per_block {
+                repair_packets = self.min_repair_packets_per_block
+            }
+
             encoder
-                .get_encoded_packets(self.repair_packets_per_block)
+                .get_encoded_packets(repair_packets)
                 .iter()
                 .map(|encoded_packet| {
                     let mut packet_with_uid = uid.to_vec();

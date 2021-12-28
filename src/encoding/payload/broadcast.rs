@@ -4,8 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::error::Error;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 
 use crate::encoding::Marshallable;
 #[derive(Debug, PartialEq)]
@@ -15,19 +14,14 @@ pub(crate) struct BroadcastPayload {
 }
 
 impl Marshallable for BroadcastPayload {
-    fn marshal_binary<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), Box<dyn Error>> {
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_all(&[self.height])?;
         let len = self.gossip_frame.len() as u32;
         writer.write_all(&len.to_le_bytes())?;
         writer.write_all(&self.gossip_frame)?;
         Ok(())
     }
-    fn unmarshal_binary<R: Read>(
-        reader: &mut R,
-    ) -> Result<BroadcastPayload, Box<dyn Error>> {
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self> {
         let mut height_buf = [0; 1];
         reader.read_exact(&mut height_buf)?;
         let mut gossip_length_buf = [0; 4];

@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 use tracing::*;
 
 use crate::encoding::message::{BroadcastPayload, Message, NodePayload};
-use crate::kbucket::Tree;
+use crate::kbucket::{NodeInsertError, Tree};
 use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
 use crate::K_K;
@@ -55,18 +55,32 @@ impl MessageHandler {
                 let remote_node = PeerNode::from_socket(remote_node_addr);
                 let my_header = ktable.read().await.root().as_header();
                 match ktable.write().await.insert(remote_node) {
-                    Err(_) => {
-                        error!("Unable to insert node");
+                    Err(e) => {
+                        match e {
+                            NodeInsertError::Full(n) => {
+                                info!(
+                                    "Unable to insert node - FULL {}",
+                                    n.value().address()
+                                )
+                            }
+                            NodeInsertError::Invalid(n) => {
+                                error!(
+                                    "Unable to insert node - INVALID {}",
+                                    n.value().address()
+                                )
+                            }
+                        }
                         continue;
                     }
                     Ok(result) => {
                         debug!("Written node in ktable: {:?}", &result);
                         if let Some(pending) = result.pending_eviction() {
                             outbound_sender
-                                .try_send((
+                                .send((
                                     Message::Ping(my_header),
                                     vec![*pending.value().address()],
                                 ))
+                                .await
                                 .unwrap_or_else(|op| {
                                     error!("Unable to send PING to pending node {:?}", op)
                                 });
@@ -76,10 +90,11 @@ impl MessageHandler {
                 match message {
                     Message::Ping(_) => {
                         outbound_sender
-                            .try_send((
+                            .send((
                                 Message::Pong(my_header),
                                 vec![remote_node_addr],
                             ))
+                            .await
                             .unwrap_or_else(|op| {
                                 error!("Unable to send Pong {:?}", op)
                             });
@@ -87,7 +102,7 @@ impl MessageHandler {
                     Message::Pong(_) => {}
                     Message::FindNodes(_, target) => {
                         outbound_sender
-                            .try_send((
+                            .send((
                                 Message::Nodes(
                                     my_header,
                                     NodePayload {
@@ -101,6 +116,7 @@ impl MessageHandler {
                                 ),
                                 vec![remote_node_addr],
                             ))
+                            .await
                             .unwrap_or_else(|op| {
                                 error!("Unable to send Nodes {:?}", op)
                             });
@@ -117,7 +133,8 @@ impl MessageHandler {
                                 .map(|n| n.to_socket_address())
                                 .collect();
                             outbound_sender
-                                .try_send((Message::Ping(my_header), targets))
+                                .send((Message::Ping(my_header), targets))
+                                .await
                                 .unwrap_or_else(|op| {
                                     error!("Unable to send PING {:?}", op)
                                 });
@@ -134,7 +151,7 @@ impl MessageHandler {
                         };
 
                         // Notify lib client
-                        listener_sender.try_send((msg, md)).unwrap_or_else(
+                        listener_sender.send((msg, md)).await.unwrap_or_else(
                             |op| error!("Unable to notify client {:?}", op),
                         );
                         if auto_propagate && payload.height > 0 {
@@ -144,9 +161,9 @@ impl MessageHandler {
                                 payload.height - 1
                             );
 
-                            table_read
+                            let messages = table_read
                                 .extract(Some((payload.height - 1).into()))
-                                .for_each(|(height, nodes)| {
+                                .map(|(height, nodes)| {
                                     let msg = Message::Broadcast(
                                         my_header,
                                         BroadcastPayload {
@@ -159,15 +176,20 @@ impl MessageHandler {
                                     let targets: Vec<SocketAddr> = nodes
                                         .map(|node| *node.value().address())
                                         .collect();
-                                    outbound_sender
-                                        .try_send((msg, targets))
-                                        .unwrap_or_else(|op| {
-                                            error!(
-                                                "Unable to send broadcast {:?}",
-                                                op
-                                            )
-                                        });
+                                    (msg, targets)
                                 });
+
+                            for tosend in messages {
+                                outbound_sender
+                                    .send(tosend)
+                                    .await
+                                    .unwrap_or_else(|op| {
+                                        error!(
+                                            "Unable to send broadcast {:?}",
+                                            op
+                                        )
+                                    });
+                            }
                         }
                     }
                 }

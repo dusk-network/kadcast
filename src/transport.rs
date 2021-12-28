@@ -19,12 +19,11 @@ use crate::{
     transport::encoding::{
         Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
     },
-    MAX_DATAGRAM_SIZE,
 };
-
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
 pub(crate) type MessageBeanIn = (Message, SocketAddr);
 
+const MAX_DATAGRAM_SIZE: usize = 65_507;
 pub(crate) struct WireNetwork {}
 
 mod encoding;
@@ -74,9 +73,12 @@ impl WireNetwork {
                         );
                         match valid_header {
                             true => {
-                                //FIX_ME: use send.await instead of try_send
-                                let _ = inbound_channel_tx
-                                    .try_send((message, remote_address));
+                                inbound_channel_tx
+                                    .send((message, remote_address))
+                                    .await
+                                    .unwrap_or_else(
+                                        |op| error!("Unable to send to inbound channel {:?}", op),
+                                    );
                             }
                             false => {
                                 error!(
@@ -98,6 +100,7 @@ impl WireNetwork {
         conf: &HashMap<String, String>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
+        let output_sockets = MultipleSocket::new().await?;
         let encoder = TransportEncoder::configure(conf);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
@@ -105,29 +108,39 @@ impl WireNetwork {
                 for chunk in encoder.encode(message).iter() {
                     let bytes = chunk.bytes();
                     for remote_addr in to.iter() {
-                        let _ = WireNetwork::send(&bytes, remote_addr)
+                        output_sockets
+                            .send(&bytes, remote_addr)
                             .await
-                            .map_err(|e| warn!("Unable to send msg {}", e));
+                            .unwrap_or_else(|e| {
+                                warn!("Unable to send msg {}", e)
+                            });
                     }
                 }
             }
         }
     }
+}
 
+struct MultipleSocket {
+    ipv4: UdpSocket,
+    ipv6: UdpSocket,
+}
+
+impl MultipleSocket {
+    async fn new() -> io::Result<Self> {
+        let ipv4 = UdpSocket::bind("0.0.0.0:0").await?;
+        let ipv6 = UdpSocket::bind("[::]:0").await?;
+        Ok(MultipleSocket { ipv4, ipv6 })
+    }
     async fn send(
+        &self,
         data: &[u8],
         remote_addr: &SocketAddr,
     ) -> Result<(), Box<dyn Error>> {
-        let local_addr: SocketAddr = if remote_addr.is_ipv4() {
-            "0.0.0.0:0"
-        } else {
-            "[::]:0"
-        }
-        .parse()?;
-        let socket = UdpSocket::bind(local_addr).await?;
-        // const MAX_DATAGRAM_SIZE: usize = 65_507;
-        socket.connect(&remote_addr).await?;
-        socket.send(data).await?;
+        match remote_addr.is_ipv4() {
+            true => self.ipv4.send_to(data, &remote_addr).await?,
+            false => self.ipv6.send_to(data, &remote_addr).await?,
+        };
         Ok(())
     }
 }

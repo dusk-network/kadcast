@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add network transport configuration [#72]
+- Add network transport configuration [#72] [#76]
 
 ## [0.2.0] - 16-12-21
 
@@ -46,3 +46,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#68]: https://github.com/dusk-network/kadcast/issues/68
 [#69]: https://github.com/dusk-network/kadcast/issues/69
 [#72]: https://github.com/dusk-network/kadcast/issues/72
+[#76]: https://github.com/dusk-network/kadcast/issues/76

@@ -4,22 +4,15 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::error::Error;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 
-pub mod error;
 mod header;
 pub mod message;
 pub(crate) mod payload;
 
 pub trait Marshallable {
-    fn marshal_binary<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), Box<dyn Error>>;
-    fn unmarshal_binary<R: Read>(
-        reader: &mut R,
-    ) -> Result<Self, Box<dyn Error>>
+    fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()>;
+    fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized;
 }
