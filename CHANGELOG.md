@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add network transport configuration [#72] [#76]
 - Add recursive NetworkDiscovery configuration [#78]
 - Add internal channel capacity configuration [#78]
+- 
+### Fixed
+
+- Deadlock in `RWLock.write()` [#80]
 
 ## [0.2.0] - 16-12-21
 
@@ -50,3 +54,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#72]: https://github.com/dusk-network/kadcast/issues/72
 [#76]: https://github.com/dusk-network/kadcast/issues/76
 [#78]: https://github.com/dusk-network/kadcast/issues/78
+[#78]: https://github.com/dusk-network/kadcast/issues/80
