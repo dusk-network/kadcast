@@ -56,35 +56,41 @@ impl MessageHandler {
         };
         tokio::spawn(async move {
             debug!("MessageHandler started");
+            let my_header = ktable.read().await.root().as_header();
             while let Some((message, mut remote_node_addr)) =
                 inbound_receiver.recv().await
             {
-                debug!("Mantainer received message {:?}", message);
+                debug!("Handler received message");
+                trace!("Handler received message {:?}", message);
                 remote_node_addr.set_port(message.header().sender_port);
                 let remote_node = PeerNode::from_socket(remote_node_addr);
-                let my_header = ktable.read().await.root().as_header();
-                match ktable.write().await.insert(remote_node) {
-                    Err(e) => {
-                        match e {
-                            NodeInsertError::Full(n) => {
-                                debug!(
-                                    "Unable to insert node - FULL {}",
-                                    n.value().address()
-                                )
+
+                {
+                    trace!("Before access to writer");
+                    let mut writer = ktable.clone().write_owned().await;
+                    trace!("After access to writer");
+                    match writer.insert(remote_node) {
+                        Err(e) => {
+                            match e {
+                                NodeInsertError::Full(n) => {
+                                    debug!(
+                                        "Unable to insert node - FULL {}",
+                                        n.value().address()
+                                    )
+                                }
+                                NodeInsertError::Invalid(n) => {
+                                    error!(
+                                        "Unable to insert node - INVALID {}",
+                                        n.value().address()
+                                    )
+                                }
                             }
-                            NodeInsertError::Invalid(n) => {
-                                error!(
-                                    "Unable to insert node - INVALID {}",
-                                    n.value().address()
-                                )
-                            }
+                            continue;
                         }
-                        continue;
-                    }
-                    Ok(result) => {
-                        debug!("Written node in ktable: {:?}", &result);
-                        if let Some(pending) = result.pending_eviction() {
-                            outbound_sender
+                        Ok(result) => {
+                            debug!("Written node in ktable: {:?}", &result);
+                            if let Some(pending) = result.pending_eviction() {
+                                outbound_sender
                                 .send((
                                     Message::Ping(my_header),
                                     vec![*pending.value().address()],
@@ -93,6 +99,7 @@ impl MessageHandler {
                                 .unwrap_or_else(|op| {
                                     error!("Unable to send PING to pending node {:?}", op)
                                 });
+                            }
                         }
                     }
                 }

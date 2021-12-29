@@ -17,7 +17,7 @@ use peer::{PeerInfo, PeerNode};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::RwLock;
 use tokio::task;
-use tracing::info;
+use tracing::{debug, error, info};
 use transport::{MessageBeanOut, WireNetwork};
 
 mod encoding;
@@ -165,11 +165,14 @@ impl Peer {
     /// system. It **does not guarantee** the message will be broadcasted
     pub async fn broadcast(&self, message: &[u8], height: Option<usize>) {
         if message.is_empty() {
+            error!("Message empty");
             return;
         }
+
+        let header = { self.ktable.read().await.root().as_header() };
         for (h, nodes) in self.ktable.read().await.extract(height) {
             let msg = Message::Broadcast(
-                self.ktable.read().await.root().as_header(),
+                header,
                 BroadcastPayload {
                     height: h.try_into().unwrap(),
                     gossip_frame: message.to_vec(), //FIX_ME: avoid clone
@@ -177,7 +180,12 @@ impl Peer {
             );
             let targets: Vec<SocketAddr> =
                 nodes.map(|node| *node.value().address()).collect();
-            let _ = self.outbound_sender.send((msg, targets)).await;
+            self.outbound_sender
+                .send((msg, targets))
+                .await
+                .unwrap_or_else(|e| {
+                    error!("Unable to send from broadcast {}", e)
+                });
         }
     }
 
