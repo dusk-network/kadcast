@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add network transport configuration [#72] [#76]
 - Add recursive NetworkDiscovery configuration [#78]
 - Add internal channel capacity configuration [#78]
-- 
+- Add configurable FEC redundancy [#82]
+- Add configurable UDP send interval [#83]
+
 ### Fixed
 
 - Deadlock in `RWLock.write()` [#80]
@@ -54,4 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#72]: https://github.com/dusk-network/kadcast/issues/72
 [#76]: https://github.com/dusk-network/kadcast/issues/76
 [#78]: https://github.com/dusk-network/kadcast/issues/78
-[#78]: https://github.com/dusk-network/kadcast/issues/80
+[#80]: https://github.com/dusk-network/kadcast/issues/80
+[#82]: https://github.com/dusk-network/kadcast/issues/82
+[#83]: https://github.com/dusk-network/kadcast/issues/83

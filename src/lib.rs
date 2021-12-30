@@ -17,7 +17,7 @@ use peer::{PeerInfo, PeerNode};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::RwLock;
 use tokio::task;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 use transport::{MessageBeanOut, WireNetwork};
 
 mod encoding;
@@ -213,7 +213,12 @@ impl Peer {
             },
         );
         let targets = vec![target];
-        let _ = self.outbound_sender.send((msg, targets)).await;
+        self.outbound_sender
+            .send((msg, targets))
+            .await
+            .unwrap_or_else(|e| {
+                error!("Unable to send from send method {}", e)
+            });
     }
 
     /// Instantiate a [PeerBuilder].
