@@ -15,14 +15,8 @@ pub(super) struct MultipleOutSocket {
     udp_backoff_timeout: Option<Interval>,
 }
 
-impl Configurable for MultipleOutSocket {
-    fn configure(conf: &HashMap<String, String>) -> Self {
-        Runtime::new()
-            .unwrap()
-            .block_on(MultipleOutSocket::new(conf))
-            .unwrap()
-    }
-    fn default_configuration() -> HashMap<String, String> {
+impl MultipleOutSocket {
+    pub(crate) fn default_configuration() -> HashMap<String, String> {
         let mut conf = HashMap::new();
         conf.insert(
             "udp_backoff_timeout_micros".to_string(),
@@ -30,10 +24,9 @@ impl Configurable for MultipleOutSocket {
         );
         conf
     }
-}
-
-impl MultipleOutSocket {
-    async fn new(conf: &HashMap<String, String>) -> io::Result<Self> {
+    pub(crate) async fn configure(
+        conf: &HashMap<String, String>,
+    ) -> io::Result<Self> {
         let udp_backoff_timeout = {
             let micros = conf
                 .get("udp_backoff_timeout_micros")
@@ -54,6 +47,7 @@ impl MultipleOutSocket {
             udp_backoff_timeout,
         })
     }
+
     pub(super) async fn send(
         &mut self,
         data: &[u8],

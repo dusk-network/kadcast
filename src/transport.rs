@@ -120,7 +120,7 @@ impl WireNetwork {
         conf: &HashMap<String, String>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
-        let mut output_sockets = MultipleOutSocket::configure(conf);
+        let mut output_sockets = MultipleOutSocket::configure(conf).await?;
         let encoder = TransportEncoder::configure(conf);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
