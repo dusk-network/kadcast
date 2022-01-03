@@ -61,14 +61,14 @@ impl Configurable for RaptorQDecoder {
 }
 
 enum CacheStatus {
-    Receiving(ExtDecoder, Instant),
+    Receiving(ExtDecoder, Instant, u8),
     Processed(Instant),
 }
 
 impl CacheStatus {
     fn expired(&self) -> bool {
         let expire_on = match self {
-            CacheStatus::Receiving(_, expire_on) => expire_on,
+            CacheStatus::Receiving(_, expire_on, _) => expire_on,
             CacheStatus::Processed(expire_on) => expire_on,
         };
         expire_on > &Instant::now()
@@ -93,6 +93,7 @@ impl Decoder for RaptorQDecoder {
                     v.insert(CacheStatus::Receiving(
                         ExtDecoder::new(chunked.transmission_info()),
                         Instant::now() + self.cache_ttl,
+                        payload.height,
                     ))
                 }
             };
@@ -100,37 +101,52 @@ impl Decoder for RaptorQDecoder {
             let decoded = match status {
                 // Avoid to repropagate already processed messages
                 CacheStatus::Processed(_) => None,
-                CacheStatus::Receiving(decoder, _) => decoder
-                    .decode(EncodingPacket::deserialize(
-                        chunked.encoded_chunk(),
-                    ))
-                    // If decoded successfully, create the new BroadcastMessage
-                    .and_then(|decoded| {
-                        let payload = BroadcastPayload {
-                            height: payload.height,
-                            gossip_frame: decoded,
-                        };
-                        // Perform sanity check
-                        match chunked.uid() == payload.generate_uid() {
-                            true => Some(Message::Broadcast(header, payload)),
-                            _ => {
-                                warn!("Invalid message decoded");
-                                None
+                CacheStatus::Receiving(decoder, _, max_height) => {
+                    // Depending on Beta replication, we can receive chunks of
+                    // the same message from multiple peers.
+                    // Those peers can send with different broadcast height.
+                    // If those heights differs, we should check the highest one
+                    // in order to preserve the propagation
+                    if payload.height > *max_height {
+                        *max_height = payload.height;
+                    }
+
+                    decoder
+                        .decode(EncodingPacket::deserialize(
+                            chunked.encoded_chunk(),
+                        ))
+                        // If decoded successfully, create the new
+                        // BroadcastMessage
+                        .and_then(|decoded| {
+                            let payload = BroadcastPayload {
+                                height: *max_height,
+                                gossip_frame: decoded,
+                            };
+                            // Perform sanity check
+                            match chunked.uid() == payload.generate_uid() {
+                                true => {
+                                    Some(Message::Broadcast(header, payload))
+                                }
+                                _ => {
+                                    warn!("Invalid message decoded");
+                                    None
+                                }
                             }
-                        }
-                    })
-                    // If the message is succesfully decoded, update the cache
-                    // with new status. This will drop useless Decoder and avoid
-                    // to propagate already processed messages
-                    .map(|decoded| {
-                        self.cache.insert(
-                            uid,
-                            CacheStatus::Processed(
-                                Instant::now() + self.cache_ttl,
-                            ),
-                        );
-                        decoded
-                    }),
+                        })
+                        // If the message is succesfully decoded, update the
+                        // cache with new status. This
+                        // will drop useless Decoder and avoid
+                        // to propagate already processed messages
+                        .map(|decoded| {
+                            self.cache.insert(
+                                uid,
+                                CacheStatus::Processed(
+                                    Instant::now() + self.cache_ttl,
+                                ),
+                            );
+                            decoded
+                        })
+                }
             };
             // Every X time, prune dupemap cache
             if self.last_pruned.elapsed() > self.cache_prune_every {

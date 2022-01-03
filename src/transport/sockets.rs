@@ -9,10 +9,13 @@ use tokio::time::Interval;
 use super::*;
 
 const DEFAULT_BACKOFF_MICROS: u64 = 0;
+const DEFAULT_RETRY_COUNT: u8 = 3;
+const MIN_RETRY_COUNT: u8 = 1;
 pub(super) struct MultipleOutSocket {
     ipv4: UdpSocket,
     ipv6: UdpSocket,
     udp_backoff_timeout: Option<Interval>,
+    retry_count: u8,
 }
 
 impl MultipleOutSocket {
@@ -21,6 +24,10 @@ impl MultipleOutSocket {
         conf.insert(
             "udp_backoff_timeout_micros".to_string(),
             DEFAULT_BACKOFF_MICROS.to_string(),
+        );
+        conf.insert(
+            "udp_send_retry".to_string(),
+            DEFAULT_RETRY_COUNT.to_string(),
         );
         conf
     }
@@ -38,6 +45,17 @@ impl MultipleOutSocket {
                 _ => None,
             }
         };
+        let retry_count = {
+            let retry = conf
+                .get("udp_send_retry")
+                .map(|s| s.parse().ok())
+                .flatten()
+                .unwrap_or(DEFAULT_RETRY_COUNT);
+            match retry > MIN_RETRY_COUNT {
+                true => retry,
+                _ => MIN_RETRY_COUNT,
+            }
+        };
 
         let ipv4 = UdpSocket::bind("0.0.0.0:0").await?;
         let ipv6 = UdpSocket::bind("[::]:0").await?;
@@ -45,6 +63,7 @@ impl MultipleOutSocket {
             ipv4,
             ipv6,
             udp_backoff_timeout,
+            retry_count,
         })
     }
 
@@ -52,14 +71,38 @@ impl MultipleOutSocket {
         &mut self,
         data: &[u8],
         remote_addr: &SocketAddr,
-    ) -> Result<(), Box<dyn Error>> {
-        if let Some(sleep) = &mut self.udp_backoff_timeout {
-            sleep.tick().await;
+    ) -> io::Result<()> {
+        for i in 0..self.retry_count {
+            if let Some(sleep) = &mut self.udp_backoff_timeout {
+                sleep.tick().await;
+            }
+            let res = match remote_addr.is_ipv4() {
+                true => self.ipv4.send_to(data, &remote_addr).await,
+                false => self.ipv6.send_to(data, &remote_addr).await,
+            };
+            match res {
+                Ok(_) => {
+                    if i > 0 {
+                        info!("Message sent, recovered from previous error");
+                    }
+                    return Ok(());
+                }
+                Err(e) => {
+                    if i < (self.retry_count - 1) {
+                        warn!(
+                            "Unable to send msg, temptative {}/{} - {}",
+                            i + 1,
+                            self.retry_count,
+                            e
+                        )
+                    } else {
+                        return Err(e);
+                    }
+                }
+            }
         }
-        match remote_addr.is_ipv4() {
-            true => self.ipv4.send_to(data, &remote_addr).await?,
-            false => self.ipv6.send_to(data, &remote_addr).await?,
-        };
-        Ok(())
+        unreachable!()
+        // Err(e)=>
+        // Ok(())
     }
 }

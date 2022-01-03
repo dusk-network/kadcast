@@ -69,10 +69,10 @@ mod tests {
         for i in 0..data.len() {
             data[i] = rand::Rng::gen(&mut rand::thread_rng());
         }
-
-        for (i, p) in peers.iter() {
+        for i in 1..NODES {
+            // for (i, p) in peers.iter() {
             info!("ROUTING TABLE PEER #{}", i);
-            p.report().await;
+            peers.get(&i).unwrap().report().await;
             info!("----------------------");
         }
 
@@ -90,11 +90,19 @@ mod tests {
         mut rx: mpsc::Receiver<(usize, (Vec<u8>, SocketAddr, u8))>,
         expected: i32,
     ) {
+        let mut missing = HashMap::new();
+        for i in (BASE_PORT + 1)..(BASE_PORT + expected) {
+            missing.insert(i, i);
+        }
         let mut i = 0;
-        while i < expected {
-            if let Some(v) = rx.recv().await {
+        while !missing.is_empty() {
+            if let Some((receiver_port, message)) = rx.recv().await {
                 i = i + 1;
-                info!("RECEIVER PORT: {} - Message N° {} got from {:?}", v.0, i, v.1.1);
+                missing.remove(&(receiver_port as i32));
+                info!(
+                    "RECEIVER PORT: {} - Message N° {} got from {:?}",
+                    receiver_port, i, message.1
+                );
             }
         }
         info!("Received All {} messages", i);
@@ -105,9 +113,12 @@ mod tests {
         bootstrap: Vec<String>,
         grpc_sender: mpsc::Sender<(usize, (Vec<u8>, SocketAddr, u8))>,
     ) -> Peer {
-        let port =  BASE_PORT + i;
+        let port = BASE_PORT + i;
         let public_addr = format!("127.0.0.1:{}", port).to_string();
-        let listener = KadcastListener { grpc_sender, receiver_port: port as usize };
+        let listener = KadcastListener {
+            grpc_sender,
+            receiver_port: port as usize,
+        };
         let mut peer_builder = Peer::builder(public_addr, bootstrap, listener)
             // .with_listen_address(listen_addr)
             .with_node_ttl(Duration::from_millis(30_000))
@@ -144,9 +155,16 @@ mod tests {
         peer_builder
             .transport_conf()
             .insert("fec_redundancy".to_string(), "0.10".to_string());
+
+        //UDP conf
+
         peer_builder
             .transport_conf()
             .insert("udp_backoff_timeout_micros".to_string(), "1".to_string());
+        peer_builder
+            .transport_conf()
+            .insert("udp_send_retry".to_string(), "5".to_string());
+
         peer_builder.build()
     }
 
@@ -157,9 +175,11 @@ mod tests {
 
     impl NetworkListen for KadcastListener {
         fn on_message(&self, message: Vec<u8>, metadata: MessageInfo) {
-        
             self.grpc_sender
-                .try_send((self.receiver_port, (message, metadata.src(), metadata.height())))
+                .try_send((
+                    self.receiver_port,
+                    (message, metadata.src(), metadata.height()),
+                ))
                 .unwrap_or_else(|e| {
                     warn!("Error sending to listener {}", e);
                 });
