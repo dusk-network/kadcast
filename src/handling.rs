@@ -82,10 +82,10 @@ impl MessageHandler {
                                     error!(
                                         "Unable to insert node - INVALID {}",
                                         n.value().address()
-                                    )
+                                    );
+                                    continue;
                                 }
                             }
-                            continue;
                         }
                         Ok(result) => {
                             debug!("Written node in ktable: {:?}", &result);
