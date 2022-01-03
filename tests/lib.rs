@@ -28,7 +28,7 @@ mod tests {
         println!("{:?}", server);
     }
 
-    const NODES: i32 = 100;
+    const NODES: i32 = 20;
     const BASE_PORT: i32 = 20000;
     const BOOTSTRAP_COUNT: i32 = 2;
     const WAIT_SEC: u64 = 20;
