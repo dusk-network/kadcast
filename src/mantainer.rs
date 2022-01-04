@@ -48,7 +48,7 @@ impl TableMantainer {
         outbound_sender: Sender<MessageBeanOut>,
     ) {
         debug!("TableMantainer::monitor_buckets started");
-        let idle_time: Duration = ktable.read().await.config.bucket_ttl;
+        let idle_time: Duration = { ktable.read().await.config.bucket_ttl };
         loop {
             tokio::time::sleep(idle_time).await;
             debug!("TableMantainer::monitor_buckets woke up");

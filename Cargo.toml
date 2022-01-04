@@ -1,9 +1,9 @@
 [package]
 name = "kadcast"
-version = "0.2.1"
 authors = [
   "herr-seppia <seppia@dusk.network>"
 ]
+version = "0.3.0-rc.0"
 edition = "2018"
 description ="Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]

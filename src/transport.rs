@@ -68,7 +68,11 @@ impl WireNetwork {
         info!("Listening on: {}", socket.local_addr()?);
         loop {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
-            let (_, remote_address) = socket.recv_from(&mut bytes).await?;
+            let (_, remote_address) =
+                socket.recv_from(&mut bytes).await.map_err(|e| {
+                    error!("Error receiving from socket {}", e);
+                    e
+                })?;
 
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
@@ -112,6 +116,7 @@ impl WireNetwork {
         let encoder = TransportEncoder::configure(conf);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
+                debug!("< Message to send");
                 trace!("< Message to send to ({:?}) - {:?} ", to, message);
                 let chunks: Vec<Vec<u8>> =
                     encoder.encode(message).iter().map(|m| m.bytes()).collect();
