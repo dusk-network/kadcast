@@ -4,20 +4,27 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{collections::HashMap, error::Error, net::SocketAddr};
+use std::{
+    collections::HashMap, error::Error, net::SocketAddr, time::Duration,
+};
 
 use tokio::{
     io,
     net::UdpSocket,
+    runtime::Runtime,
     sync::mpsc::{Receiver, Sender},
+    time::{self},
 };
 use tracing::*;
 
 use crate::{
     encoding::{message::Message, Marshallable},
     peer::PeerNode,
-    transport::encoding::{
-        Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
+    transport::{
+        encoding::{
+            Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
+        },
+        sockets::MultipleOutSocket,
     },
 };
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
@@ -27,6 +34,7 @@ const MAX_DATAGRAM_SIZE: usize = 65_507;
 pub(crate) struct WireNetwork {}
 
 mod encoding;
+mod sockets;
 
 impl WireNetwork {
     pub fn start(
@@ -112,7 +120,7 @@ impl WireNetwork {
         conf: &HashMap<String, String>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
-        let output_sockets = MultipleSocket::new().await?;
+        let mut output_sockets = MultipleOutSocket::configure(conf).await?;
         let encoder = TransportEncoder::configure(conf);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
@@ -135,32 +143,9 @@ impl WireNetwork {
     }
 }
 
-struct MultipleSocket {
-    ipv4: UdpSocket,
-    ipv6: UdpSocket,
-}
-
-impl MultipleSocket {
-    async fn new() -> io::Result<Self> {
-        let ipv4 = UdpSocket::bind("0.0.0.0:0").await?;
-        let ipv6 = UdpSocket::bind("[::]:0").await?;
-        Ok(MultipleSocket { ipv4, ipv6 })
-    }
-    async fn send(
-        &self,
-        data: &[u8],
-        remote_addr: &SocketAddr,
-    ) -> Result<(), Box<dyn Error>> {
-        match remote_addr.is_ipv4() {
-            true => self.ipv4.send_to(data, &remote_addr).await?,
-            false => self.ipv6.send_to(data, &remote_addr).await?,
-        };
-        Ok(())
-    }
-}
-
 pub fn default_configuration() -> HashMap<String, String> {
     let mut conf = TransportEncoder::default_configuration();
     conf.extend(TransportDecoder::default_configuration());
+    conf.extend(MultipleOutSocket::default_configuration());
     conf
 }
