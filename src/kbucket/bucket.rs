@@ -201,6 +201,14 @@ impl<V> Bucket<V> {
             self.nodes.truncate(idx)
         }
     }
+
+    pub(crate) fn has_node(&self, peer: &BinaryKey) -> bool {
+        self.nodes.iter().any(|n| n.id().as_binary() == peer)
+    }
+
+    pub(crate) fn is_full(&self) -> bool {
+        self.nodes.is_full()
+    }
 }
 
 #[cfg(test)]

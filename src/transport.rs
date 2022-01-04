@@ -29,7 +29,7 @@ pub(crate) struct WireNetwork {}
 mod encoding;
 
 impl WireNetwork {
-    pub async fn start(
+    pub fn start(
         inbound_channel_tx: Sender<MessageBeanIn>,
         listen_address: String,
         outbound_channel_rx: Receiver<MessageBeanOut>,
@@ -38,13 +38,21 @@ impl WireNetwork {
         let listen_address = listen_address
             .parse()
             .expect("Unable to parse public_ip address");
-        let a = WireNetwork::listen_out(outbound_channel_rx, &conf);
-        let b = WireNetwork::listen_in(
-            listen_address,
-            inbound_channel_tx.clone(),
-            &conf,
-        );
-        let _ = tokio::join!(a, b);
+        let c = conf.clone();
+        tokio::spawn(async move {
+            WireNetwork::listen_out(outbound_channel_rx, &c)
+                .await
+                .unwrap_or_else(|op| error!("Error in listen_out {:?}", op));
+        });
+        tokio::spawn(async move {
+            WireNetwork::listen_in(
+                listen_address,
+                inbound_channel_tx.clone(),
+                &conf,
+            )
+            .await
+            .unwrap_or_else(|op| error!("Error in listen_in {:?}", op));
+        });
     }
 
     async fn listen_in(
@@ -105,11 +113,12 @@ impl WireNetwork {
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
                 trace!("< Message to send to ({:?}) - {:?} ", to, message);
-                for chunk in encoder.encode(message).iter() {
-                    let bytes = chunk.bytes();
-                    for remote_addr in to.iter() {
+                let chunks: Vec<Vec<u8>> =
+                    encoder.encode(message).iter().map(|m| m.bytes()).collect();
+                for remote_addr in to.iter() {
+                    for chunk in &chunks {
                         output_sockets
-                            .send(&bytes, remote_addr)
+                            .send(chunk, remote_addr)
                             .await
                             .unwrap_or_else(|e| {
                                 warn!("Unable to send msg {}", e)

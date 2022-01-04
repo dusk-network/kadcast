@@ -64,6 +64,7 @@ impl TableMantainer {
                             root.as_header(),
                             *target.id().as_binary(),
                         ),
+                        //TODO: Extract alpha nodes
                         vec![*target.value().address()],
                     )
                 });

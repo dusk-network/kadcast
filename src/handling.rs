@@ -11,8 +11,10 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::RwLock;
 use tracing::*;
 
-use crate::encoding::message::{BroadcastPayload, Message, NodePayload};
-use crate::kbucket::{NodeInsertError, Tree};
+use crate::encoding::message::{
+    BroadcastPayload, Header, Message, NodePayload,
+};
+use crate::kbucket::{BinaryKey, NodeInsertError, Tree};
 use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
 use crate::K_K;
@@ -44,7 +46,14 @@ impl MessageHandler {
         outbound_sender: Sender<MessageBeanOut>,
         listener_sender: Sender<(Vec<u8>, MessageInfo)>,
         auto_propagate: bool,
+        recursive_discovery: bool,
     ) {
+        let nodes_reply_fn = match recursive_discovery {
+            true => |header: Header, target: BinaryKey| {
+                Message::FindNodes(header, target)
+            },
+            false => |header: Header, _: BinaryKey| Message::Ping(header),
+        };
         tokio::spawn(async move {
             debug!("MessageHandler started");
             while let Some((message, mut remote_node_addr)) =
@@ -58,7 +67,7 @@ impl MessageHandler {
                     Err(e) => {
                         match e {
                             NodeInsertError::Full(n) => {
-                                info!(
+                                debug!(
                                     "Unable to insert node - FULL {}",
                                     n.value().address()
                                 )
@@ -123,21 +132,43 @@ impl MessageHandler {
                     }
                     Message::Nodes(_, nodes) => {
                         if !nodes.peers.is_empty() {
-                            let targets = nodes
+                            let reader = ktable.read().await;
+                            let messages = nodes
                                 .peers
                                 .iter()
                                 //filter out my ID to avoid loopback
                                 .filter(|&n| {
                                     &n.id != my_header.binary_id.as_binary()
                                 })
-                                .map(|n| n.to_socket_address())
-                                .collect();
-                            outbound_sender
-                                .send((Message::Ping(my_header), targets))
-                                .await
-                                .unwrap_or_else(|op| {
-                                    error!("Unable to send PING {:?}", op)
-                                });
+                                .filter(|&n| {
+                                    let h = my_header
+                                        .binary_id
+                                        .calculate_distance(&n.id);
+                                    match h {
+                                        None => false,
+                                        Some(h) => {
+                                            if reader.is_bucket_full(h) {
+                                                return false;
+                                            };
+                                            reader.has_peer(&n.id).is_none()
+                                        }
+                                    }
+                                })
+                                .map(|n| {
+                                    (
+                                        //Message::FindNodes(my_header, n.id),
+                                        nodes_reply_fn(my_header, n.id),
+                                        vec![n.to_socket_address()],
+                                    )
+                                })
+                                .collect::<Vec<(Message, Vec<SocketAddr>)>>();
+                            for tosend in messages {
+                                outbound_sender.send(tosend).await.unwrap_or_else(
+                                    |op| {
+                                        error!( "Unable to send FindNodes after reply {:?}", op)
+                                    },
+                                );
+                            }
                         }
                     }
                     Message::Broadcast(_, payload) => {

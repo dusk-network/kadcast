@@ -119,6 +119,25 @@ impl<V> Tree<V> {
             .filter(move |(_, bucket)| bucket.is_idle())
             .map(|(&height, bucket)| (height, bucket.pick::<K_ALPHA>()))
     }
+
+    pub(crate) fn has_peer(&self, peer: &BinaryKey) -> Option<usize> {
+        match self.root.id().calculate_distance(peer) {
+            None => None,
+            Some(height) => self.buckets.get(&height).and_then(|bucket| {
+                if bucket.has_node(peer) {
+                    Some(height)
+                } else {
+                    None
+                }
+            }),
+        }
+    }
+
+    pub(crate) fn is_bucket_full(&self, height: usize) -> bool {
+        self.buckets
+            .get(&height)
+            .map_or(false, |bucket| bucket.is_full())
+    }
 }
 
 pub struct TreeBuilder<V> {
