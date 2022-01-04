@@ -70,23 +70,21 @@ impl MessageHandler {
                     let mut writer = ktable.clone().write_owned().await;
                     trace!("After access to writer");
                     match writer.insert(remote_node) {
-                        Err(e) => {
-                            match e {
-                                NodeInsertError::Full(n) => {
-                                    debug!(
-                                        "Unable to insert node - FULL {}",
-                                        n.value().address()
-                                    )
-                                }
-                                NodeInsertError::Invalid(n) => {
-                                    error!(
-                                        "Unable to insert node - INVALID {}",
-                                        n.value().address()
-                                    );
-                                    continue;
-                                }
+                        Err(e) => match e {
+                            NodeInsertError::Full(n) => {
+                                debug!(
+                                    "Unable to insert node - FULL {}",
+                                    n.value().address()
+                                )
                             }
-                        }
+                            NodeInsertError::Invalid(n) => {
+                                error!(
+                                    "Unable to insert node - INVALID {}",
+                                    n.value().address()
+                                );
+                                continue;
+                            }
+                        },
                         Ok(result) => {
                             debug!("Written node in ktable: {:?}", &result);
                             if let Some(pending) = result.pending_eviction() {

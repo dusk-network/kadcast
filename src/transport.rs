@@ -4,14 +4,11 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{
-    collections::HashMap, error::Error, net::SocketAddr, time::Duration,
-};
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
 use tokio::{
     io,
     net::UdpSocket,
-    runtime::Runtime,
     sync::mpsc::{Receiver, Sender},
     time::{self},
 };
@@ -134,7 +131,7 @@ impl WireNetwork {
                             .send(chunk, remote_addr)
                             .await
                             .unwrap_or_else(|e| {
-                                warn!("Unable to send msg {}", e)
+                                error!("Unable to send msg {}", e)
                             });
                     }
                 }
