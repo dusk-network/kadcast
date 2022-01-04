@@ -13,7 +13,11 @@ mod tests {
         time::Duration,
     };
 
-    use kadcast::{MessageInfo, NetworkListen, Peer};
+    use kadcast::{
+        MessageInfo, NetworkListen, Peer,
+        BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS, BUCKET_DEFAULT_NODE_TTL_MILLIS,
+        BUCKET_DEFAULT_TTL_SECS,
+    };
     use tokio::{sync::mpsc, time::timeout};
     use tracing::info;
     use tracing::warn;
@@ -34,8 +38,7 @@ mod tests {
     const WAIT_SEC: u64 = 20;
     const MESSAGE_SIZE: usize = 100_000;
 
-    // #[test]
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn harness_test() {
         // Generate a subscriber with the desired log level.
         let subscriber = tracing_subscriber::fmt::Subscriber::builder()
@@ -121,15 +124,19 @@ mod tests {
         };
         let mut peer_builder = Peer::builder(public_addr, bootstrap, listener)
             // .with_listen_address(listen_addr)
-            .with_node_ttl(Duration::from_millis(30_000))
-            .with_bucket_ttl(Duration::from_secs(60 * 60))
+            .with_node_ttl(Duration::from_millis(
+                BUCKET_DEFAULT_NODE_TTL_MILLIS,
+            ))
+            .with_bucket_ttl(Duration::from_secs(BUCKET_DEFAULT_TTL_SECS))
             .with_channel_size(100)
-            .with_node_evict_after(Duration::from_millis(5_000))
+            .with_node_evict_after(Duration::from_millis(
+                BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
+            ))
             .with_auto_propagate(true);
 
         // Disable recursive discovery in a local env
         // This should be set to `true` in a real env
-        peer_builder = peer_builder.with_recursive_discovery(false);
+        peer_builder = peer_builder.with_recursive_discovery(true);
 
         //this is unusefull, just to get the default conf
         peer_builder
@@ -151,19 +158,26 @@ mod tests {
         );
         peer_builder
             .transport_conf()
-            .insert("mtu".to_string(), "1350".to_string());
+            .insert("mtu".to_string(), "1400".to_string());
         peer_builder
             .transport_conf()
-            .insert("fec_redundancy".to_string(), "0.10".to_string());
+            .insert("fec_redundancy".to_string(), "0.15".to_string());
 
-        //UDP conf
+        // //UDP conf
 
         peer_builder
             .transport_conf()
-            .insert("udp_backoff_timeout_micros".to_string(), "1".to_string());
+            .insert("udp_backoff_timeout_micros".to_string(), "0".to_string());
         peer_builder
             .transport_conf()
-            .insert("udp_send_retry".to_string(), "5".to_string());
+            .insert("udp_recv_buffer_size".to_string(), "SYSTEM".to_string());
+        peer_builder
+            .transport_conf()
+            .insert("udp_send_retry_count".to_string(), "3".to_string());
+        peer_builder.transport_conf().insert(
+            "udp_send_retry_interval_millis".to_string(),
+            "5".to_string(),
+        );
 
         peer_builder.build()
     }

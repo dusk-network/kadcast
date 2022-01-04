@@ -6,6 +6,7 @@
 
 use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
+use socket2::SockRef;
 use tokio::{
     io,
     net::UdpSocket,
@@ -70,6 +71,7 @@ impl WireNetwork {
         let socket = UdpSocket::bind(listen_address)
             .await
             .expect("Unable to bind address");
+        WireNetwork::configure_socket(&socket, conf)?;
         info!("Listening on: {}", socket.local_addr()?);
         loop {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
@@ -138,11 +140,41 @@ impl WireNetwork {
             }
         }
     }
+
+    pub fn configure_socket(
+        socket: &UdpSocket,
+        conf: &HashMap<String, String>,
+    ) -> std::io::Result<()> {
+        if let Some(udp_recv_buffer_size) = conf
+            .get("udp_recv_buffer_size")
+            .map(|s| s.parse().ok())
+            .flatten()
+        {
+            let sock = SockRef::from(socket);
+            match sock.set_recv_buffer_size(udp_recv_buffer_size) {
+                Ok(_) => {
+                    info!("udp_recv_buffer is now {}", udp_recv_buffer_size)
+                }
+                Err(e) => {
+                    error!(
+                        "Error setting udp_recv_buffer to {} - {}",
+                        udp_recv_buffer_size, e
+                    );
+                    warn!(
+                        "udp_recv_buffer is still {}",
+                        sock.recv_buffer_size().unwrap_or(0)
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 pub fn default_configuration() -> HashMap<String, String> {
     let mut conf = TransportEncoder::default_configuration();
     conf.extend(TransportDecoder::default_configuration());
     conf.extend(MultipleOutSocket::default_configuration());
+    conf.insert("udp_recv_buffer_size".to_string(), "SYSTEM".to_string());
     conf
 }

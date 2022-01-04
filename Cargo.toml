@@ -3,7 +3,7 @@ name = "kadcast"
 authors = [
   "herr-seppia <seppia@dusk.network>"
 ]
-version = "0.3.0-rc.4"
+version = "0.3.0-rc.5"
 edition = "2018"
 description ="Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]
@@ -26,6 +26,7 @@ raptorq = "1.6"
 tracing = "0.1"
 itertools = "0.10"
 konst = "0.2"
+socket2 = "0.4"
 
 [dev-dependencies]
 clap = "2.33.3"
