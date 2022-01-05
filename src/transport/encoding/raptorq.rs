@@ -77,7 +77,7 @@ impl<'a> ChunkedPayload<'a> {
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashMap;
+    use std::{collections::HashMap, time::Instant};
 
     use crate::{
         encoding::{message::Message, payload::BroadcastPayload},
@@ -89,7 +89,12 @@ mod tests {
 
     #[test]
     fn test_encode() {
-        let mut data: Vec<u8> = vec![0; 10_000];
+        #[cfg(not(debug_assertions))]
+        let mut data: Vec<u8> = vec![0; 3_000_000];
+
+        #[cfg(debug_assertions)]
+        let mut data: Vec<u8> = vec![0; 100_000];
+
         for i in 0..data.len() {
             data[i] = rand::Rng::gen(&mut rand::thread_rng());
         }
@@ -103,21 +108,28 @@ mod tests {
         let message = Message::Broadcast(header, payload);
         let message_bytes = message.bytes();
         println!("orig message len {}", message_bytes.len());
-        let encoder = TransportEncoder::configure(&HashMap::new());
+        let start = Instant::now();
+        let encoder = TransportEncoder::configure(&HashMap::default());
         let chunks = encoder.encode(message);
+        println!("Encoded in: {:?}", start.elapsed());
         println!("encoded chunks {}", chunks.len());
-
-        let mut decoder = TransportDecoder::configure(&HashMap::new());
+        let start = Instant::now();
+        let mut decoder = TransportDecoder::configure(&HashMap::default());
         let mut decoded = None;
         let mut i = 0;
+        let mut sizetotal = 0;
         for chunk in chunks {
+            // println!("chunk {:?}", chunk);
             i = i + 1;
+            sizetotal += chunk.bytes().len();
             if let Some(d) = decoder.decode(chunk) {
                 decoded = Some(d);
                 println!("Decoder after {} messages ", i);
                 break;
             }
         }
+        println!("Decoded in: {:?}", start.elapsed());
+        println!("avg chunks size {}", sizetotal / i);
         assert_eq!(decoded.unwrap().bytes(), message_bytes, "Unable to decode");
     }
 }

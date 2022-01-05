@@ -14,10 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add internal channel capacity configuration [#78]
 - Add configurable FEC redundancy [#82]
 - Add configurable UDP send interval [#83]
+- Add UDP network tweak configuration [#86]
 
 ### Fixed
 
 - Deadlock in `RWLock.write()` [#80]
+- Preserve propagation in some edge-corner cases
+- Messages from buckets full are correctly handled 
 
 ## [0.2.0] - 16-12-21
 

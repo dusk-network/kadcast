@@ -56,7 +56,7 @@ impl MessageHandler {
         };
         tokio::spawn(async move {
             debug!("MessageHandler started");
-            let my_header = ktable.read().await.root().as_header();
+            let my_header = { ktable.read().await.root().as_header() };
             while let Some((message, mut remote_node_addr)) =
                 inbound_receiver.recv().await
             {
@@ -191,13 +191,13 @@ impl MessageHandler {
                             |op| error!("Unable to notify client {:?}", op),
                         );
                         if auto_propagate && payload.height > 0 {
-                            let table_read = ktable.read().await;
                             debug!(
                                 "Extracting for height {:?}",
                                 payload.height - 1
                             );
+                            let table_read = ktable.read().await;
 
-                            let messages = table_read
+                            let messages: Vec<(Message, Vec<SocketAddr>)> = table_read
                                 .extract(Some((payload.height - 1).into()))
                                 .map(|(height, nodes)| {
                                     let msg = Message::Broadcast(
@@ -213,7 +213,8 @@ impl MessageHandler {
                                         .map(|node| *node.value().address())
                                         .collect();
                                     (msg, targets)
-                                });
+                                }).collect();
+                            drop(table_read);
 
                             for tosend in messages {
                                 outbound_sender

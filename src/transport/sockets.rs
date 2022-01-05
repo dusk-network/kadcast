@@ -10,12 +10,14 @@ use super::*;
 
 const DEFAULT_BACKOFF_MICROS: u64 = 0;
 const DEFAULT_RETRY_COUNT: u8 = 3;
+const DEFAULT_RETRY_SLEEP_MILLIS: u64 = 5;
 const MIN_RETRY_COUNT: u8 = 1;
 pub(super) struct MultipleOutSocket {
     ipv4: UdpSocket,
     ipv6: UdpSocket,
     udp_backoff_timeout: Option<Interval>,
     retry_count: u8,
+    udp_send_retry_interval: Duration,
 }
 
 impl MultipleOutSocket {
@@ -26,8 +28,12 @@ impl MultipleOutSocket {
             DEFAULT_BACKOFF_MICROS.to_string(),
         );
         conf.insert(
-            "udp_send_retry".to_string(),
+            "udp_send_retry_count".to_string(),
             DEFAULT_RETRY_COUNT.to_string(),
+        );
+        conf.insert(
+            "udp_send_retry_interval_millis".to_string(),
+            DEFAULT_RETRY_SLEEP_MILLIS.to_string(),
         );
         conf
     }
@@ -45,9 +51,16 @@ impl MultipleOutSocket {
                 _ => None,
             }
         };
+
+        let udp_send_retry_interval = Duration::from_millis(
+            conf.get("udp_send_retry_interval_millis")
+                .map(|s| s.parse().ok())
+                .flatten()
+                .unwrap_or(DEFAULT_RETRY_SLEEP_MILLIS),
+        );
         let retry_count = {
             let retry = conf
-                .get("udp_send_retry")
+                .get("udp_send_retry_count")
                 .map(|s| s.parse().ok())
                 .flatten()
                 .unwrap_or(DEFAULT_RETRY_COUNT);
@@ -64,6 +77,7 @@ impl MultipleOutSocket {
             ipv6,
             udp_backoff_timeout,
             retry_count,
+            udp_send_retry_interval,
         })
     }
 
@@ -72,10 +86,10 @@ impl MultipleOutSocket {
         data: &[u8],
         remote_addr: &SocketAddr,
     ) -> io::Result<()> {
+        if let Some(sleep) = &mut self.udp_backoff_timeout {
+            sleep.tick().await;
+        }
         for i in 0..self.retry_count {
-            if let Some(sleep) = &mut self.udp_backoff_timeout {
-                sleep.tick().await;
-            }
             let res = match remote_addr.is_ipv4() {
                 true => self.ipv4.send_to(data, &remote_addr).await,
                 false => self.ipv6.send_to(data, &remote_addr).await,
@@ -94,7 +108,8 @@ impl MultipleOutSocket {
                             i + 1,
                             self.retry_count,
                             e
-                        )
+                        );
+                        tokio::time::sleep(self.udp_send_retry_interval).await
                     } else {
                         return Err(e);
                     }
