@@ -12,7 +12,7 @@ use crate::encoding::{message::Message, payload::BroadcastPayload};
 use super::super::Configurable;
 
 const DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK: u32 = 5;
-const DEFAULT_MTU: u16 = 1400;
+const DEFAULT_MTU: u16 = 1300;
 const DEFAULT_FEQ_REDUNDANCY: f32 = 0.15;
 
 use raptorq::Encoder as ExtEncoder;

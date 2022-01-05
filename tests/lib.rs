@@ -158,7 +158,7 @@ mod tests {
         );
         peer_builder
             .transport_conf()
-            .insert("mtu".to_string(), "1400".to_string());
+            .insert("mtu".to_string(), "1300".to_string());
         peer_builder
             .transport_conf()
             .insert("fec_redundancy".to_string(), "0.15".to_string());
