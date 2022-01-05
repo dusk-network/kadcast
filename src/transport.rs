@@ -10,7 +10,7 @@ use socket2::SockRef;
 use tokio::{
     io,
     net::UdpSocket,
-    sync::mpsc::{Receiver, Sender},
+    sync::mpsc::{self,Receiver, Sender},
     time::{self},
 };
 use tracing::*;
@@ -27,6 +27,7 @@ use crate::{
 };
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
 pub(crate) type MessageBeanIn = (Message, SocketAddr);
+pub(crate) type UDPChunk = ( Vec<u8>, SocketAddr);
 
 const MAX_DATAGRAM_SIZE: usize = 65_507;
 pub(crate) struct WireNetwork {}
@@ -40,6 +41,7 @@ impl WireNetwork {
         listen_address: String,
         outbound_channel_rx: Receiver<MessageBeanOut>,
         conf: HashMap<String, String>,
+        channel_size: usize,
     ) {
         let listen_address = listen_address
             .parse()
@@ -50,11 +52,25 @@ impl WireNetwork {
                 .await
                 .unwrap_or_else(|op| error!("Error in listen_out {:?}", op));
         });
+        
+
+        let (dec_chan_tx, dec_chan_rx) =
+        mpsc::channel(channel_size);
+
+        tokio::spawn(async move {
+            WireNetwork::decode(
+                inbound_channel_tx.clone(),
+                dec_chan_rx,
+                &conf,
+            )
+            .await
+            .unwrap_or_else(|op| error!("Error in decode {:?}", op));
+        });
+
         tokio::spawn(async move {
             WireNetwork::listen_in(
                 listen_address,
-                inbound_channel_tx.clone(),
-                &conf,
+                dec_chan_tx.clone(),
             )
             .await
             .unwrap_or_else(|op| error!("Error in listen_in {:?}", op));
@@ -63,53 +79,73 @@ impl WireNetwork {
 
     async fn listen_in(
         listen_address: SocketAddr,
-        inbound_channel_tx: Sender<MessageBeanIn>,
-        conf: &HashMap<String, String>,
+        dec_chan_tx: Sender<UDPChunk>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
-        let mut decoder = TransportDecoder::configure(conf);
+       
         let socket = UdpSocket::bind(listen_address)
             .await
             .expect("Unable to bind address");
-        WireNetwork::configure_socket(&socket, conf)?;
         info!("Listening on: {}", socket.local_addr()?);
+
+
+        // Read UDP socket recv buffer and delegate the processing to decode task
         loop {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
-            let (_, remote_address) =
+            let (len, remote_address) =
                 socket.recv_from(&mut bytes).await.map_err(|e| {
                     error!("Error receiving from socket {}", e);
                     e
                 })?;
 
-            match Message::unmarshal_binary(&mut &bytes[..]) {
-                Ok(deser) => {
-                    trace!("> Received {:?}", deser);
-                    let to_process = decoder.decode(deser);
-                    if let Some(message) = to_process {
-                        let valid_header = PeerNode::verify_header(
-                            message.header(),
-                            &remote_address.ip(),
-                        );
-                        match valid_header {
-                            true => {
-                                inbound_channel_tx
-                                    .send((message, remote_address))
-                                    .await
+                dec_chan_tx
+                                    .try_send((bytes[0..len].to_vec(), remote_address))
                                     .unwrap_or_else(
-                                        |op| error!("Unable to send to inbound channel {:?}", op),
+                                        |op| error!("Unable to send to dec_chan_tx channel {:?}", op),
                                     );
-                            }
-                            false => {
-                                error!(
-                                    "Invalid Id {:?} - {}",
-                                    message.header(),
-                                    &remote_address.ip()
-                                );
+        }
+    }
+
+    async fn decode(
+        inbound_channel_tx: Sender<MessageBeanIn>,
+        mut dec_chan_rx: Receiver<UDPChunk>,
+        conf: &HashMap<String, String>,
+    ) -> io::Result<()> {
+        debug!("WireNetwork::decode started");
+        let mut decoder = TransportDecoder::configure(conf);
+       
+        loop {
+            if let Some((message, remote_address)) = dec_chan_rx.recv().await {
+                match Message::unmarshal_binary(&mut &message[..]) {
+                    Ok(deser) => {
+                        trace!("> Received {:?}", deser);
+                        let to_process = decoder.decode(deser);
+                        if let Some(message) = to_process {
+                            let valid_header = PeerNode::verify_header(
+                                message.header(),
+                                &remote_address.ip(),
+                            );
+                            match valid_header {
+                                true => {
+                                    inbound_channel_tx
+                                        .send((message, remote_address))
+                                        .await
+                                        .unwrap_or_else(
+                                            |op| error!("Unable to send to inbound channel {:?}", op),
+                                        );
+                                }
+                                false => {
+                                    error!(
+                                        "Invalid Id {:?} - {}",
+                                        message.header(),
+                                        &remote_address.ip()
+                                    );
+                                }
                             }
                         }
                     }
+                    Err(e) => error!("Error deser from {:?} - {} - {}", message, remote_address, e),
                 }
-                Err(e) => error!("Error deser from {} - {}", remote_address, e),
             }
         }
     }

@@ -177,7 +177,7 @@ impl MessageHandler {
                         }
                     }
                     Message::Broadcast(_, payload) => {
-                        debug!("Received payload with height {:?}", payload);
+                        info!("Received payload with len {:?} and height {:?} v5-rc-0", payload.gossip_frame.len(), payload.height);
 
                         // Aggregate message + metadata for lib client
                         let msg = payload.gossip_frame.clone();
