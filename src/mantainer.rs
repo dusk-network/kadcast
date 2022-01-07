@@ -5,24 +5,23 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use std::net::ToSocketAddrs;
-use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::mpsc::Sender;
-use tokio::sync::RwLock;
 use tracing::*;
 
 use crate::encoding::message::Message;
 use crate::kbucket::Tree;
 use crate::peer::PeerInfo;
 use crate::transport::MessageBeanOut;
+use crate::RwLock;
 
 pub(crate) struct TableMantainer {}
 
 impl TableMantainer {
     pub async fn start(
         bootstrapping_nodes: Vec<String>,
-        ktable: Arc<RwLock<Tree<PeerInfo>>>,
+        ktable: RwLock<Tree<PeerInfo>>,
         outbound_sender: Sender<MessageBeanOut>,
     ) {
         let find_nodes = Message::FindNodes(
@@ -44,7 +43,7 @@ impl TableMantainer {
     }
 
     async fn monitor_buckets(
-        ktable: Arc<RwLock<Tree<PeerInfo>>>,
+        ktable: RwLock<Tree<PeerInfo>>,
         outbound_sender: Sender<MessageBeanOut>,
     ) {
         debug!("TableMantainer::monitor_buckets started");

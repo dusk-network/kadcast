@@ -61,9 +61,7 @@ impl PeerNode {
         x.try_into().expect("Wrong length")
     }
 
-    //TODO: demote me as pub(crate) so this method will be used internally by
-    // the protocol itself
-    pub fn as_header(&self) -> Header {
+    pub(crate) fn as_header(&self) -> Header {
         Header {
             binary_id: *self.id(),
             sender_port: self.value().address.port(),

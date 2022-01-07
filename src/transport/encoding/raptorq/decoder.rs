@@ -10,7 +10,7 @@ use std::{
     collections::HashMap,
     time::{Duration, Instant},
 };
-use tracing::warn;
+use tracing::{trace, warn};
 
 use crate::encoding::{message::Message, payload::BroadcastPayload};
 
@@ -78,6 +78,7 @@ impl CacheStatus {
 impl Decoder for RaptorQDecoder {
     fn decode(&mut self, message: Message) -> Option<Message> {
         if let Message::Broadcast(header, payload) = message {
+            trace!("> Decoding broadcast chunk");
             let chunked = ChunkedPayload(&payload);
             let uid = chunked.safe_uid();
 
@@ -144,6 +145,7 @@ impl Decoder for RaptorQDecoder {
                                     Instant::now() + self.cache_ttl,
                                 ),
                             );
+                            trace!("> Broadcast message decoded!");
                             decoded
                         })
                 }

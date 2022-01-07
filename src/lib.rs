@@ -5,8 +5,9 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use std::collections::HashMap;
-use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::Duration};
+use std::{convert::TryInto, net::SocketAddr, time::Duration};
 
+use encoding::message::Header;
 use encoding::{message::Message, payload::BroadcastPayload};
 use handling::MessageHandler;
 pub use handling::MessageInfo;
@@ -14,8 +15,8 @@ use itertools::Itertools;
 use kbucket::{Tree, TreeBuilder};
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
+pub(crate) use rwlock::RwLock;
 use tokio::sync::mpsc::{self, Receiver, Sender};
-use tokio::sync::RwLock;
 use tokio::task;
 use tracing::{error, info};
 use transport::{MessageBeanOut, WireNetwork};
@@ -25,6 +26,7 @@ mod handling;
 mod kbucket;
 mod mantainer;
 mod peer;
+mod rwlock;
 pub mod transport;
 
 // Max amount of nodes a bucket should contain
@@ -67,7 +69,8 @@ pub const ENABLE_BROADCAST_PROPAGATION: bool = true;
 /// Struct representing the Kadcast Network Peer
 pub struct Peer {
     outbound_sender: Sender<MessageBeanOut>,
-    ktable: Arc<RwLock<Tree<PeerInfo>>>,
+    ktable: RwLock<Tree<PeerInfo>>,
+    header: Header,
 }
 
 /// [NetworkListen] is notified each time a broadcasted
@@ -94,10 +97,12 @@ impl Peer {
         let (notification_channel_tx, listener_channel_rx) =
             mpsc::channel(channel_size);
 
-        let table = Arc::new(RwLock::new(tree));
+        let header = tree.root().as_header();
+        let table = RwLock::new(tree, Duration::from_secs(1));
         let peer = Peer {
             outbound_sender: outbound_channel_tx.clone(),
             ktable: table.clone(),
+            header,
         };
         MessageHandler::start(
             table.clone(),
@@ -169,23 +174,29 @@ impl Peer {
             return;
         }
 
-        let header = { self.ktable.read().await.root().as_header() };
-        for (h, nodes) in self.ktable.read().await.extract(height) {
-            let msg = Message::Broadcast(
-                header,
-                BroadcastPayload {
-                    height: h.try_into().unwrap(),
-                    gossip_frame: message.to_vec(), //FIX_ME: avoid clone
-                },
-            );
-            let targets: Vec<SocketAddr> =
-                nodes.map(|node| *node.value().address()).collect();
-            self.outbound_sender
-                .send((msg, targets))
-                .await
-                .unwrap_or_else(|e| {
-                    error!("Unable to send from broadcast {}", e)
-                });
+        let tosend: Vec<(Message, Vec<SocketAddr>)> = self
+            .ktable
+            .read()
+            .await
+            .extract(height)
+            .map(|(h, nodes)| {
+                let msg = Message::Broadcast(
+                    self.header,
+                    BroadcastPayload {
+                        height: h.try_into().unwrap(),
+                        gossip_frame: message.to_vec(), //FIX_ME: avoid clone
+                    },
+                );
+                let targets: Vec<SocketAddr> =
+                    nodes.map(|node| *node.value().address()).collect();
+                (msg, targets)
+            })
+            .collect();
+
+        for i in tosend {
+            self.outbound_sender.send(i).await.unwrap_or_else(|e| {
+                error!("Unable to send from broadcast {}", e)
+            });
         }
     }
 
@@ -206,7 +217,7 @@ impl Peer {
         // We use the Broadcast message type while setting height to 0
         // to prevent further propagation at the receiver
         let msg = Message::Broadcast(
-            self.ktable.read().await.root().as_header(),
+            self.header,
             BroadcastPayload {
                 height: 0,
                 gossip_frame: message.to_vec(), //FIX_ME: avoid clone
