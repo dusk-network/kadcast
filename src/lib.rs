@@ -5,7 +5,7 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use std::collections::HashMap;
-use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::Duration};
+use std::{convert::TryInto, net::SocketAddr, time::Duration};
 
 use encoding::{message::Message, payload::BroadcastPayload};
 use handling::MessageHandler;
@@ -14,8 +14,8 @@ use itertools::Itertools;
 use kbucket::{Tree, TreeBuilder};
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
+pub(crate) use rwlock::RwLock;
 use tokio::sync::mpsc::{self, Receiver, Sender};
-use tokio::sync::RwLock;
 use tokio::task;
 use tracing::{error, info};
 use transport::{MessageBeanOut, WireNetwork};
@@ -25,6 +25,7 @@ mod handling;
 mod kbucket;
 mod mantainer;
 mod peer;
+mod rwlock;
 pub mod transport;
 
 // Max amount of nodes a bucket should contain
@@ -67,7 +68,7 @@ pub const ENABLE_BROADCAST_PROPAGATION: bool = true;
 /// Struct representing the Kadcast Network Peer
 pub struct Peer {
     outbound_sender: Sender<MessageBeanOut>,
-    ktable: Arc<RwLock<Tree<PeerInfo>>>,
+    ktable: RwLock<Tree<PeerInfo>>,
 }
 
 /// [NetworkListen] is notified each time a broadcasted
@@ -94,7 +95,7 @@ impl Peer {
         let (notification_channel_tx, listener_channel_rx) =
             mpsc::channel(channel_size);
 
-        let table = Arc::new(RwLock::new(tree));
+        let table = RwLock::new(tree, Duration::from_secs(1));
         let peer = Peer {
             outbound_sender: outbound_channel_tx.clone(),
             ktable: table.clone(),

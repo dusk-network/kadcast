@@ -4,11 +4,10 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::convert::TryInto;
 use std::net::SocketAddr;
-use std::{convert::TryInto, sync::Arc};
 
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::RwLock;
 use tracing::*;
 
 use crate::encoding::message::{
@@ -17,7 +16,7 @@ use crate::encoding::message::{
 use crate::kbucket::{BinaryKey, NodeInsertError, Tree};
 use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
-use crate::K_K;
+use crate::{RwLock, K_K};
 
 /// Message metadata for incoming message notifications
 #[derive(Debug)]
@@ -41,7 +40,7 @@ pub(crate) struct MessageHandler;
 
 impl MessageHandler {
     pub(crate) fn start(
-        ktable: Arc<RwLock<Tree<PeerInfo>>>,
+        ktable: RwLock<Tree<PeerInfo>>,
         mut inbound_receiver: Receiver<MessageBeanIn>,
         outbound_sender: Sender<MessageBeanOut>,
         listener_sender: Sender<(Vec<u8>, MessageInfo)>,
@@ -67,7 +66,7 @@ impl MessageHandler {
 
                 {
                     trace!("Before access to writer");
-                    let mut writer = ktable.clone().write_owned().await;
+                    let mut writer = ktable.write().await;
                     trace!("After access to writer");
                     match writer.insert(remote_node) {
                         Err(e) => match e {
