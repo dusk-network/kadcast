@@ -10,7 +10,7 @@ use socket2::SockRef;
 use tokio::{
     io,
     net::UdpSocket,
-    sync::mpsc::{self,Receiver, Sender},
+    sync::mpsc::{self, Receiver, Sender},
     time::{self},
 };
 use tracing::*;
@@ -27,7 +27,7 @@ use crate::{
 };
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
 pub(crate) type MessageBeanIn = (Message, SocketAddr);
-pub(crate) type UDPChunk = ( Vec<u8>, SocketAddr);
+pub(crate) type UDPChunk = (Vec<u8>, SocketAddr);
 
 const MAX_DATAGRAM_SIZE: usize = 65_507;
 pub(crate) struct WireNetwork {}
@@ -48,48 +48,44 @@ impl WireNetwork {
             .expect("Unable to parse public_ip address");
         let c = conf.clone();
         tokio::spawn(async move {
-            WireNetwork::listen_out(outbound_channel_rx, &c)
+            WireNetwork::listen_out(outbound_channel_rx, &conf)
                 .await
                 .unwrap_or_else(|op| error!("Error in listen_out {:?}", op));
         });
-        
 
-        let (dec_chan_tx, dec_chan_rx) =
-        mpsc::channel(channel_size);
+        let (dec_chan_tx, dec_chan_rx) = mpsc::channel(channel_size);
 
+        let c1 = c.clone();
         tokio::spawn(async move {
-            WireNetwork::decode(
-                inbound_channel_tx.clone(),
-                dec_chan_rx,
-                &conf,
-            )
-            .await
-            .unwrap_or_else(|op| error!("Error in decode {:?}", op));
+            WireNetwork::decode(inbound_channel_tx.clone(), dec_chan_rx, &c)
+                .await
+                .unwrap_or_else(|op| error!("Error in decode {:?}", op));
         });
 
         tokio::spawn(async move {
-            WireNetwork::listen_in(
-                listen_address,
-                dec_chan_tx.clone(),
-            )
-            .await
-            .unwrap_or_else(|op| error!("Error in listen_in {:?}", op));
+            WireNetwork::listen_in(listen_address, dec_chan_tx.clone(), &c1)
+                .await
+                .unwrap_or_else(|op| error!("Error in listen_in {:?}", op));
         });
     }
 
     async fn listen_in(
         listen_address: SocketAddr,
         dec_chan_tx: Sender<UDPChunk>,
+        conf: &HashMap<String, String>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
-       
+
         let socket = UdpSocket::bind(listen_address)
             .await
             .expect("Unable to bind address");
         info!("Listening on: {}", socket.local_addr()?);
 
+        // Try to extend socket recv buffer size
+        WireNetwork::configure_socket(&socket, conf)?;
 
-        // Read UDP socket recv buffer and delegate the processing to decode task
+        // Read UDP socket recv buffer and delegate the processing to decode
+        // task
         loop {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
             let (len, remote_address) =
@@ -98,11 +94,12 @@ impl WireNetwork {
                     e
                 })?;
 
-                dec_chan_tx
-                                    .try_send((bytes[0..len].to_vec(), remote_address))
-                                    .unwrap_or_else(
-                                        |op| error!("Unable to send to dec_chan_tx channel {:?}", op),
-                                    );
+            dec_chan_tx
+                .send((bytes[0..len].to_vec(), remote_address))
+                .await
+                .unwrap_or_else(|op| {
+                    error!("Unable to send to dec_chan_tx channel {:?}", op)
+                });
         }
     }
 
@@ -113,7 +110,7 @@ impl WireNetwork {
     ) -> io::Result<()> {
         debug!("WireNetwork::decode started");
         let mut decoder = TransportDecoder::configure(conf);
-       
+
         loop {
             if let Some((message, remote_address)) = dec_chan_rx.recv().await {
                 match Message::unmarshal_binary(&mut &message[..]) {
@@ -144,7 +141,10 @@ impl WireNetwork {
                             }
                         }
                     }
-                    Err(e) => error!("Error deser from {:?} - {} - {}", message, remote_address, e),
+                    Err(e) => error!(
+                        "Error deser from {:?} - {} - {}",
+                        message, remote_address, e
+                    ),
                 }
             }
         }
