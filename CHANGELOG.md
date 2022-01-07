@@ -5,8 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
-
+## [0.3.0] - 07-01-22
 ### Added
 
 - Add network transport configuration [#72] [#76]
@@ -15,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add configurable FEC redundancy [#82]
 - Add configurable UDP send interval [#83]
 - Add UDP network tweak configuration [#86]
+- Add dedicated tokio task to handle and decode chunks [#87]
 - Add logs to pending RwLock [#92]
 
 ### Fixed
@@ -64,5 +64,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#80]: https://github.com/dusk-network/kadcast/issues/80
 [#82]: https://github.com/dusk-network/kadcast/issues/82
 [#83]: https://github.com/dusk-network/kadcast/issues/83
+[#87]: https://github.com/dusk-network/kadcast/issues/87
 [#90]: https://github.com/dusk-network/kadcast/issues/90
 [#92]: https://github.com/dusk-network/kadcast/issues/92
