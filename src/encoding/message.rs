@@ -36,7 +36,7 @@ pub(crate) enum Message {
 }
 
 impl Message {
-    fn type_byte(&self) -> u8 {
+    pub(crate) fn type_byte(&self) -> u8 {
         match self {
             Message::Ping(_) => ID_MSG_PING,
             Message::Pong(_) => ID_MSG_PONG,

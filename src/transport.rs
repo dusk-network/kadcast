@@ -83,7 +83,7 @@ impl WireNetwork {
 
             match Message::unmarshal_binary(&mut &bytes[..]) {
                 Ok(deser) => {
-                    trace!("> Received {:?}", deser);
+                    debug!("> Received raw message {}", deser.type_byte());
                     let to_process = decoder.decode(deser);
                     if let Some(message) = to_process {
                         let valid_header = PeerNode::verify_header(
@@ -123,8 +123,11 @@ impl WireNetwork {
         let encoder = TransportEncoder::configure(conf);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
-                debug!("< Message to send");
-                trace!("< Message to send to ({:?}) - {:?} ", to, message);
+                debug!(
+                    "< Message to send to ({:?}) - {:?} ",
+                    to,
+                    message.type_byte()
+                );
                 let chunks: Vec<Vec<u8>> =
                     encoder.encode(message).iter().map(|m| m.bytes()).collect();
                 for remote_addr in to.iter() {

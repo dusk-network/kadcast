@@ -63,31 +63,26 @@ impl MessageHandler {
                 trace!("Handler received message {:?}", message);
                 remote_node_addr.set_port(message.header().sender_port);
                 let remote_node = PeerNode::from_socket(remote_node_addr);
-
-                {
-                    trace!("Before access to writer");
-                    let mut writer = ktable.write().await;
-                    trace!("After access to writer");
-                    match writer.insert(remote_node) {
-                        Err(e) => match e {
-                            NodeInsertError::Full(n) => {
-                                debug!(
-                                    "Unable to insert node - FULL {}",
-                                    n.value().address()
-                                )
-                            }
-                            NodeInsertError::Invalid(n) => {
-                                error!(
-                                    "Unable to insert node - INVALID {}",
-                                    n.value().address()
-                                );
-                                continue;
-                            }
-                        },
-                        Ok(result) => {
-                            debug!("Written node in ktable: {:?}", &result);
-                            if let Some(pending) = result.pending_eviction() {
-                                outbound_sender
+                match ktable.write().await.insert(remote_node) {
+                    Err(e) => match e {
+                        NodeInsertError::Full(n) => {
+                            debug!(
+                                "Unable to insert node - FULL {}",
+                                n.value().address()
+                            )
+                        }
+                        NodeInsertError::Invalid(n) => {
+                            error!(
+                                "Unable to insert node - INVALID {}",
+                                n.value().address()
+                            );
+                            continue;
+                        }
+                    },
+                    Ok(result) => {
+                        debug!("Written node in ktable: {:?}", &result);
+                        if let Some(pending) = result.pending_eviction() {
+                            outbound_sender
                                 .send((
                                     Message::Ping(my_header),
                                     vec![*pending.value().address()],
@@ -96,7 +91,6 @@ impl MessageHandler {
                                 .unwrap_or_else(|op| {
                                     error!("Unable to send PING to pending node {:?}", op)
                                 });
-                            }
                         }
                     }
                 }
@@ -160,7 +154,6 @@ impl MessageHandler {
                                 })
                                 .map(|n| {
                                     (
-                                        //Message::FindNodes(my_header, n.id),
                                         nodes_reply_fn(my_header, n.id),
                                         vec![n.to_socket_address()],
                                     )
@@ -176,7 +169,11 @@ impl MessageHandler {
                         }
                     }
                     Message::Broadcast(_, payload) => {
-                        debug!("Received payload with height {:?}", payload);
+                        debug!(
+                            "Received payload with height {:?} and len {}",
+                            payload.height,
+                            payload.gossip_frame.len()
+                        );
 
                         // Aggregate message + metadata for lib client
                         let msg = payload.gossip_frame.clone();
