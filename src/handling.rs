@@ -4,11 +4,10 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::convert::TryInto;
 use std::net::SocketAddr;
-use std::{convert::TryInto, sync::Arc};
 
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::RwLock;
 use tracing::*;
 
 use crate::encoding::message::{
@@ -17,7 +16,7 @@ use crate::encoding::message::{
 use crate::kbucket::{BinaryKey, NodeInsertError, Tree};
 use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
-use crate::K_K;
+use crate::{RwLock, K_K};
 
 /// Message metadata for incoming message notifications
 #[derive(Debug)]
@@ -41,7 +40,7 @@ pub(crate) struct MessageHandler;
 
 impl MessageHandler {
     pub(crate) fn start(
-        ktable: Arc<RwLock<Tree<PeerInfo>>>,
+        ktable: RwLock<Tree<PeerInfo>>,
         mut inbound_receiver: Receiver<MessageBeanIn>,
         outbound_sender: Sender<MessageBeanOut>,
         listener_sender: Sender<(Vec<u8>, MessageInfo)>,
@@ -64,31 +63,26 @@ impl MessageHandler {
                 trace!("Handler received message {:?}", message);
                 remote_node_addr.set_port(message.header().sender_port);
                 let remote_node = PeerNode::from_socket(remote_node_addr);
-
-                {
-                    trace!("Before access to writer");
-                    let mut writer = ktable.clone().write_owned().await;
-                    trace!("After access to writer");
-                    match writer.insert(remote_node) {
-                        Err(e) => match e {
-                            NodeInsertError::Full(n) => {
-                                debug!(
-                                    "Unable to insert node - FULL {}",
-                                    n.value().address()
-                                )
-                            }
-                            NodeInsertError::Invalid(n) => {
-                                error!(
-                                    "Unable to insert node - INVALID {}",
-                                    n.value().address()
-                                );
-                                continue;
-                            }
-                        },
-                        Ok(result) => {
-                            debug!("Written node in ktable: {:?}", &result);
-                            if let Some(pending) = result.pending_eviction() {
-                                outbound_sender
+                match ktable.write().await.insert(remote_node) {
+                    Err(e) => match e {
+                        NodeInsertError::Full(n) => {
+                            debug!(
+                                "Unable to insert node - FULL {}",
+                                n.value().address()
+                            )
+                        }
+                        NodeInsertError::Invalid(n) => {
+                            error!(
+                                "Unable to insert node - INVALID {}",
+                                n.value().address()
+                            );
+                            continue;
+                        }
+                    },
+                    Ok(result) => {
+                        debug!("Written node in ktable: {:?}", &result);
+                        if let Some(pending) = result.pending_eviction() {
+                            outbound_sender
                                 .send((
                                     Message::Ping(my_header),
                                     vec![*pending.value().address()],
@@ -97,7 +91,6 @@ impl MessageHandler {
                                 .unwrap_or_else(|op| {
                                     error!("Unable to send PING to pending node {:?}", op)
                                 });
-                            }
                         }
                     }
                 }
@@ -161,7 +154,6 @@ impl MessageHandler {
                                 })
                                 .map(|n| {
                                     (
-                                        //Message::FindNodes(my_header, n.id),
                                         nodes_reply_fn(my_header, n.id),
                                         vec![n.to_socket_address()],
                                     )
@@ -178,9 +170,9 @@ impl MessageHandler {
                     }
                     Message::Broadcast(_, payload) => {
                         debug!(
-                            "Received payload with len {:?} and height {:?}",
-                            payload.gossip_frame.len(),
-                            payload.height
+                            "Received payload with height {:?} and len {}",
+                            payload.height,
+                            payload.gossip_frame.len()
                         );
 
                         // Aggregate message + metadata for lib client

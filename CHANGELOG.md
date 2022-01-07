@@ -15,12 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add configurable FEC redundancy [#82]
 - Add configurable UDP send interval [#83]
 - Add UDP network tweak configuration [#86]
+- Add logs to pending RwLock [#92]
 
 ### Fixed
 
 - Deadlock in `RWLock.write()` [#80]
 - Preserve propagation in some edge-corner cases
 - Messages from buckets full are correctly handled 
+- Empty payload NodesMessage decoding [#90]
 
 ## [0.2.0] - 16-12-21
 
@@ -62,3 +64,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#80]: https://github.com/dusk-network/kadcast/issues/80
 [#82]: https://github.com/dusk-network/kadcast/issues/82
 [#83]: https://github.com/dusk-network/kadcast/issues/83
+[#90]: https://github.com/dusk-network/kadcast/issues/90
+[#92]: https://github.com/dusk-network/kadcast/issues/92

@@ -27,7 +27,7 @@ use crate::{
 };
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
 pub(crate) type MessageBeanIn = (Message, SocketAddr);
-pub(crate) type UDPChunk = (Vec<u8>, SocketAddr);
+type UDPChunk = (Vec<u8>, SocketAddr);
 
 const MAX_DATAGRAM_SIZE: usize = 65_507;
 pub(crate) struct WireNetwork {}
@@ -115,7 +115,7 @@ impl WireNetwork {
             if let Some((message, remote_address)) = dec_chan_rx.recv().await {
                 match Message::unmarshal_binary(&mut &message[..]) {
                     Ok(deser) => {
-                        trace!("> Received {:?}", deser);
+                        debug!("> Received raw message {}", deser.type_byte());
                         let to_process = decoder.decode(deser);
                         if let Some(message) = to_process {
                             let valid_header = PeerNode::verify_header(
@@ -159,8 +159,11 @@ impl WireNetwork {
         let encoder = TransportEncoder::configure(conf);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
-                debug!("< Message to send");
-                trace!("< Message to send to ({:?}) - {:?} ", to, message);
+                debug!(
+                    "< Message to send to ({:?}) - {:?} ",
+                    to,
+                    message.type_byte()
+                );
                 let chunks: Vec<Vec<u8>> =
                     encoder.encode(message).iter().map(|m| m.bytes()).collect();
                 for remote_addr in to.iter() {

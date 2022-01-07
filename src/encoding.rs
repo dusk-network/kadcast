@@ -73,6 +73,13 @@ mod tests {
     }
 
     #[test]
+    fn encode_empty_nodes() {
+        let peer = PeerNode::from_address("192.168.0.1:666");
+        let a = Message::Nodes(peer.as_header(), NodePayload { peers: vec![] });
+        test_kadkast_marshal(a);
+        assert_eq!(1, 1);
+    }
+    #[test]
     fn encode_broadcast() {
         let peer = PeerNode::from_address("192.168.0.1:666");
         let a = Message::Broadcast(
