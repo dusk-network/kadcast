@@ -117,6 +117,7 @@ impl Peer {
             listen_address,
             outbound_channel_rx,
             transport_conf,
+            channel_size,
         );
         tokio::spawn(TableMantainer::start(
             bootstrapping_nodes,
