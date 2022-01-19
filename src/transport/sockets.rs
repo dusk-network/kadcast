@@ -4,13 +4,18 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use tokio::time::Interval;
+use std::{io, time::Duration};
 
 use super::*;
+use tokio::time::Interval;
+use tracing::{info, warn};
 
-const DEFAULT_BACKOFF_MICROS: u64 = 0;
-const DEFAULT_RETRY_COUNT: u8 = 3;
-const DEFAULT_RETRY_SLEEP_MILLIS: u64 = 5;
+use super::encoding::BaseConfigurable;
+use crate::config::NetworkConfig;
+use crate::transport::encoding::AsyncConfigurable;
+use async_trait::async_trait;
+pub(crate) const DEFAULT_RETRY_COUNT: u8 = 3;
+pub(crate) const DEFAULT_RETRY_SLEEP_MILLIS: u64 = 5;
 const MIN_RETRY_COUNT: u8 = 1;
 pub(super) struct MultipleOutSocket {
     ipv4: UdpSocket,
@@ -20,55 +25,24 @@ pub(super) struct MultipleOutSocket {
     udp_send_retry_interval: Duration,
 }
 
-impl MultipleOutSocket {
-    pub(crate) fn default_configuration() -> HashMap<String, String> {
-        let mut conf = HashMap::new();
-        conf.insert(
-            "udp_backoff_timeout_micros".to_string(),
-            DEFAULT_BACKOFF_MICROS.to_string(),
-        );
-        conf.insert(
-            "udp_send_retry_count".to_string(),
-            DEFAULT_RETRY_COUNT.to_string(),
-        );
-        conf.insert(
-            "udp_send_retry_interval_millis".to_string(),
-            DEFAULT_RETRY_SLEEP_MILLIS.to_string(),
-        );
-        conf
+impl BaseConfigurable for MultipleOutSocket {
+    type TConf = NetworkConfig;
+    fn default_configuration() -> Self::TConf {
+        NetworkConfig::default()
     }
-    pub(crate) async fn configure(
-        conf: &HashMap<String, String>,
-    ) -> io::Result<Self> {
-        let udp_backoff_timeout = {
-            let micros = conf
-                .get("udp_backoff_timeout_micros")
-                .map(|s| s.parse().ok())
-                .flatten()
-                .unwrap_or(DEFAULT_BACKOFF_MICROS);
-            match micros > 0 {
-                true => Some(time::interval(Duration::from_micros(micros))),
-                _ => None,
-            }
-        };
-
-        let udp_send_retry_interval = Duration::from_millis(
-            conf.get("udp_send_retry_interval_millis")
-                .map(|s| s.parse().ok())
-                .flatten()
-                .unwrap_or(DEFAULT_RETRY_SLEEP_MILLIS),
-        );
+}
+#[async_trait]
+impl AsyncConfigurable for MultipleOutSocket {
+    async fn configure(conf: &Self::TConf) -> io::Result<Self> {
+        let udp_backoff_timeout =
+            conf.udp_send_backoff_timeout.map(time::interval);
         let retry_count = {
-            let retry = conf
-                .get("udp_send_retry_count")
-                .map(|s| s.parse().ok())
-                .flatten()
-                .unwrap_or(DEFAULT_RETRY_COUNT);
-            match retry > MIN_RETRY_COUNT {
-                true => retry,
+            match conf.udp_send_retry_count > MIN_RETRY_COUNT {
+                true => conf.udp_send_retry_count,
                 _ => MIN_RETRY_COUNT,
             }
         };
+        let udp_send_retry_interval = conf.udp_send_retry_interval;
 
         let ipv4 = UdpSocket::bind("0.0.0.0:0").await?;
         let ipv6 = UdpSocket::bind("[::]:0").await?;
@@ -80,7 +54,8 @@ impl MultipleOutSocket {
             udp_send_retry_interval,
         })
     }
-
+}
+impl MultipleOutSocket {
     pub(super) async fn send(
         &mut self,
         data: &[u8],
@@ -117,7 +92,5 @@ impl MultipleOutSocket {
             }
         }
         unreachable!()
-        // Err(e)=>
-        // Ok(())
     }
 }

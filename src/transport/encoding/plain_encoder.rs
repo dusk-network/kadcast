@@ -8,16 +8,20 @@ use std::collections::HashMap;
 
 use crate::encoding::message::Message;
 
-use super::{Configurable, Decoder, Encoder};
+use super::{BaseConfigurable, Configurable, Decoder, Encoder};
 
 pub(crate) struct PlainEncoder {}
 
-impl Configurable for PlainEncoder {
-    fn configure(_: &HashMap<String, String>) -> Self {
-        PlainEncoder {}
-    }
-    fn default_configuration() -> HashMap<String, String> {
+impl BaseConfigurable for PlainEncoder {
+    type TConf = HashMap<String, String>;
+    fn default_configuration() -> Self::TConf {
         HashMap::new()
+    }
+}
+
+impl Configurable for PlainEncoder {
+    fn configure(_: &Self::TConf) -> Self {
+        PlainEncoder {}
     }
 }
 

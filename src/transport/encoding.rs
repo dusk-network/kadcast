@@ -7,22 +7,35 @@
 mod plain_encoder;
 mod raptorq;
 
-use std::collections::HashMap;
-
 pub(crate) use self::raptorq::RaptorQDecoder as TransportDecoder;
 pub(crate) use self::raptorq::RaptorQEncoder as TransportEncoder;
 
+pub type TransportEncoderConfig =
+    <self::TransportEncoder as BaseConfigurable>::TConf;
+pub type TransportDecoderConfig =
+    <self::TransportDecoder as BaseConfigurable>::TConf;
 use crate::encoding::message::Message;
+use async_trait::async_trait;
+use tokio::io;
 
-pub(crate) trait Configurable {
-    fn configure(conf: &HashMap<String, String>) -> Self;
-    fn default_configuration() -> HashMap<String, String>;
+pub trait BaseConfigurable {
+    type TConf;
+    fn default_configuration() -> Self::TConf;
 }
 
-pub(crate) trait Encoder: Configurable {
+pub trait Configurable: BaseConfigurable {
+    fn configure(conf: &Self::TConf) -> Self;
+}
+
+#[async_trait]
+pub trait AsyncConfigurable: BaseConfigurable + Sized {
+    async fn configure(conf: &Self::TConf) -> io::Result<Self>;
+}
+
+pub(crate) trait Encoder: BaseConfigurable {
     fn encode(&self, msg: Message) -> Vec<Message>;
 }
 
-pub(crate) trait Decoder: Configurable {
+pub(crate) trait Decoder: BaseConfigurable {
     fn decode(&mut self, chunk: Message) -> Option<Message>;
 }
