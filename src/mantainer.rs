@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::net::ToSocketAddrs;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 
 use tokio::sync::mpsc::Sender;
@@ -24,21 +24,26 @@ impl TableMantainer {
         ktable: RwLock<Tree<PeerInfo>>,
         outbound_sender: Sender<MessageBeanOut>,
     ) {
-        let find_nodes = Message::FindNodes(
-            ktable.read().await.root().as_header(),
-            *ktable.read().await.root().id().as_binary(),
-        );
-        let bootstrapping_nodes_addr = bootstrapping_nodes
+        let my_ip = *ktable.read().await.root().value().address();
+        let header = ktable.read().await.root().as_header();
+        let binary_key = header.binary_id.as_binary();
+
+        let bootstrapping_nodes_addr: Vec<SocketAddr> = bootstrapping_nodes
             .iter()
             .flat_map(|boot| {
                 boot.to_socket_addrs()
                     .expect("Unable to resolve domain for {}")
             })
+            .filter(|socket| socket != &my_ip)
             .collect();
-        outbound_sender
-            .send((find_nodes, bootstrapping_nodes_addr))
-            .await
-            .unwrap_or_else(|op| error!("Unable to send generic {:?}", op));
+        while ktable.read().await.closest_peers::<10>(binary_key).count() < 3 {
+            let find_nodes = Message::FindNodes(header, *binary_key);
+            outbound_sender
+                .send((find_nodes, bootstrapping_nodes_addr.clone()))
+                .await
+                .unwrap_or_else(|op| error!("Unable to send generic {:?}", op));
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        }
         TableMantainer::monitor_buckets(ktable.clone(), outbound_sender).await;
     }
 
@@ -46,11 +51,11 @@ impl TableMantainer {
         ktable: RwLock<Tree<PeerInfo>>,
         outbound_sender: Sender<MessageBeanOut>,
     ) {
-        debug!("TableMantainer::monitor_buckets started");
+        info!("TableMantainer::monitor_buckets started");
         let idle_time: Duration = { ktable.read().await.config.bucket_ttl };
         loop {
             tokio::time::sleep(idle_time).await;
-            debug!("TableMantainer::monitor_buckets woke up");
+            info!("TableMantainer::monitor_buckets woke up");
             let table_lock_read = ktable.read().await;
             let root = table_lock_read.root();
 

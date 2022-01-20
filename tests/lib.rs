@@ -56,10 +56,7 @@ mod tests {
             v
         };
         let mut peers = HashMap::new();
-        let peer0 = create_peer(0, bootstraps.clone(), tx.clone());
-        peers.insert(0, peer0);
-        // peers.pu;
-        for i in 1..NODES {
+        for i in 0..NODES {
             tokio::time::sleep(Duration::from_millis(500)).await;
             peers.insert(i, create_peer(i, bootstraps.clone(), tx.clone()));
         }
