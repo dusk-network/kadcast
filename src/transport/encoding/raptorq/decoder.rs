@@ -4,10 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::transport::{
-    encoding::{BaseConfigurable, Configurable},
-    Decoder,
-};
+use crate::transport::{encoding::Configurable, Decoder};
 use raptorq::{Decoder as ExtDecoder, EncodingPacket};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -37,7 +34,7 @@ pub struct RaptorQDecoderConf {
     pub cache_prune_every: Duration,
 }
 
-impl BaseConfigurable for RaptorQDecoder {
+impl Configurable for RaptorQDecoder {
     type TConf = RaptorQDecoderConf;
     fn default_configuration() -> Self::TConf {
         RaptorQDecoderConf {
@@ -47,9 +44,6 @@ impl BaseConfigurable for RaptorQDecoder {
             cache_ttl: Duration::from_secs(DEFAULT_CACHE_TTL_SECS),
         }
     }
-}
-
-impl Configurable for RaptorQDecoder {
     fn configure(conf: &Self::TConf) -> Self {
         Self {
             conf: *conf,

@@ -4,18 +4,16 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::transport::{encoding::BaseConfigurable, Encoder};
+use crate::transport::{encoding::Configurable, Encoder};
 
 use crate::encoding::{message::Message, payload::BroadcastPayload};
-
-use super::super::Configurable;
 
 const DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK: u32 = 5;
 const DEFAULT_MTU: u16 = 1300;
 const DEFAULT_FEQ_REDUNDANCY: f32 = 0.15;
 
 use raptorq::Encoder as ExtEncoder;
-use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 
 pub struct RaptorQEncoder {
     conf: RaptorQEncoderConf,
@@ -38,15 +36,12 @@ impl Default for RaptorQEncoderConf {
     }
 }
 
-impl BaseConfigurable for RaptorQEncoder {
+impl Configurable for RaptorQEncoder {
     type TConf = RaptorQEncoderConf;
 
     fn default_configuration() -> Self::TConf {
         RaptorQEncoderConf::default()
     }
-}
-
-impl Configurable for RaptorQEncoder {
     fn configure(conf: &Self::TConf) -> Self {
         Self { conf: *conf }
     }

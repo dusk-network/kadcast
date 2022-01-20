@@ -79,13 +79,10 @@ mod tests {
 
     use std::time::Instant;
 
-    use crate::{
-        encoding::{message::Message, payload::BroadcastPayload},
-        peer::PeerNode,
-        transport::encoding::{
-            BaseConfigurable, Configurable, Decoder, Encoder, TransportDecoder,
-            TransportEncoder,
-        },
+    use crate::encoding::{message::Message, payload::BroadcastPayload};
+    use crate::peer::PeerNode;
+    use crate::transport::encoding::{
+        Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
     };
 
     #[test]

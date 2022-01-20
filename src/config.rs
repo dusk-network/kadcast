@@ -4,13 +4,11 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::transport::encoding::BaseConfigurable;
+use crate::transport::encoding::Configurable;
 use crate::transport::encoding::TransportDecoder;
 pub use crate::transport::encoding::TransportDecoderConfig;
 use crate::transport::encoding::TransportEncoder;
 pub use crate::transport::encoding::TransportEncoderConfig;
-use crate::transport::sockets::DEFAULT_RETRY_COUNT;
-use crate::transport::sockets::DEFAULT_RETRY_SLEEP_MILLIS;
 use serde_derive::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -27,18 +25,56 @@ pub const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
 /// Default behaviour for propagation of incoming broadcast messages
 pub const ENABLE_BROADCAST_PROPAGATION: bool = true;
 
-const DEFAULT_CHANNEL_SIZE: usize = 1000;
+/// Default internal channel size
+pub const DEFAULT_CHANNEL_SIZE: usize = 1000;
+
+pub const DEFAULT_SEND_RETRY_COUNT: u8 = 3;
+pub const DEFAULT_SEND_RETRY_SLEEP_MILLIS: u64 = 5;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Public `SocketAddress` of the [Peer]. No domain name allowed
+    ///
+    /// This is the address where other peers can contact you.
+    /// This address MUST be accessible from any peer of the network
     pub public_address: String,
+
+    /// Optional internal `SocketAddress` to listen incoming connections.
+    /// Eg: 127.0.0.1:9999
+    ///
+    /// This address is the one bound for the incoming connections.
+    /// Use it if your host is not publicly reachable from other peer in the
+    /// network (Eg: if you are behind a NAT)
+    /// If this is not specified, the public address will be used for binding
+    /// incoming connection
     pub listen_address: Option<String>,
+
+    /// List of known bootstrapping kadcast nodes.
+    ///
+    /// It accepts the same representation of `public_address` but with domain
+    /// names allowed
     pub bootstrapping_nodes: Vec<String>,
+
+    /// Enable automatic propagation of incoming broadcast messages
+    ///
+    /// Default value [ENABLE_BROADCAST_PROPAGATION]
     pub auto_propagate: bool,
     pub channel_size: usize,
+
+    /// Send a `FindNodes` message to every Peer inside `Nodes` message
+    /// received
+    ///
+    /// If disabled, a `Ping` is sent instead of `FindNodes`
+    /// Default value `true]`
     pub recursive_discovery: bool,
+
+    /// Buckets configuration
     pub bucket: BucketConfig,
+
+    /// Network configuration
     pub network: NetworkConfig,
+
+    /// FEC configuration
     pub fec: FECConfig,
 }
 
@@ -60,10 +96,22 @@ impl Default for Config {
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct BucketConfig {
+    /// Sets the maximum duration for a node to be considered alive (no
+    /// eviction will be requested).
+    ///
+    /// Default value [BUCKET_DEFAULT_NODE_TTL_MILLIS]
     #[serde(with = "humantime_serde")]
     pub node_ttl: Duration,
+
+    /// Set duration after which a node can be evicted if requested
+    ///
+    /// Default value [BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS]
     #[serde(with = "humantime_serde")]
     pub node_evict_after: Duration,
+
+    /// Set duration after which a bucket is considered idle
+    ///
+    /// Default value [BUCKET_DEFAULT_TTL_SECS]
     #[serde(with = "humantime_serde")]
     pub bucket_ttl: Duration,
 }
@@ -108,11 +156,11 @@ impl Default for NetworkConfig {
     fn default() -> Self {
         Self {
             udp_recv_buffer_size: Some(5000000),
-            udp_send_backoff_timeout: Some(Duration::from_micros(50)),
+            udp_send_backoff_timeout: None,
             udp_send_retry_interval: Duration::from_millis(
-                DEFAULT_RETRY_SLEEP_MILLIS,
+                DEFAULT_SEND_RETRY_SLEEP_MILLIS,
             ),
-            udp_send_retry_count: DEFAULT_RETRY_COUNT,
+            udp_send_retry_count: DEFAULT_SEND_RETRY_COUNT,
         }
     }
 }

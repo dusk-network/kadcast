@@ -3,7 +3,7 @@ name = "kadcast"
 authors = [
   "herr-seppia <seppia@dusk.network>"
 ]
-version = "0.3.0"
+version = "0.4.0-rc.0"
 edition = "2018"
 description ="Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]
@@ -30,7 +30,6 @@ socket2 = "0.4"
 serde_derive = "1"
 serde = "1"
 humantime-serde ="1"
-async-trait = "0.1"
 
 [dev-dependencies]
 clap = "2.33.3"

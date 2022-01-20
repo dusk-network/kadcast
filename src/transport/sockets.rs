@@ -7,15 +7,12 @@
 use std::{io, time::Duration};
 
 use super::*;
+use tokio::runtime::Handle;
+use tokio::task::block_in_place;
 use tokio::time::Interval;
 use tracing::{info, warn};
 
-use super::encoding::BaseConfigurable;
 use crate::config::NetworkConfig;
-use crate::transport::encoding::AsyncConfigurable;
-use async_trait::async_trait;
-pub(crate) const DEFAULT_RETRY_COUNT: u8 = 3;
-pub(crate) const DEFAULT_RETRY_SLEEP_MILLIS: u64 = 5;
 const MIN_RETRY_COUNT: u8 = 1;
 pub(super) struct MultipleOutSocket {
     ipv4: UdpSocket,
@@ -25,15 +22,12 @@ pub(super) struct MultipleOutSocket {
     udp_send_retry_interval: Duration,
 }
 
-impl BaseConfigurable for MultipleOutSocket {
+impl Configurable for MultipleOutSocket {
     type TConf = NetworkConfig;
     fn default_configuration() -> Self::TConf {
         NetworkConfig::default()
     }
-}
-#[async_trait]
-impl AsyncConfigurable for MultipleOutSocket {
-    async fn configure(conf: &Self::TConf) -> io::Result<Self> {
+    fn configure(conf: &Self::TConf) -> Self {
         let udp_backoff_timeout =
             conf.udp_send_backoff_timeout.map(time::interval);
         let retry_count = {
@@ -44,15 +38,23 @@ impl AsyncConfigurable for MultipleOutSocket {
         };
         let udp_send_retry_interval = conf.udp_send_retry_interval;
 
-        let ipv4 = UdpSocket::bind("0.0.0.0:0").await?;
-        let ipv6 = UdpSocket::bind("[::]:0").await?;
-        Ok(MultipleOutSocket {
+        let ipv4 = block_in_place(move || {
+            Handle::current()
+                .block_on(async move { UdpSocket::bind("0.0.0.0:0").await })
+        })
+        .unwrap();
+        let ipv6 = block_in_place(move || {
+            Handle::current()
+                .block_on(async move { UdpSocket::bind("[::]:0").await })
+        })
+        .unwrap();
+        MultipleOutSocket {
             ipv4,
             ipv6,
             udp_backoff_timeout,
             retry_count,
             udp_send_retry_interval,
-        })
+        }
     }
 }
 impl MultipleOutSocket {

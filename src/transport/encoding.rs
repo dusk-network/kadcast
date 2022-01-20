@@ -11,31 +11,21 @@ pub(crate) use self::raptorq::RaptorQDecoder as TransportDecoder;
 pub(crate) use self::raptorq::RaptorQEncoder as TransportEncoder;
 
 pub type TransportEncoderConfig =
-    <self::TransportEncoder as BaseConfigurable>::TConf;
+    <self::TransportEncoder as Configurable>::TConf;
 pub type TransportDecoderConfig =
-    <self::TransportDecoder as BaseConfigurable>::TConf;
+    <self::TransportDecoder as Configurable>::TConf;
 use crate::encoding::message::Message;
-use async_trait::async_trait;
-use tokio::io;
 
-pub trait BaseConfigurable {
+pub trait Configurable {
     type TConf;
     fn default_configuration() -> Self::TConf;
-}
-
-pub trait Configurable: BaseConfigurable {
     fn configure(conf: &Self::TConf) -> Self;
 }
 
-#[async_trait]
-pub trait AsyncConfigurable: BaseConfigurable + Sized {
-    async fn configure(conf: &Self::TConf) -> io::Result<Self>;
-}
-
-pub(crate) trait Encoder: BaseConfigurable {
+pub(crate) trait Encoder: Configurable {
     fn encode(&self, msg: Message) -> Vec<Message>;
 }
 
-pub(crate) trait Decoder: BaseConfigurable {
+pub(crate) trait Decoder: Configurable {
     fn decode(&mut self, chunk: Message) -> Option<Message>;
 }

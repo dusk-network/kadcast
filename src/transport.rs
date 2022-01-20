@@ -15,7 +15,7 @@ use tokio::{
 };
 use tracing::*;
 
-use crate::{config::Config, transport::encoding::AsyncConfigurable};
+use crate::config::Config;
 use crate::{
     encoding::{message::Message, Marshallable},
     peer::PeerNode,
@@ -156,8 +156,7 @@ impl WireNetwork {
         conf: &Config,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
-        let mut output_sockets =
-            MultipleOutSocket::configure(&conf.network).await?;
+        let mut output_sockets = MultipleOutSocket::configure(&conf.network);
         let encoder = TransportEncoder::configure(&conf.fec.encoder);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {

@@ -19,14 +19,6 @@ struct General {
 
 #[tokio::main]
 pub async fn main() {
-    let conf = General {
-        kadcast: kadcast::config::Config::default(),
-    };
-    println!("{}", toml::to_string_pretty(&conf).unwrap());
-    // let mut out = "".to_string();
-    // let ser = toml::Serializer::new(&mut out);
-    // ser.pretty_string(value)
-
     let crate_info = get_version_info!();
     let matches = App::new(&crate_info.crate_name)
         .version(show_version(crate_info).as_str())
