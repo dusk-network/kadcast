@@ -77,14 +77,12 @@ impl<'a> ChunkedPayload<'a> {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashMap, time::Instant};
+    use std::time::Instant;
 
-    use crate::{
-        encoding::{message::Message, payload::BroadcastPayload},
-        peer::PeerNode,
-        transport::encoding::{
-            Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
-        },
+    use crate::encoding::{message::Message, payload::BroadcastPayload};
+    use crate::peer::PeerNode;
+    use crate::transport::encoding::{
+        Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
     };
 
     #[test]
@@ -109,12 +107,16 @@ mod tests {
         let message_bytes = message.bytes();
         println!("orig message len {}", message_bytes.len());
         let start = Instant::now();
-        let encoder = TransportEncoder::configure(&HashMap::default());
+        let encoder = TransportEncoder::configure(
+            &TransportEncoder::default_configuration(),
+        );
         let chunks = encoder.encode(message);
         println!("Encoded in: {:?}", start.elapsed());
         println!("encoded chunks {}", chunks.len());
         let start = Instant::now();
-        let mut decoder = TransportDecoder::configure(&HashMap::default());
+        let mut decoder = TransportDecoder::configure(
+            &TransportDecoder::default_configuration(),
+        );
         let mut decoded = None;
         let mut i = 0;
         let mut sizetotal = 0;

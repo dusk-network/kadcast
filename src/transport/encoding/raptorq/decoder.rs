@@ -6,6 +6,7 @@
 
 use crate::transport::{encoding::Configurable, Decoder};
 use raptorq::{Decoder as ExtDecoder, EncodingPacket};
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     time::{Duration, Instant},
@@ -19,44 +20,36 @@ use super::ChunkedPayload;
 const DEFAULT_CACHE_TTL_SECS: u64 = 60;
 const DEFAULT_CACHE_PRUNE_EVERY_SECS: u64 = 60 * 5;
 
-pub(crate) struct RaptorQDecoder {
+pub struct RaptorQDecoder {
     cache: HashMap<[u8; 32], CacheStatus>,
     last_pruned: Instant,
-    cache_ttl: Duration,
-    cache_prune_every: Duration,
+    conf: RaptorQDecoderConf,
 }
+
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct RaptorQDecoderConf {
+    #[serde(with = "humantime_serde")]
+    pub cache_ttl: Duration,
+    #[serde(with = "humantime_serde")]
+    pub cache_prune_every: Duration,
+}
+
 impl Configurable for RaptorQDecoder {
-    fn configure(conf: &HashMap<String, String>) -> Self {
-        let cache_ttl_secs = conf
-            .get("cache_ttl_secs")
-            .map(|s| s.parse().ok())
-            .flatten()
-            .unwrap_or(DEFAULT_CACHE_TTL_SECS);
-
-        let cache_prune_every_secs = conf
-            .get("cache_prune_every_secs")
-            .map(|s| s.parse().ok())
-            .flatten()
-            .unwrap_or(DEFAULT_CACHE_PRUNE_EVERY_SECS);
-
+    type TConf = RaptorQDecoderConf;
+    fn default_configuration() -> Self::TConf {
+        RaptorQDecoderConf {
+            cache_prune_every: Duration::from_secs(
+                DEFAULT_CACHE_PRUNE_EVERY_SECS,
+            ),
+            cache_ttl: Duration::from_secs(DEFAULT_CACHE_TTL_SECS),
+        }
+    }
+    fn configure(conf: &Self::TConf) -> Self {
         Self {
-            cache_ttl: Duration::from_secs(cache_ttl_secs),
-            cache_prune_every: Duration::from_secs(cache_prune_every_secs),
+            conf: *conf,
             cache: HashMap::new(),
             last_pruned: Instant::now(),
         }
-    }
-    fn default_configuration() -> HashMap<String, String> {
-        let mut conf = HashMap::new();
-        conf.insert(
-            "cache_prune_every_secs".to_string(),
-            DEFAULT_CACHE_PRUNE_EVERY_SECS.to_string(),
-        );
-        conf.insert(
-            "cache_ttl_secs".to_string(),
-            DEFAULT_CACHE_TTL_SECS.to_string(),
-        );
-        conf
     }
 }
 
@@ -93,7 +86,7 @@ impl Decoder for RaptorQDecoder {
                 std::collections::hash_map::Entry::Vacant(v) => {
                     v.insert(CacheStatus::Receiving(
                         ExtDecoder::new(chunked.transmission_info()),
-                        Instant::now() + self.cache_ttl,
+                        Instant::now() + self.conf.cache_ttl,
                         payload.height,
                     ))
                 }
@@ -142,7 +135,7 @@ impl Decoder for RaptorQDecoder {
                             self.cache.insert(
                                 uid,
                                 CacheStatus::Processed(
-                                    Instant::now() + self.cache_ttl,
+                                    Instant::now() + self.conf.cache_ttl,
                                 ),
                             );
                             trace!("> Broadcast message decoded!");
@@ -151,7 +144,7 @@ impl Decoder for RaptorQDecoder {
                 }
             };
             // Every X time, prune dupemap cache
-            if self.last_pruned.elapsed() > self.cache_prune_every {
+            if self.last_pruned.elapsed() > self.conf.cache_prune_every {
                 self.cache.retain(|_, status| !status.expired());
                 self.last_pruned = Instant::now();
             }

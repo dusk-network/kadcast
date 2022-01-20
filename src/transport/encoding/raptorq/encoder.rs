@@ -4,59 +4,46 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::transport::Encoder;
-use std::collections::HashMap;
+use crate::transport::{encoding::Configurable, Encoder};
 
 use crate::encoding::{message::Message, payload::BroadcastPayload};
-
-use super::super::Configurable;
 
 const DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK: u32 = 5;
 const DEFAULT_MTU: u16 = 1300;
 const DEFAULT_FEQ_REDUNDANCY: f32 = 0.15;
 
 use raptorq::Encoder as ExtEncoder;
+use serde_derive::{Deserialize, Serialize};
 
-pub(crate) struct RaptorQEncoder {
+pub struct RaptorQEncoder {
+    conf: RaptorQEncoderConf,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct RaptorQEncoderConf {
     min_repair_packets_per_block: u32,
     mtu: u16,
     fec_redundancy: f32,
 }
 
-impl Configurable for RaptorQEncoder {
-    fn configure(conf: &HashMap<String, String>) -> Self {
-        let min_repair_packets_per_block = conf
-            .get("min_repair_packets_per_block")
-            .map(|s| s.parse().ok())
-            .flatten()
-            .unwrap_or(DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK);
-
-        let mtu = conf
-            .get("mtu")
-            .map(|s| s.parse().ok())
-            .flatten()
-            .unwrap_or(DEFAULT_MTU);
-
-        let fec_redundancy = conf
-            .get("fec_redundancy")
-            .map(|s| s.parse().ok())
-            .flatten()
-            .unwrap_or(DEFAULT_FEQ_REDUNDANCY);
-
-        Self {
-            min_repair_packets_per_block,
-            mtu,
-            fec_redundancy,
+impl Default for RaptorQEncoderConf {
+    fn default() -> Self {
+        RaptorQEncoderConf {
+            fec_redundancy: DEFAULT_FEQ_REDUNDANCY,
+            min_repair_packets_per_block: DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK,
+            mtu: DEFAULT_MTU,
         }
     }
-    fn default_configuration() -> HashMap<String, String> {
-        let mut conf = HashMap::new();
-        conf.insert(
-            "min_repair_packets_per_block".to_string(),
-            DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK.to_string(),
-        );
-        conf.insert("mtu".to_string(), DEFAULT_MTU.to_string());
-        conf
+}
+
+impl Configurable for RaptorQEncoder {
+    type TConf = RaptorQEncoderConf;
+
+    fn default_configuration() -> Self::TConf {
+        RaptorQEncoderConf::default()
+    }
+    fn configure(conf: &Self::TConf) -> Self {
+        Self { conf: *conf }
     }
 }
 
@@ -64,18 +51,18 @@ impl Encoder for RaptorQEncoder {
     fn encode<'msg>(&self, msg: Message) -> Vec<Message> {
         if let Message::Broadcast(header, payload) = msg {
             let encoder =
-                ExtEncoder::with_defaults(&payload.gossip_frame, self.mtu);
+                ExtEncoder::with_defaults(&payload.gossip_frame, self.conf.mtu);
             let mut transmission_info =
                 encoder.get_config().serialize().to_vec();
 
             let mut base_packet = payload.generate_uid().to_vec();
             base_packet.append(&mut transmission_info);
 
-            let mut repair_packets = (payload.gossip_frame.len() as f32
-                * self.fec_redundancy
-                / self.mtu as f32) as u32;
-            if repair_packets < self.min_repair_packets_per_block {
-                repair_packets = self.min_repair_packets_per_block
+            let mut repair_packets =
+                (payload.gossip_frame.len() as f32 * self.conf.fec_redundancy
+                    / self.conf.mtu as f32) as u32;
+            if repair_packets < self.conf.min_repair_packets_per_block {
+                repair_packets = self.conf.min_repair_packets_per_block
             }
 
             encoder

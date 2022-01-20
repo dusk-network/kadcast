@@ -5,9 +5,8 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use std::collections::HashMap;
-use std::time::Duration;
 
-use bucket::{Bucket, BucketConfig};
+use bucket::Bucket;
 pub use bucket::{NodeInsertError, NodeInsertOk};
 use itertools::Itertools;
 pub use key::{BinaryID, BinaryKey, BinaryNonce};
@@ -20,13 +19,10 @@ use tracing::info;
 mod bucket;
 mod key;
 mod node;
+use crate::config::BucketConfig;
 use crate::K_ALPHA;
 use crate::K_BETA;
 use crate::K_ID_LEN_BYTES;
-
-const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
-const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
-const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
 
 pub type BucketHeight = usize;
 
@@ -138,79 +134,93 @@ impl<V> Tree<V> {
             .get(&height)
             .map_or(false, |bucket| bucket.is_full())
     }
-}
-
-pub struct TreeBuilder<V> {
-    node_ttl: Duration,
-    node_evict_after: Duration,
-    root: Node<V>,
-    bucket_ttl: Duration,
-}
-
-impl<V> TreeBuilder<V> {
-    pub(crate) fn new(root: Node<V>) -> TreeBuilder<V> {
-        TreeBuilder {
-            root,
-            node_evict_after: Duration::from_millis(
-                BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
-            ),
-            node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
-            bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
-        }
-    }
-
-    pub fn with_node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
-        self.node_ttl = node_ttl;
-        self
-    }
-
-    pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> TreeBuilder<V> {
-        self.bucket_ttl = bucket_ttl;
-        self
-    }
-
-    pub fn with_node_evict_after(
-        mut self,
-        node_evict_after: Duration,
-    ) -> TreeBuilder<V> {
-        self.node_evict_after = node_evict_after;
-        self
-    }
-
-    pub(crate) fn build(self) -> Tree<V> {
+    pub(crate) fn new(root: Node<V>, config: BucketConfig) -> Tree<V> {
         info!(
-            "Built table [K={}] with root: {:?}",
+            "Building table [K={}] with root: {:?}",
             crate::K_K,
-            self.root.id()
+            root.id()
         );
         Tree {
-            root: self.root,
+            root,
+            config,
             buckets: HashMap::new(),
-            config: BucketConfig {
-                bucket_ttl: self.bucket_ttl,
-                node_evict_after: self.node_evict_after,
-                node_ttl: self.node_ttl,
-            },
         }
     }
 }
+
+// pub struct TreeBuilder<V> {
+//     node_ttl: Duration,
+//     node_evict_after: Duration,
+//     root: Node<V>,
+//     bucket_ttl: Duration,
+// }
+
+// impl<V> TreeBuilder<V> {
+//     pub(crate) fn new(root: Node<V>) -> TreeBuilder<V> {
+//         TreeBuilder {
+//             root,
+//             node_evict_after: Duration::from_millis(
+//                 BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
+//             ),
+//             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
+//             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
+//         }
+//     }
+
+//     pub fn with_node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
+//         self.node_ttl = node_ttl;
+//         self
+//     }
+
+//     pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> TreeBuilder<V>
+// {         self.bucket_ttl = bucket_ttl;
+//         self
+//     }
+
+//     pub fn with_node_evict_after(
+//         mut self,
+//         node_evict_after: Duration,
+//     ) -> TreeBuilder<V> {
+//         self.node_evict_after = node_evict_after;
+//         self
+//     }
+
+//     pub(crate) fn build(self) -> Tree<V> {
+//         info!(
+//             "Built table [K={}] with root: {:?}",
+//             crate::K_K,
+//             self.root.id()
+//         );
+//         Tree {
+//             root: self.root,
+//             buckets: HashMap::new(),
+//             config: BucketConfig {
+//                 bucket_ttl: self.bucket_ttl,
+//                 node_evict_after: self.node_evict_after,
+//                 node_ttl: self.node_ttl,
+//             },
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
 
     use crate::{
-        kbucket::{NodeInsertError, TreeBuilder},
+        config::BucketConfig,
+        kbucket::{NodeInsertError, Tree},
         peer::PeerNode,
     };
 
     #[test]
     fn it_works() {
         let root = PeerNode::from_address("192.168.0.1:666");
-        let mut route_table = TreeBuilder::new(root)
-            .with_node_evict_after(Duration::from_millis(5000))
-            .with_node_ttl(Duration::from_secs(60))
-            .build();
+        let mut config = BucketConfig::default();
+        config.node_evict_after = Duration::from_millis(5000);
+        config.node_ttl = Duration::from_secs(60);
+
+        let mut route_table = Tree::new(root, config);
         for i in 2..255 {
             let res = route_table.insert(PeerNode::from_address(
                 &format!("192.168.0.{}:666", i)[..],

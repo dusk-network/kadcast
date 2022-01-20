@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{collections::HashMap, net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 
 use socket2::SockRef;
 use tokio::{
@@ -15,6 +15,7 @@ use tokio::{
 };
 use tracing::*;
 
+use crate::config::Config;
 use crate::{
     encoding::{message::Message, Marshallable},
     peer::PeerNode,
@@ -32,53 +33,53 @@ type UDPChunk = (Vec<u8>, SocketAddr);
 const MAX_DATAGRAM_SIZE: usize = 65_507;
 pub(crate) struct WireNetwork {}
 
-mod encoding;
-mod sockets;
+pub(crate) mod encoding;
+pub(crate) mod sockets;
 
 impl WireNetwork {
     pub fn start(
         inbound_channel_tx: Sender<MessageBeanIn>,
-        listen_address: String,
         outbound_channel_rx: Receiver<MessageBeanOut>,
-        conf: HashMap<String, String>,
-        channel_size: usize,
+        conf: Config,
     ) {
-        let listen_address = listen_address
-            .parse()
-            .expect("Unable to parse public_ip address");
         let c = conf.clone();
+        let (dec_chan_tx, dec_chan_rx) = mpsc::channel(conf.channel_size);
+
         tokio::spawn(async move {
             WireNetwork::listen_out(outbound_channel_rx, &conf)
                 .await
                 .unwrap_or_else(|op| error!("Error in listen_out {:?}", op));
         });
 
-        let (dec_chan_tx, dec_chan_rx) = mpsc::channel(channel_size);
-
         let c1 = c.clone();
         tokio::spawn(async move {
-            WireNetwork::decode(inbound_channel_tx.clone(), dec_chan_rx, &c)
+            WireNetwork::decode(inbound_channel_tx.clone(), dec_chan_rx, c)
                 .await
                 .unwrap_or_else(|op| error!("Error in decode {:?}", op));
         });
 
         tokio::spawn(async move {
-            WireNetwork::listen_in(listen_address, dec_chan_tx.clone(), &c1)
+            WireNetwork::listen_in(dec_chan_tx.clone(), c1)
                 .await
                 .unwrap_or_else(|op| error!("Error in listen_in {:?}", op));
         });
     }
 
     async fn listen_in(
-        listen_address: SocketAddr,
         dec_chan_tx: Sender<UDPChunk>,
-        conf: &HashMap<String, String>,
+        conf: Config,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
 
-        let socket = UdpSocket::bind(listen_address)
-            .await
-            .expect("Unable to bind address");
+        let socket = {
+            let listen_address = conf
+                .listen_address
+                .clone()
+                .unwrap_or_else(|| conf.public_address.clone());
+            UdpSocket::bind(listen_address)
+                .await
+                .expect("Unable to bind address")
+        };
         info!("Listening on: {}", socket.local_addr()?);
 
         // Try to extend socket recv buffer size
@@ -106,10 +107,10 @@ impl WireNetwork {
     async fn decode(
         inbound_channel_tx: Sender<MessageBeanIn>,
         mut dec_chan_rx: Receiver<UDPChunk>,
-        conf: &HashMap<String, String>,
+        conf: Config,
     ) -> io::Result<()> {
         debug!("WireNetwork::decode started");
-        let mut decoder = TransportDecoder::configure(conf);
+        let mut decoder = TransportDecoder::configure(&conf.fec.decoder);
 
         loop {
             if let Some((message, remote_address)) = dec_chan_rx.recv().await {
@@ -152,11 +153,11 @@ impl WireNetwork {
 
     async fn listen_out(
         mut outbound_channel_rx: Receiver<MessageBeanOut>,
-        conf: &HashMap<String, String>,
+        conf: &Config,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_out started");
-        let mut output_sockets = MultipleOutSocket::configure(conf).await?;
-        let encoder = TransportEncoder::configure(conf);
+        let mut output_sockets = MultipleOutSocket::configure(&conf.network);
+        let encoder = TransportEncoder::configure(&conf.fec.encoder);
         loop {
             if let Some((message, to)) = outbound_channel_rx.recv().await {
                 debug!(
@@ -182,13 +183,9 @@ impl WireNetwork {
 
     pub fn configure_socket(
         socket: &UdpSocket,
-        conf: &HashMap<String, String>,
+        conf: Config,
     ) -> std::io::Result<()> {
-        if let Some(udp_recv_buffer_size) = conf
-            .get("udp_recv_buffer_size")
-            .map(|s| s.parse().ok())
-            .flatten()
-        {
+        if let Some(udp_recv_buffer_size) = conf.network.udp_recv_buffer_size {
             let sock = SockRef::from(socket);
             match sock.set_recv_buffer_size(udp_recv_buffer_size) {
                 Ok(_) => {
@@ -208,12 +205,4 @@ impl WireNetwork {
         }
         Ok(())
     }
-}
-
-pub fn default_configuration() -> HashMap<String, String> {
-    let mut conf = TransportEncoder::default_configuration();
-    conf.extend(TransportDecoder::default_configuration());
-    conf.extend(MultipleOutSocket::default_configuration());
-    conf.insert("udp_recv_buffer_size".to_string(), "SYSTEM".to_string());
-    conf
 }

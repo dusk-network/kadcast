@@ -4,8 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::time::Duration;
-
+use crate::config::BucketConfig;
 use crate::K_K;
 
 use super::node::{Node, NodeEvictionStatus};
@@ -14,12 +13,6 @@ use arrayvec::ArrayVec;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
-#[derive(Debug, Copy, Clone)]
-pub(crate) struct BucketConfig {
-    pub(crate) node_ttl: Duration,
-    pub(crate) node_evict_after: Duration,
-    pub(crate) bucket_ttl: Duration,
-}
 pub(super) struct Bucket<V> {
     nodes: arrayvec::ArrayVec<Node<V>, K_K>,
     pending_node: Option<Node<V>>,
@@ -216,8 +209,10 @@ mod tests {
     use std::{thread, time::Duration};
 
     use crate::{
+        config::BucketConfig,
         kbucket::{
-            bucket::NodeInsertError, key::BinaryKey, Bucket, Node, NodeInsertOk,
+            bucket::NodeInsertError, key::BinaryKey, Bucket, Node,
+            NodeInsertOk, Tree,
         },
         peer::PeerNode,
         K_BETA,
@@ -253,10 +248,11 @@ mod tests {
     #[test]
     fn test_lru_base_5secs() {
         let root = PeerNode::from_address("127.0.0.1:666");
-        let mut route_table = crate::kbucket::TreeBuilder::new(root)
-            .with_node_evict_after(Duration::from_millis(1000))
-            .with_node_ttl(Duration::from_secs(5))
-            .build();
+        let mut config = BucketConfig::default();
+        config.node_evict_after = Duration::from_millis(1000);
+        config.node_ttl = Duration::from_secs(5);
+
+        let mut route_table = Tree::new(root, config);
 
         let bucket = route_table.bucket_for_test();
         let node1 = PeerNode::from_address("192.168.1.1:8080");

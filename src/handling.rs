@@ -10,6 +10,7 @@ use std::net::SocketAddr;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::*;
 
+use crate::config::Config;
 use crate::encoding::message::{
     BroadcastPayload, Header, Message, NodePayload,
 };
@@ -44,15 +45,15 @@ impl MessageHandler {
         mut inbound_receiver: Receiver<MessageBeanIn>,
         outbound_sender: Sender<MessageBeanOut>,
         listener_sender: Sender<(Vec<u8>, MessageInfo)>,
-        auto_propagate: bool,
-        recursive_discovery: bool,
+        config: &Config,
     ) {
-        let nodes_reply_fn = match recursive_discovery {
+        let nodes_reply_fn = match config.recursive_discovery {
             true => |header: Header, target: BinaryKey| {
                 Message::FindNodes(header, target)
             },
             false => |header: Header, _: BinaryKey| Message::Ping(header),
         };
+        let auto_propagate = config.auto_propagate;
         tokio::spawn(async move {
             debug!("MessageHandler started");
             let my_header = { ktable.read().await.root().as_header() };

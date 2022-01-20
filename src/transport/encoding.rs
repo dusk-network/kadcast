@@ -7,16 +7,19 @@
 mod plain_encoder;
 mod raptorq;
 
-use std::collections::HashMap;
-
 pub(crate) use self::raptorq::RaptorQDecoder as TransportDecoder;
 pub(crate) use self::raptorq::RaptorQEncoder as TransportEncoder;
 
+pub type TransportEncoderConfig =
+    <self::TransportEncoder as Configurable>::TConf;
+pub type TransportDecoderConfig =
+    <self::TransportDecoder as Configurable>::TConf;
 use crate::encoding::message::Message;
 
-pub(crate) trait Configurable {
-    fn configure(conf: &HashMap<String, String>) -> Self;
-    fn default_configuration() -> HashMap<String, String>;
+pub trait Configurable {
+    type TConf;
+    fn default_configuration() -> Self::TConf;
+    fn configure(conf: &Self::TConf) -> Self;
 }
 
 pub(crate) trait Encoder: Configurable {

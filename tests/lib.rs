@@ -13,11 +13,7 @@ mod tests {
         time::Duration,
     };
 
-    use kadcast::{
-        MessageInfo, NetworkListen, Peer,
-        BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS, BUCKET_DEFAULT_NODE_TTL_MILLIS,
-        BUCKET_DEFAULT_TTL_SECS,
-    };
+    use kadcast::{config::Config, MessageInfo, NetworkListen, Peer};
     use tokio::{sync::mpsc, time::timeout};
     use tracing::info;
     use tracing::warn;
@@ -32,7 +28,7 @@ mod tests {
         println!("{:?}", server);
     }
 
-    const NODES: i32 = 20;
+    const NODES: i32 = 10;
     const BASE_PORT: i32 = 20000;
     const BOOTSTRAP_COUNT: i32 = 2;
     const WAIT_SEC: u64 = 20;
@@ -79,7 +75,11 @@ mod tests {
             info!("----------------------");
         }
 
-        peers.get(&0).unwrap().broadcast(&data, None).await;
+        peers
+            .get(&(NODES - 1))
+            .unwrap()
+            .broadcast(&data, None)
+            .await;
         let res =
             timeout(Duration::from_secs(WAIT_SEC), receive(rx, NODES - 1))
                 .await;
@@ -122,64 +122,10 @@ mod tests {
             grpc_sender,
             receiver_port: port as usize,
         };
-        let mut peer_builder = Peer::builder(public_addr, bootstrap, listener)
-            // .with_listen_address(listen_addr)
-            .with_node_ttl(Duration::from_millis(
-                BUCKET_DEFAULT_NODE_TTL_MILLIS,
-            ))
-            .with_bucket_ttl(Duration::from_secs(BUCKET_DEFAULT_TTL_SECS))
-            .with_channel_size(100)
-            .with_node_evict_after(Duration::from_millis(
-                BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
-            ))
-            .with_auto_propagate(true);
-
-        // Disable recursive discovery in a local env
-        // This should be set to `true` in a real env
-        peer_builder = peer_builder.with_recursive_discovery(true);
-
-        //this is unusefull, just to get the default conf
-        peer_builder
-            .transport_conf()
-            .extend(kadcast::transport::default_configuration());
-
-        //RaptorQ Decoder conf
-        peer_builder
-            .transport_conf()
-            .insert("cache_ttl_secs".to_string(), "60".to_string());
-        peer_builder
-            .transport_conf()
-            .insert("cache_prune_every_secs".to_string(), "300".to_string());
-
-        //RaptorQ Encoder conf
-        peer_builder.transport_conf().insert(
-            "min_repair_packets_per_block".to_string(),
-            "5".to_string(),
-        );
-        peer_builder
-            .transport_conf()
-            .insert("mtu".to_string(), "1300".to_string());
-        peer_builder
-            .transport_conf()
-            .insert("fec_redundancy".to_string(), "0.15".to_string());
-
-        // //UDP conf
-
-        peer_builder
-            .transport_conf()
-            .insert("udp_backoff_timeout_micros".to_string(), "0".to_string());
-        peer_builder
-            .transport_conf()
-            .insert("udp_recv_buffer_size".to_string(), "SYSTEM".to_string());
-        peer_builder
-            .transport_conf()
-            .insert("udp_send_retry_count".to_string(), "3".to_string());
-        peer_builder.transport_conf().insert(
-            "udp_send_retry_interval_millis".to_string(),
-            "5".to_string(),
-        );
-
-        peer_builder.build()
+        let mut conf = Config::default();
+        conf.bootstrapping_nodes = bootstrap;
+        conf.public_address = public_addr;
+        Peer::new(conf, listener)
     }
 
     struct KadcastListener {

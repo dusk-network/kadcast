@@ -4,15 +4,15 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::collections::HashMap;
 use std::{convert::TryInto, net::SocketAddr, time::Duration};
 
+use config::Config;
 use encoding::message::Header;
 use encoding::{message::Message, payload::BroadcastPayload};
 use handling::MessageHandler;
 pub use handling::MessageInfo;
 use itertools::Itertools;
-use kbucket::{Tree, TreeBuilder};
+use kbucket::Tree;
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
 pub(crate) use rwlock::RwLock;
@@ -21,6 +21,7 @@ use tokio::task;
 use tracing::{error, info};
 use transport::{MessageBeanOut, WireNetwork};
 
+pub mod config;
 mod encoding;
 mod handling;
 mod kbucket;
@@ -36,7 +37,6 @@ const K_ID_LEN_BYTES: usize = 16;
 const K_NONCE_LEN: usize = 4;
 const K_DIFF_MIN_BIT: usize = 8;
 const K_DIFF_PRODUCED_BIT: usize = 8;
-const DEFAULT_CHANNEL_SIZE: usize = 100;
 
 const fn get_k_k() -> usize {
     match option_env!("KADCAST_K") {
@@ -53,19 +53,6 @@ const K_ALPHA: usize = 3;
 // Redundacy factor for broadcast
 const K_BETA: usize = 3;
 
-/// Default value while a node is considered alive (no eviction will be
-/// requested)
-pub const BUCKET_DEFAULT_NODE_TTL_MILLIS: u64 = 30000;
-
-/// Default value after which a node can be evicted if requested
-pub const BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS: u64 = 5000;
-
-/// Default value after which a bucket is considered idle
-pub const BUCKET_DEFAULT_TTL_SECS: u64 = 60 * 60;
-
-/// Default behaviour for propagation of incoming broadcast messages
-pub const ENABLE_BROADCAST_PROPAGATION: bool = true;
-
 /// Struct representing the Kadcast Network Peer
 pub struct Peer {
     outbound_sender: Sender<MessageBeanOut>,
@@ -80,22 +67,26 @@ pub trait NetworkListen: Send {
 }
 
 impl Peer {
-    fn new<L: NetworkListen + 'static>(
-        listen_address: String,
-        bootstrapping_nodes: Vec<String>,
-        auto_propagate: bool,
-        recursive_discovery: bool,
-        channel_size: usize,
+    /// Create a [Peer].
+    ///
+    /// * `config` - The [Config] used to create the Peer
+    /// * `listener` - The [NetworkListen] impl notified each time a broadcasted
+    ///   message is received from the network
+    pub fn new<L: NetworkListen + 'static>(
+        config: Config,
         listener: L,
-        tree: Tree<PeerInfo>,
-        transport_conf: HashMap<String, String>,
     ) -> Self {
+        let tree = Tree::new(
+            PeerNode::from_address(&config.public_address[..]),
+            config.bucket,
+        );
+
         let (inbound_channel_tx, inbound_channel_rx) =
-            mpsc::channel(channel_size);
+            mpsc::channel(config.channel_size);
         let (outbound_channel_tx, outbound_channel_rx) =
-            mpsc::channel(channel_size);
+            mpsc::channel(config.channel_size);
         let (notification_channel_tx, listener_channel_rx) =
-            mpsc::channel(channel_size);
+            mpsc::channel(config.channel_size);
 
         let header = tree.root().as_header();
         let table = RwLock::new(tree, Duration::from_secs(1));
@@ -104,21 +95,15 @@ impl Peer {
             ktable: table.clone(),
             header,
         };
+        let bootstrapping_nodes = config.bootstrapping_nodes.clone();
         MessageHandler::start(
             table.clone(),
             inbound_channel_rx,
             outbound_channel_tx.clone(),
             notification_channel_tx,
-            auto_propagate,
-            recursive_discovery,
+            &config,
         );
-        WireNetwork::start(
-            inbound_channel_tx,
-            listen_address,
-            outbound_channel_rx,
-            transport_conf,
-            channel_size,
-        );
+        WireNetwork::start(inbound_channel_tx, outbound_channel_rx, config);
         tokio::spawn(TableMantainer::start(
             bootstrapping_nodes,
             table,
@@ -231,151 +216,5 @@ impl Peer {
             .unwrap_or_else(|e| {
                 error!("Unable to send from send method {}", e)
             });
-    }
-
-    /// Instantiate a [PeerBuilder].
-    ///
-    /// * `public_address` - public `SocketAddress` of the [Peer]. No domain
-    ///   name allowed
-    /// * `bootstrapping_nodes` - List of known bootstrapping kadcast nodes. It
-    ///   accepts the same representation of `public_address` but with domain
-    ///   names allowed
-    /// * `listener` - The [NetworkListen] impl notified each time a broadcasted
-    ///   message is received from the network
-    pub fn builder<L: NetworkListen>(
-        public_address: String,
-        bootstrapping_nodes: Vec<String>,
-        listener: L,
-    ) -> PeerBuilder<L> {
-        PeerBuilder::new(public_address, bootstrapping_nodes, listener)
-    }
-}
-
-/// PeerBuilder instantiates a Kadcast [Peer].
-pub struct PeerBuilder<L: NetworkListen + 'static> {
-    node_ttl: Duration,
-    node_evict_after: Duration,
-    bucket_ttl: Duration,
-    auto_propagate: bool,
-    public_address: String,
-    listen_address: Option<String>,
-    bootstrapping_nodes: Vec<String>,
-    listener: L,
-    transport_conf: HashMap<String, String>,
-    channel_size: usize,
-    recursive_discovery: bool,
-}
-
-impl<L: NetworkListen + 'static> PeerBuilder<L> {
-    /// Sets the maximum duration for a node to be considered alive (no eviction
-    /// will be requested).
-    ///
-    /// Default value [BUCKET_DEFAULT_NODE_TTL_MILLIS]
-    pub fn with_node_ttl(mut self, node_ttl: Duration) -> PeerBuilder<L> {
-        self.node_ttl = node_ttl;
-        self
-    }
-
-    /// Set duration after which a bucket is considered idle
-    ///
-    /// Default value [BUCKET_DEFAULT_TTL_SECS]
-    pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> PeerBuilder<L> {
-        self.bucket_ttl = bucket_ttl;
-        self
-    }
-
-    /// Set duration after which a node can be evicted if requested
-    ///
-    /// Default value [BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS]
-    pub fn with_node_evict_after(
-        mut self,
-        node_evict_after: Duration,
-    ) -> PeerBuilder<L> {
-        self.node_evict_after = node_evict_after;
-        self
-    }
-
-    /// Set the address listening to incoming connections
-    /// If not set, the public address will be used
-    ///
-    /// Default value NONE
-    pub fn with_listen_address(
-        mut self,
-        listen_address: Option<String>,
-    ) -> PeerBuilder<L> {
-        self.listen_address = listen_address;
-        self
-    }
-
-    pub fn transport_conf(&mut self) -> &mut HashMap<String, String> {
-        &mut self.transport_conf
-    }
-
-    /// Enable automatic propagation of incoming broadcast messages
-    ///
-    /// Default value [ENABLE_BROADCAST_PROPAGATION]
-    pub fn with_auto_propagate(
-        mut self,
-        auto_propagate: bool,
-    ) -> PeerBuilder<L> {
-        self.auto_propagate = auto_propagate;
-        self
-    }
-
-    /// Default value [DEFAULT_CHANNEL_SIZE]
-    pub fn with_channel_size(mut self, channel_size: usize) -> PeerBuilder<L> {
-        self.channel_size = channel_size;
-        self
-    }
-
-    /// Default value true
-    pub fn with_recursive_discovery(
-        mut self,
-        recursive_discovery: bool,
-    ) -> PeerBuilder<L> {
-        self.recursive_discovery = recursive_discovery;
-        self
-    }
-
-    fn new(
-        public_address: String,
-        bootstrapping_nodes: Vec<String>,
-        listener: L,
-    ) -> PeerBuilder<L> {
-        PeerBuilder {
-            public_address,
-            listen_address: None,
-            bootstrapping_nodes,
-            listener,
-            node_evict_after: Duration::from_millis(
-                BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
-            ),
-            node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
-            bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
-            auto_propagate: ENABLE_BROADCAST_PROPAGATION,
-            transport_conf: transport::default_configuration(),
-            channel_size: DEFAULT_CHANNEL_SIZE,
-            recursive_discovery: true,
-        }
-    }
-
-    /// Builds the [Peer]
-    pub fn build(self) -> Peer {
-        let tree =
-            TreeBuilder::new(PeerNode::from_address(&self.public_address[..]))
-                .with_node_evict_after(self.node_evict_after)
-                .with_node_ttl(self.node_ttl)
-                .with_bucket_ttl(self.bucket_ttl)
-                .build();
-        Peer::new(
-            self.listen_address.unwrap_or(self.public_address),
-            self.bootstrapping_nodes,
-            self.auto_propagate,
-            self.recursive_discovery,
-            self.channel_size,
-            self.listener,
-            tree,
-            self.transport_conf,
-        )
     }
 }

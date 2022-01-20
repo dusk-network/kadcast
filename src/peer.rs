@@ -56,8 +56,8 @@ impl PeerNode {
             .as_slice()
             .try_into()
             .expect("Wrong length");
-        let mut x = vec![0u8; 16];
-        x.clone_from_slice(&a[..16]);
+        let mut x = vec![0u8; crate::K_ID_LEN_BYTES];
+        x.clone_from_slice(&a[..crate::K_ID_LEN_BYTES]);
         x.try_into().expect("Wrong length")
     }
 
