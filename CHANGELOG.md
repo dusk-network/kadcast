@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `PeerBuilder` in favor of `Peer::new()`
 
+### Fixed
+
+- Stalled peer bootstrap [#97]
+
 ## [0.3.0] - 07-01-22
 ### Added
 
@@ -78,3 +82,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#90]: https://github.com/dusk-network/kadcast/issues/90
 [#92]: https://github.com/dusk-network/kadcast/issues/92
 [#96]: https://github.com/dusk-network/kadcast/issues/96
+[#97]: https://github.com/dusk-network/kadcast/issues/97
