@@ -3,7 +3,7 @@ name = "kadcast"
 authors = [
   "herr-seppia <seppia@dusk.network>"
 ]
-version = "0.4.0-rc.1"
+version = "0.4.0-rc.2"
 edition = "2018"
 description ="Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]

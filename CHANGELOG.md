@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Stalled peer bootstrap [#97]
+- Stalled peer bootstrap [#97] [#99]
 
 ## [0.3.0] - 07-01-22
 ### Added
@@ -83,3 +83,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#92]: https://github.com/dusk-network/kadcast/issues/92
 [#96]: https://github.com/dusk-network/kadcast/issues/96
 [#97]: https://github.com/dusk-network/kadcast/issues/97
+[#99]: https://github.com/dusk-network/kadcast/issues/99
