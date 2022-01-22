@@ -28,15 +28,17 @@ impl TableMantainer {
         let header = ktable.read().await.root().as_header();
         let binary_key = header.binary_id.as_binary();
 
-        let bootstrapping_nodes_addr: Vec<SocketAddr> = bootstrapping_nodes
-            .iter()
-            .flat_map(|boot| {
-                boot.to_socket_addrs()
-                    .expect("Unable to resolve domain for {}")
-            })
-            .filter(|socket| socket != &my_ip)
-            .collect();
         while ktable.read().await.closest_peers::<10>(binary_key).count() < 3 {
+            let bootstrapping_nodes_addr: Vec<SocketAddr> = bootstrapping_nodes
+                .iter()
+                .flat_map(|boot| {
+                    boot.to_socket_addrs().unwrap_or_else(|e| {
+                        error!("Unable to resolve domain for {} - {}", boot, e);
+                        vec![].into_iter()
+                    })
+                })
+                .filter(|socket| socket != &my_ip)
+                .collect();
             let find_nodes = Message::FindNodes(header, *binary_key);
             outbound_sender
                 .send((find_nodes, bootstrapping_nodes_addr.clone()))
