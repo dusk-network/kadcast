@@ -64,7 +64,7 @@ impl CacheStatus {
             CacheStatus::Receiving(_, expire_on, _) => expire_on,
             CacheStatus::Processed(expire_on) => expire_on,
         };
-        expire_on > &Instant::now()
+        expire_on < &Instant::now()
     }
 }
 
@@ -152,5 +152,84 @@ impl Decoder for RaptorQDecoder {
         } else {
             Some(message)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{thread, time::Duration};
+
+    use super::RaptorQDecoder;
+    use crate::transport::encoding::raptorq::RaptorQEncoder;
+    use crate::{
+        encoding::{message::Message, payload::BroadcastPayload},
+        peer::PeerNode,
+        transport::encoding::{Configurable, Decoder, Encoder},
+    };
+
+    impl RaptorQDecoder {
+        fn cache_size(&self) -> usize {
+            self.cache.len()
+        }
+    }
+
+    #[test]
+    fn expiring_cache() {
+        let root = PeerNode::from_address("192.168.0.1:666");
+        let enc =
+            RaptorQEncoder::configure(&RaptorQEncoder::default_configuration());
+        let mut conf = RaptorQDecoder::default_configuration();
+        conf.cache_prune_every = Duration::from_millis(500);
+        conf.cache_ttl = Duration::from_secs(1);
+        let mut dec = RaptorQDecoder::configure(&conf);
+        assert_eq!(dec.cache_size(), 0);
+
+        //Decode first message
+        for n in enc.encode(Message::Broadcast(
+            root.as_header(),
+            BroadcastPayload {
+                height: 0,
+                gossip_frame: vec![0],
+            },
+        )) {
+            dec.decode(n);
+        }
+        assert_eq!(dec.cache_size(), 1);
+
+        // Wait for first check, message should not expire
+        thread::sleep(Duration::from_millis(500));
+        assert_eq!(dec.cache_size(), 1);
+
+        // Wait second check, next decode should remove first message
+        thread::sleep(Duration::from_millis(500));
+
+        // Decode other 3 messages
+        for i in 1..4 {
+            for n in enc.encode(Message::Broadcast(
+                root.as_header(),
+                BroadcastPayload {
+                    height: 0,
+                    gossip_frame: vec![i],
+                },
+            )) {
+                dec.decode(n);
+            }
+        }
+        assert_eq!(dec.cache_size(), 3);
+        thread::sleep(Duration::from_millis(500));
+        assert_eq!(dec.cache_size(), 3);
+        thread::sleep(Duration::from_millis(500));
+
+        // Decode message, it should remove the previous 3
+        for n in enc.encode(Message::Broadcast(
+            root.as_header(),
+            BroadcastPayload {
+                height: 0,
+                gossip_frame: vec![0],
+            },
+        )) {
+            dec.decode(n);
+        }
+        assert_eq!(dec.cache_size(), 1);
     }
 }
