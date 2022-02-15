@@ -127,8 +127,13 @@ impl Peer {
     ///
     /// * `amount` - The max amount of nodes to return
     pub async fn alive_nodes(&self, amount: usize) -> Vec<SocketAddr> {
-        let rng = &mut rand::thread_rng();
         let table_read = self.ktable.read().await;
+
+        // If the `rng` is generated between the `await`, it leads into "the
+        // trait `std::marker::Send` is not implemented for
+        // `Rc<UnsafeCell<ReseedingRng<rand_chacha::chacha::ChaCha12Core,
+        // OsRng>>>`" when used outside this crate
+        let rng = &mut rand::thread_rng();
         table_read
             .alive_nodes()
             .map(|i| i.as_peer_info().to_socket_address())
