@@ -129,6 +129,12 @@ impl<V> Tree<V> {
         }
     }
 
+    pub(crate) fn alive_nodes(&self) -> impl Iterator<Item = &Node<V>> {
+        self.buckets
+            .iter()
+            .flat_map(|(_, bucket)| bucket.alive_nodes())
+    }
+
     pub(crate) fn is_bucket_full(&self, height: usize) -> bool {
         self.buckets
             .get(&height)

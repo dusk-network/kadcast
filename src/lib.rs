@@ -15,6 +15,7 @@ use itertools::Itertools;
 use kbucket::Tree;
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
+use rand::prelude::IteratorRandom;
 pub(crate) use rwlock::RwLock;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task;
@@ -120,6 +121,18 @@ impl Peer {
         while let Some(notif) = listener_channel_rx.recv().await {
             listener.on_message(notif.0, notif.1);
         }
+    }
+
+    /// Return the [SocketAddr] of a set of random active nodes.
+    ///
+    /// * `amount` - The max amount of nodes to return
+    pub async fn alive_nodes(&self, amount: usize) -> Vec<SocketAddr> {
+        let rng = &mut rand::thread_rng();
+        let table_read = self.ktable.read().await;
+        table_read
+            .alive_nodes()
+            .map(|i| i.as_peer_info().to_socket_address())
+            .choose_multiple(rng, amount)
     }
 
     #[doc(hidden)]

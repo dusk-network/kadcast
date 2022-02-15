@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `kadcast::Config` [#96]
+- Add `Peer::alive_nodes(amount)` to return random alive socket_addr [#103]
 
 ### Removed
 
@@ -86,3 +87,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#97]: https://github.com/dusk-network/kadcast/issues/97
 [#99]: https://github.com/dusk-network/kadcast/issues/99
 [#101]: https://github.com/dusk-network/kadcast/issues/101
+[#103]: https://github.com/dusk-network/kadcast/issues/103

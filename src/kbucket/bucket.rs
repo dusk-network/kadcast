@@ -195,6 +195,11 @@ impl<V> Bucket<V> {
         }
     }
 
+    pub(crate) fn alive_nodes(&self) -> impl Iterator<Item = &Node<V>> {
+        let ttl = self.bucket_config.node_ttl;
+        self.nodes.iter().filter(move |&n| n.is_alive(ttl))
+    }
+
     pub(crate) fn has_node(&self, peer: &BinaryKey) -> bool {
         self.nodes.iter().any(|n| n.id().as_binary() == peer)
     }
