@@ -70,6 +70,11 @@ mod tests {
             info!("ROUTING TABLE PEER #{}", i);
             peers.get(&i).unwrap().report().await;
             info!("----------------------");
+            info!("FIRST 20 ALIVE ADDRESSES FOR #{}", i);
+            for s in peers.get(&i).unwrap().alive_nodes(20).await {
+                info!("{}", s);
+            }
+            info!("----------------------");
         }
 
         peers
