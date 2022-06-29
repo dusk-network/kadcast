@@ -137,6 +137,7 @@ pub struct FECConfig {
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct NetworkConfig {
     pub udp_recv_buffer_size: Option<usize>,
+    #[serde(default)]
     #[serde(with = "humantime_serde")]
     pub udp_send_backoff_timeout: Option<Duration>,
     #[serde(with = "humantime_serde")]
