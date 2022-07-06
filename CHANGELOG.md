@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.4.0] - 2022-07-06
 ### Added
 
 - Add `kadcast::Config` [#96]
@@ -21,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stalled peer bootstrap [#97] [#99]
 - Dupemap cache expiring [#101]
 
-## [0.3.0] - 07-01-22
+## [0.3.0] - 2022-01-07
 ### Added
 
 - Add network transport configuration [#72] [#76]
@@ -40,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Messages from buckets full are correctly handled 
 - Empty payload NodesMessage decoding [#90]
 
-## [0.2.0] - 16-12-21
+## [0.2.0] - 2021-12-16
 
 ### Added
 
@@ -59,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix build with `tonic` dependency [#60]
 
-## [0.1.0] - 29-10-21
+## [0.1.0] - 2021-10-29
 
 ### Added
 
@@ -88,3 +89,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#99]: https://github.com/dusk-network/kadcast/issues/99
 [#101]: https://github.com/dusk-network/kadcast/issues/101
 [#103]: https://github.com/dusk-network/kadcast/issues/103
+
+<!-- Releases -->
+
+[unreleased]: https://github.com/dusk-network/kadcast/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/dusk-network/kadcast/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/dusk-network/kadcast/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/dusk-network/kadcast/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/dusk-network/kadcast/releases/tag/v0.1.0
