@@ -129,6 +129,12 @@ impl<V> Tree<V> {
         }
     }
 
+    pub(crate) fn remove_idle_nodes(&mut self) {
+        self.buckets
+            .iter_mut()
+            .for_each(|(_, b)| b.remove_idle_nodes())
+    }
+
     pub(crate) fn alive_nodes(&self) -> impl Iterator<Item = &Node<V>> {
         self.buckets
             .iter()
