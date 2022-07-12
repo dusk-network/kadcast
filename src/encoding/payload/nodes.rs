@@ -64,20 +64,22 @@ impl Marshallable for PeerEncodedInfo {
             [first, second].concat()
         };
         let mut ipv4 = [0; 4];
-        let ip: IpInfo;
         reader.read_exact(&mut ipv4)?;
-        if ipv4[0] != 0u8 {
-            ip = IpInfo::IPv4(ipv4)
-        } else {
-            let mut ipv6 = [0u8; 13];
-            reader.read_exact(&mut ipv6)?;
-            let ipv6_bytes: [u8; 16] = concat_u8(&ipv4[1..], &ipv6[..])
-                .as_slice()
-                .try_into()
-                .expect("Wrong length");
 
-            ip = IpInfo::IPv6(ipv6_bytes);
-        }
+        let ip = match ipv4[0] != 0u8 {
+            true => IpInfo::IPv4(ipv4),
+            false => {
+                let mut ipv6 = [0u8; 13];
+                reader.read_exact(&mut ipv6)?;
+                let ipv6_bytes: [u8; 16] = concat_u8(&ipv4[1..], &ipv6[..])
+                    .as_slice()
+                    .try_into()
+                    .expect("Wrong length");
+
+                IpInfo::IPv6(ipv6_bytes)
+            }
+        };
+
         let mut port = [0; 2];
         reader.read_exact(&mut port)?;
         let port = u16::from_le_bytes(port);
