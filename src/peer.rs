@@ -25,17 +25,18 @@ impl PeerInfo {
 }
 
 impl PeerNode {
-    pub fn from_address(address: &str) -> Self {
+    pub fn generate(address: &str) -> Self {
         let server: SocketAddr =
             address.parse().expect("Unable to parse address");
-        PeerNode::from_socket(server)
-    }
-
-    pub fn from_socket(server: SocketAddr) -> Self {
         let info = PeerInfo { address: server };
         let binary =
             PeerNode::compute_id(&info.address.ip(), info.address.port());
-        let id = BinaryID::new(binary);
+        let id = BinaryID::generate(binary);
+        Node::new(id, info)
+    }
+
+    pub fn from_socket(address: SocketAddr, id: BinaryID) -> Self {
+        let info = PeerInfo { address };
         Node::new(id, info)
     }
 
@@ -87,8 +88,7 @@ mod tests {
 
     #[test]
     fn test_verify_header() {
-        let wrong_header =
-            PeerNode::from_address("10.0.0.1:333").as_header();
+        let wrong_header = PeerNode::from_address("10.0.0.1:333").as_header();
         let wrong_header_sameport =
             PeerNode::from_address("10.0.0.1:666").as_header();
         vec![

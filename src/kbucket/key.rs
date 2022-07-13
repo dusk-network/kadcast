@@ -78,7 +78,7 @@ impl BinaryID {
         BinaryID { bytes: id, nonce }
     }
 
-    pub(crate) fn new(id: BinaryKey) -> Self {
+    pub(crate) fn generate(id: BinaryKey) -> Self {
         if K_DIFF_PRODUCED_BIT < K_DIFF_MIN_BIT {
             panic!("PoW is less than minimum required, review your build config...")
         }
