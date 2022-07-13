@@ -76,6 +76,21 @@ impl<V> Bucket<V> {
         self.nodes.last()
     }
 
+    fn insert_pending(&mut self) {
+        if self.nodes.is_full() {
+            return;
+        };
+        if let Some(pending) = self.pending_node.take() {
+            if pending.is_alive(self.bucket_config.node_ttl) {
+                //FIXME: use try_push instead of push
+                //FIXME2: we are breaking the LRU policy, maybe in
+                // the meanwhile other records have been updated. Btw
+                // it's mitigated with is_alive check
+                self.nodes.push(pending);
+            }
+        }
+    }
+
     /*
         If the bucket is full, flag the least recent used for eviction.
         If it's already flagged, check if timeout is expired and then replace with the pending node.
@@ -91,15 +106,7 @@ impl<V> Bucket<V> {
                     self.nodes.first()
                 } else {
                     self.nodes.pop_at(0);
-                    if let Some(pending) = self.pending_node.take() {
-                        if pending.is_alive(self.bucket_config.node_ttl) {
-                            //FIXME: use try_push instead of push
-                            //FIXME2: we are breaking the LRU policy, maybe in
-                            // the meanwhile other records are been updated. Btw
-                            // it's mitigated with is_alive check
-                            self.nodes.push(pending);
-                        }
-                    }
+                    self.insert_pending();
                     None
                 }
             }
@@ -184,15 +191,10 @@ impl<V> Bucket<V> {
         })
     }
 
-    #[allow(dead_code)]
     pub(crate) fn remove_idle_nodes(&mut self) {
-        if let Some(idx) = self
-            .nodes
-            .iter()
-            .position(|n| n.is_alive(self.bucket_config.node_ttl))
-        {
-            self.nodes.truncate(idx)
-        }
+        let ttl = self.bucket_config.node_ttl;
+        self.nodes.retain(|n| n.is_alive(ttl));
+        self.insert_pending();
     }
 
     pub(crate) fn alive_nodes(&self) -> impl Iterator<Item = &Node<V>> {

@@ -25,10 +25,17 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
+          components: clippy
       - uses: actions-rs/cargo@v1
         with:
           command: test
           args: --release
+      - run: rustup component add clippy
+      - name: "Clippy check release"
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features --release -- -D warnings
 
   fmt:
     name: Rustfmt
@@ -43,4 +50,3 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-

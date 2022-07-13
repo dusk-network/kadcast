@@ -58,27 +58,33 @@ impl TableMantainer {
         loop {
             tokio::time::sleep(idle_time).await;
             info!("TableMantainer::monitor_buckets woke up");
-            let table_lock_read = ktable.read().await;
-            let root = table_lock_read.root();
+            TableMantainer::ping_idle_buckets(&ktable, &outbound_sender).await;
+            ktable.write().await.remove_idle_nodes();
+            info!("TableMantainer::monitor_buckets back to sleep");
+        }
+    }
 
-            let idles = table_lock_read
-                .idle_buckets()
-                .flat_map(|(_, target)| target)
-                .map(|target| {
-                    (
-                        Message::FindNodes(
-                            root.as_header(),
-                            *target.id().as_binary(),
-                        ),
-                        //TODO: Extract alpha nodes
-                        vec![*target.value().address()],
-                    )
-                });
-            for idle in idles {
-                outbound_sender.send(idle).await.unwrap_or_else(|op| {
-                    error!("Unable to send broadcast {:?}", op)
-                });
-            }
+    async fn ping_idle_buckets(
+        ktable: &RwLock<Tree<PeerInfo>>,
+        outbound_sender: &Sender<MessageBeanOut>,
+    ) {
+        let table_lock_read = ktable.read().await;
+        let root_header = table_lock_read.root().as_header();
+
+        let idles = table_lock_read
+            .idle_buckets()
+            .flat_map(|(_, target)| target)
+            .map(|target| {
+                (
+                    Message::FindNodes(root_header, *target.id().as_binary()),
+                    //TODO: Extract alpha nodes
+                    vec![*target.value().address()],
+                )
+            });
+        for idle in idles {
+            outbound_sender.send(idle).await.unwrap_or_else(|op| {
+                error!("Unable to send broadcast {:?}", op)
+            });
         }
     }
 }
