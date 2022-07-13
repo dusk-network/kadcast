@@ -32,13 +32,13 @@ mod tests {
     use super::Marshallable;
 
     #[test]
-    fn encode_ping() {
+    fn test_encode_ping() {
         let peer = PeerNode::from_address("192.168.0.1:666");
         let a = Message::Ping(peer.as_header());
         test_kadkast_marshal(a);
     }
     #[test]
-    fn encode_pong() {
+    fn test_encode_pong() {
         let peer = PeerNode::from_address("192.168.0.1:666");
         let a = Message::Pong(peer.as_header());
         test_kadkast_marshal(a);
@@ -46,7 +46,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_find_nodes() {
+    fn test_encode_find_nodes() {
         let peer = PeerNode::from_address("192.168.0.1:666");
         let target =
             *PeerNode::from_address("192.168.1.1:666").id().as_binary();
@@ -56,7 +56,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_nodes() {
+    fn test_encode_nodes() {
         let peer = PeerNode::from_address("192.168.0.1:666");
         let nodes = vec![
             PeerNode::from_address("192.168.1.1:666"),
@@ -73,14 +73,14 @@ mod tests {
     }
 
     #[test]
-    fn encode_empty_nodes() {
+    fn test_encode_empty_nodes() {
         let peer = PeerNode::from_address("192.168.0.1:666");
         let a = Message::Nodes(peer.as_header(), NodePayload { peers: vec![] });
         test_kadkast_marshal(a);
         assert_eq!(1, 1);
     }
     #[test]
-    fn encode_broadcast() {
+    fn test_encode_broadcast() {
         let peer = PeerNode::from_address("192.168.0.1:666");
         let a = Message::Broadcast(
             peer.as_header(),

@@ -86,8 +86,9 @@ mod tests {
     use crate::peer::PeerNode;
 
     #[test]
-    fn verify_header() {
-        let wrong_header = PeerNode::from_address("10.0.0.1:333").as_header();
+    fn test_verify_header() {
+        let wrong_header =
+            PeerNode::from_address("10.0.0.1:333").as_header();
         let wrong_header_sameport =
             PeerNode::from_address("10.0.0.1:666").as_header();
         vec![

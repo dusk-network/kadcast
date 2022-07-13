@@ -226,7 +226,7 @@ mod tests {
     };
 
     #[test]
-    fn it_works() {
+    fn test_buckets() {
         let root = PeerNode::from_address("192.168.0.1:666");
         let mut config = BucketConfig::default();
         config.node_evict_after = Duration::from_millis(5000);
