@@ -33,13 +33,13 @@ mod tests {
 
     #[test]
     fn test_encode_ping() {
-        let peer = PeerNode::from_address("192.168.0.1:666");
+        let peer = PeerNode::generate("192.168.0.1:666");
         let a = Message::Ping(peer.as_header());
         test_kadkast_marshal(a);
     }
     #[test]
     fn test_encode_pong() {
-        let peer = PeerNode::from_address("192.168.0.1:666");
+        let peer = PeerNode::generate("192.168.0.1:666");
         let a = Message::Pong(peer.as_header());
         test_kadkast_marshal(a);
         assert_eq!(1, 1);
@@ -47,9 +47,8 @@ mod tests {
 
     #[test]
     fn test_encode_find_nodes() {
-        let peer = PeerNode::from_address("192.168.0.1:666");
-        let target =
-            *PeerNode::from_address("192.168.1.1:666").id().as_binary();
+        let peer = PeerNode::generate("192.168.0.1:666");
+        let target = *PeerNode::generate("192.168.1.1:666").id().as_binary();
         let a = Message::FindNodes(peer.as_header(), target);
         test_kadkast_marshal(a);
         assert_eq!(1, 1);
@@ -57,12 +56,10 @@ mod tests {
 
     #[test]
     fn test_encode_nodes() {
-        let peer = PeerNode::from_address("192.168.0.1:666");
+        let peer = PeerNode::generate("192.168.0.1:666");
         let nodes = vec![
-            PeerNode::from_address("192.168.1.1:666"),
-            PeerNode::from_address(
-                "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666",
-            ),
+            PeerNode::generate("192.168.1.1:666"),
+            PeerNode::generate("[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666"),
         ]
         .iter()
         .map(|f| f.as_peer_info())
@@ -74,14 +71,14 @@ mod tests {
 
     #[test]
     fn test_encode_empty_nodes() {
-        let peer = PeerNode::from_address("192.168.0.1:666");
+        let peer = PeerNode::generate("192.168.0.1:666");
         let a = Message::Nodes(peer.as_header(), NodePayload { peers: vec![] });
         test_kadkast_marshal(a);
         assert_eq!(1, 1);
     }
     #[test]
     fn test_encode_broadcast() {
-        let peer = PeerNode::from_address("192.168.0.1:666");
+        let peer = PeerNode::generate("192.168.0.1:666");
         let a = Message::Broadcast(
             peer.as_header(),
             BroadcastPayload {

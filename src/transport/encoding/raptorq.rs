@@ -96,7 +96,7 @@ mod tests {
         for i in 0..data.len() {
             data[i] = rand::Rng::gen(&mut rand::thread_rng());
         }
-        let peer = PeerNode::from_address("192.168.0.1:666");
+        let peer = PeerNode::generate("192.168.0.1:666");
         let header = peer.as_header();
         let payload = BroadcastPayload {
             height: 255,
