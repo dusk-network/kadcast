@@ -78,7 +78,7 @@ impl Peer {
         listener: L,
     ) -> Self {
         let tree = Tree::new(
-            PeerNode::from_address(&config.public_address[..]),
+            PeerNode::generate(&config.public_address[..]),
             config.bucket,
         );
 

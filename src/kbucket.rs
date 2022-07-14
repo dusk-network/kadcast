@@ -226,15 +226,15 @@ mod tests {
     };
 
     #[test]
-    fn it_works() {
-        let root = PeerNode::from_address("192.168.0.1:666");
+    fn test_buckets() {
+        let root = PeerNode::generate("192.168.0.1:666");
         let mut config = BucketConfig::default();
         config.node_evict_after = Duration::from_millis(5000);
         config.node_ttl = Duration::from_secs(60);
 
         let mut route_table = Tree::new(root, config);
         for i in 2..255 {
-            let res = route_table.insert(PeerNode::from_address(
+            let res = route_table.insert(PeerNode::generate(
                 &format!("192.168.0.{}:666", i)[..],
             ));
             match res {
@@ -248,7 +248,7 @@ mod tests {
             }
         }
         let res = route_table
-            .insert(PeerNode::from_address("192.168.0.1:666"))
+            .insert(PeerNode::generate("192.168.0.1:666"))
             .expect_err("this should be an error");
         assert!(if let NodeInsertError::Invalid(_) = res {
             true

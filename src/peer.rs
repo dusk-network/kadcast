@@ -25,17 +25,18 @@ impl PeerInfo {
 }
 
 impl PeerNode {
-    pub fn from_address(address: &str) -> Self {
+    pub fn generate(address: &str) -> Self {
         let server: SocketAddr =
             address.parse().expect("Unable to parse address");
-        PeerNode::from_socket(server)
-    }
-
-    pub fn from_socket(server: SocketAddr) -> Self {
         let info = PeerInfo { address: server };
         let binary =
             PeerNode::compute_id(&info.address.ip(), info.address.port());
-        let id = BinaryID::new(binary);
+        let id = BinaryID::generate(binary);
+        Node::new(id, info)
+    }
+
+    pub fn from_socket(address: SocketAddr, id: BinaryID) -> Self {
+        let info = PeerInfo { address };
         Node::new(id, info)
     }
 
@@ -86,15 +87,13 @@ mod tests {
     use crate::peer::PeerNode;
 
     #[test]
-    fn verify_header() {
-        let wrong_header = PeerNode::from_address("10.0.0.1:333").as_header();
+    fn test_verify_header() {
+        let wrong_header = PeerNode::generate("10.0.0.1:333").as_header();
         let wrong_header_sameport =
-            PeerNode::from_address("10.0.0.1:666").as_header();
+            PeerNode::generate("10.0.0.1:666").as_header();
         vec![
-            PeerNode::from_address("192.168.1.1:666"),
-            PeerNode::from_address(
-                "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666",
-            ),
+            PeerNode::generate("192.168.1.1:666"),
+            PeerNode::generate("[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666"),
         ]
         .iter()
         .for_each(|n| {

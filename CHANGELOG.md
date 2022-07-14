@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Remove idle nodes during bucket mantainance [#108]
 
+### Fixed
+- Use provided nonce instead of regenerate it [#110]
+
 ## [0.4.0] - 2022-07-06
 ### Added
 
@@ -93,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#101]: https://github.com/dusk-network/kadcast/issues/101
 [#103]: https://github.com/dusk-network/kadcast/issues/103
 [#108]: https://github.com/dusk-network/kadcast/issues/108
+[#110]: https://github.com/dusk-network/kadcast/issues/110
 
 <!-- Releases -->
 

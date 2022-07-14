@@ -63,7 +63,12 @@ impl MessageHandler {
                 debug!("Handler received message");
                 trace!("Handler received message {:?}", message);
                 remote_node_addr.set_port(message.header().sender_port);
-                let remote_node = PeerNode::from_socket(remote_node_addr);
+
+                let remote_node = PeerNode::from_socket(
+                    remote_node_addr,
+                    message.header().binary_id,
+                );
+
                 match ktable.write().await.insert(remote_node) {
                     Err(e) => match e {
                         NodeInsertError::Full(n) => {

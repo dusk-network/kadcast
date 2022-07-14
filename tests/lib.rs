@@ -19,7 +19,7 @@ mod tests {
     use tracing::warn;
 
     #[test]
-    fn resolvetest() {
+    fn test_dns_resolver() {
         let server_details = "192.168.1.5:80";
         let server: Vec<_> = server_details
             .to_socket_addrs()

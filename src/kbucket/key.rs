@@ -78,7 +78,7 @@ impl BinaryID {
         BinaryID { bytes: id, nonce }
     }
 
-    pub(crate) fn new(id: BinaryKey) -> Self {
+    pub(crate) fn generate(id: BinaryKey) -> Self {
         if K_DIFF_PRODUCED_BIT < K_DIFF_MIN_BIT {
             panic!("PoW is less than minimum required, review your build config...")
         }
@@ -150,13 +150,12 @@ mod tests {
 
     #[test]
     fn test_distance() {
-        let n1 = PeerNode::from_address("192.168.0.1:666");
-        let n2 = PeerNode::from_address("192.168.0.1:666");
+        let n1 = PeerNode::generate("192.168.0.1:666");
+        let n2 = PeerNode::generate("192.168.0.1:666");
         assert_eq!(n1.calculate_distance(&n2), None);
         assert_eq!(n1.id().calculate_distance_native(n2.id()), None);
         for i in 2..255 {
-            let n_in =
-                PeerNode::from_address(&format!("192.168.0.{}:666", i)[..]);
+            let n_in = PeerNode::generate(&format!("192.168.0.{}:666", i)[..]);
             assert_eq!(
                 n1.calculate_distance(&n_in),
                 n1.id().calculate_distance_native(n_in.id())
@@ -166,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_id_nonce() {
-        let root = PeerNode::from_address("192.168.0.1:666");
+        let root = PeerNode::generate("192.168.0.1:666");
         println!("Nonce is {:?}", root.id().nonce());
         assert!(root.id().verify_nonce());
     }

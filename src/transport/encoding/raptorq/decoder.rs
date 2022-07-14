@@ -174,8 +174,8 @@ mod tests {
     }
 
     #[test]
-    fn expiring_cache() {
-        let root = PeerNode::from_address("192.168.0.1:666");
+    fn test_expiring_cache() {
+        let root = PeerNode::generate("192.168.0.1:666");
         let enc =
             RaptorQEncoder::configure(&RaptorQEncoder::default_configuration());
         let mut conf = RaptorQDecoder::default_configuration();
