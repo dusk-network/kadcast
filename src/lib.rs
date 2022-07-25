@@ -105,11 +105,7 @@ impl Peer {
             &config,
         );
         WireNetwork::start(inbound_channel_tx, outbound_channel_rx, config);
-        tokio::spawn(TableMantainer::start(
-            bootstrapping_nodes,
-            table,
-            outbound_channel_tx,
-        ));
+        TableMantainer::start(bootstrapping_nodes, table, outbound_channel_tx);
         task::spawn(Peer::notifier(listener_channel_rx, listener));
         peer
     }
