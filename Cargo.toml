@@ -13,7 +13,7 @@ exclude = [".git*", "ARCHITECTURE.md", "architecture.jpg"]
 
 [dependencies]
 arrayvec = "0.7"
-blake2 = "0.9"
+blake2 = "0.10"
 rand = "0.8"
 tokio = { version = "1", features = ["rt", "net", "sync", "time", "io-std", "rt-multi-thread", "macros"] }
 raptorq = "1.6"
