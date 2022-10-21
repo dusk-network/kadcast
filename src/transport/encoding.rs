@@ -4,14 +4,26 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+#[cfg(not(feature = "raptorq"))]
 mod plain_encoder;
+
+#[cfg(not(feature = "raptorq"))]
+pub(crate) use plain_encoder::PlainEncoder as TransportDecoder;
+
+#[cfg(not(feature = "raptorq"))]
+pub(crate) use plain_encoder::PlainEncoder as TransportEncoder;
+
+#[cfg(feature = "raptorq")]
 mod raptorq;
 
-use std::io;
-
+#[cfg(feature = "raptorq")]
 pub(crate) use self::raptorq::RaptorQDecoder as TransportDecoder;
+
+#[cfg(feature = "raptorq")]
 pub(crate) use self::raptorq::RaptorQEncoder as TransportEncoder;
+
 use crate::encoding::message::Message;
+use std::io;
 
 pub type TransportEncoderConfig =
     <self::TransportEncoder as Configurable>::TConf;
