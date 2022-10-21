@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed 
+- Change `Peer::new` to return a Result [#115]
+- Change `blake2` dependency from `0.9` to `0.10` [#115]
+
 ## [0.4.1] - 2022-07-27
 
 ### Added
@@ -101,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#108]: https://github.com/dusk-network/kadcast/issues/108
 [#110]: https://github.com/dusk-network/kadcast/issues/110
 [#112]: https://github.com/dusk-network/kadcast/issues/112
+[#115]: https://github.com/dusk-network/kadcast/issues/115
 
 <!-- Releases -->
 
