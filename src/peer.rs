@@ -81,16 +81,19 @@ impl PeerNode {
 
 #[cfg(test)]
 mod tests {
-    use crate::peer::PeerNode;
 
+    use crate::peer::PeerNode;
+    use crate::tests::Result;
     #[test]
-    fn test_verify_header() {
-        let wrong_header = PeerNode::generate("10.0.0.1:333").as_header();
+    fn test_verify_header() -> Result<()> {
+        let wrong_header = PeerNode::generate("10.0.0.1:333")?.as_header();
         let wrong_header_sameport =
-            PeerNode::generate("10.0.0.1:666").as_header();
+            PeerNode::generate("10.0.0.1:666")?.as_header();
         vec![
-            PeerNode::generate("192.168.1.1:666"),
-            PeerNode::generate("[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666"),
+            PeerNode::generate("192.168.1.1:666")?,
+            PeerNode::generate(
+                "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666",
+            )?,
         ]
         .iter()
         .for_each(|n| {
@@ -100,5 +103,6 @@ mod tests {
             assert!(!PeerNode::verify_header(&wrong_header, ip));
             assert!(!PeerNode::verify_header(&wrong_header_sameport, ip));
         });
+        Ok(())
     }
 }

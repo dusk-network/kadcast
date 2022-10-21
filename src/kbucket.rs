@@ -165,15 +165,12 @@ impl<V> Tree<V> {
 mod tests {
     use std::time::Duration;
 
-    use crate::{
-        config::BucketConfig,
-        kbucket::{NodeInsertError, Tree},
-        peer::PeerNode,
-    };
-
+    use super::*;
+    use crate::peer::PeerNode;
+    use crate::tests::Result;
     #[test]
-    fn test_buckets() {
-        let root = PeerNode::generate("192.168.0.1:666");
+    fn test_buckets() -> Result<()> {
+        let root = PeerNode::generate("192.168.0.1:666")?;
         let mut config = BucketConfig::default();
         config.node_evict_after = Duration::from_millis(5000);
         config.node_ttl = Duration::from_secs(60);
@@ -182,7 +179,7 @@ mod tests {
         for i in 2..255 {
             let res = route_table.insert(PeerNode::generate(
                 &format!("192.168.0.{}:666", i)[..],
-            ));
+            )?);
             match res {
                 Ok(_) => {}
                 Err(error) => match error {
@@ -194,12 +191,13 @@ mod tests {
             }
         }
         let res = route_table
-            .insert(PeerNode::generate("192.168.0.1:666"))
+            .insert(PeerNode::generate("192.168.0.1:666")?)
             .expect_err("this should be an error");
         assert!(if let NodeInsertError::Invalid(_) = res {
             true
         } else {
             false
         });
+        Ok(())
     }
 }

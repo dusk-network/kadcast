@@ -102,14 +102,15 @@ mod tests {
 
     use std::time::Instant;
 
-    use crate::encoding::{message::Message, payload::BroadcastPayload};
+    use super::*;
+    use crate::encoding::message::Message;
     use crate::peer::PeerNode;
+    use crate::tests::Result;
     use crate::transport::encoding::{
         Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
     };
-
     #[test]
-    fn test_encode() {
+    fn test_encode() -> Result<()> {
         #[cfg(not(debug_assertions))]
         let mut data: Vec<u8> = vec![0; 3_000_000];
 
@@ -119,21 +120,21 @@ mod tests {
         for i in 0..data.len() {
             data[i] = rand::Rng::gen(&mut rand::thread_rng());
         }
-        let peer = PeerNode::generate("192.168.0.1:666");
+        let peer = PeerNode::generate("192.168.0.1:666")?;
         let header = peer.as_header();
         let payload = BroadcastPayload {
             height: 255,
             gossip_frame: data,
         };
-        println!("orig payload len {}", payload.bytes().len());
+        println!("orig payload len {}", payload.bytes()?.len());
         let message = Message::Broadcast(header, payload);
-        let message_bytes = message.bytes();
+        let message_bytes = message.bytes()?;
         println!("orig message len {}", message_bytes.len());
         let start = Instant::now();
         let encoder = TransportEncoder::configure(
             &TransportEncoder::default_configuration(),
         );
-        let chunks = encoder.encode(message);
+        let chunks = encoder.encode(message)?;
         println!("Encoded in: {:?}", start.elapsed());
         println!("encoded chunks {}", chunks.len());
         let start = Instant::now();
@@ -146,8 +147,8 @@ mod tests {
         for chunk in chunks {
             // println!("chunk {:?}", chunk);
             i = i + 1;
-            sizetotal += chunk.bytes().len();
-            if let Some(d) = decoder.decode(chunk) {
+            sizetotal += chunk.bytes()?.len();
+            if let Some(d) = decoder.decode(chunk).unwrap() {
                 decoded = Some(d);
                 println!("Decoder after {} messages ", i);
                 break;
@@ -155,6 +156,11 @@ mod tests {
         }
         println!("Decoded in: {:?}", start.elapsed());
         println!("avg chunks size {}", sizetotal / i);
-        assert_eq!(decoded.unwrap().bytes(), message_bytes, "Unable to decode");
+        assert_eq!(
+            decoded.unwrap().bytes()?,
+            message_bytes,
+            "Unable to decode"
+        );
+        Ok(())
     }
 }

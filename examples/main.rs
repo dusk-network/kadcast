@@ -4,21 +4,22 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::error::Error;
+use std::io::{self, BufRead};
+
 use clap::{App, Arg};
 use kadcast::config::Config;
 use kadcast::{MessageInfo, NetworkListen, Peer};
 use rustc_tools_util::{get_version_info, VersionInfo};
-use std::io::{self, BufRead};
+use serde_derive::{Deserialize, Serialize};
 
-use serde_derive::Deserialize;
-use serde_derive::Serialize;
 #[derive(Serialize, Deserialize)]
 struct General {
     kadcast: kadcast::config::Config,
 }
 
 #[tokio::main]
-pub async fn main() {
+pub async fn main() -> Result<(), Box<dyn Error>> {
     let crate_info = get_version_info!();
     let matches = App::new(&crate_info.crate_name)
         .version(show_version(crate_info).as_str())
@@ -85,8 +86,10 @@ pub async fn main() {
         .expect("Failed on subscribe tracing");
 
     let mut conf = Config::default();
-    conf.public_address =
-        matches.value_of("public_address").unwrap().to_string();
+    conf.public_address = matches
+        .value_of("public_address")
+        .expect("public_address to have a value")
+        .to_string();
     conf.listen_address =
         matches.value_of("listen_address").map(|a| a.to_string());
     conf.bootstrapping_nodes = matches
@@ -95,7 +98,7 @@ pub async fn main() {
         .map(|s| s.to_string())
         .collect();
 
-    let peer = Peer::new(conf, DummyListener {});
+    let peer = Peer::new(conf, DummyListener {})?;
     loop {
         let stdin = io::stdin();
         for message in stdin.lock().lines().flatten() {

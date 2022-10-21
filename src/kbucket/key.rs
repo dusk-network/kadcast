@@ -141,10 +141,17 @@ impl BinaryID {
 
 #[cfg(test)]
 mod tests {
-    use crate::{kbucket::BinaryID, peer::PeerNode};
+
+    use super::*;
+    use crate::kbucket::BucketHeight;
+    use crate::peer::PeerNode;
+    use crate::tests::Result;
 
     impl BinaryID {
-        fn calculate_distance_native(&self, other: &BinaryID) -> Option<usize> {
+        fn calculate_distance_native(
+            &self,
+            other: &BinaryID,
+        ) -> Option<BucketHeight> {
             let a = u128::from_le_bytes(*self.as_binary());
             let b = u128::from_le_bytes(*other.as_binary());
             let xor = a ^ b;
@@ -152,31 +159,33 @@ mod tests {
             if ret == 0 {
                 None
             } else {
-                Some(ret - 1)
+                Some((ret - 1) as u8)
             }
         }
     }
 
     #[test]
-    fn test_distance() {
-        let n1 = PeerNode::generate("192.168.0.1:666");
-        let n2 = PeerNode::generate("192.168.0.1:666");
+    fn test_distance() -> Result<()> {
+        let n1 = PeerNode::generate("192.168.0.1:666")?;
+        let n2 = PeerNode::generate("192.168.0.1:666")?;
         assert_eq!(n1.calculate_distance(&n2), None);
         assert_eq!(n1.id().calculate_distance_native(n2.id()), None);
         for i in 2..255 {
-            let n_in = PeerNode::generate(&format!("192.168.0.{}:666", i)[..]);
+            let n_in = PeerNode::generate(&format!("192.168.0.{}:666", i)[..])?;
             assert_eq!(
                 n1.calculate_distance(&n_in),
                 n1.id().calculate_distance_native(n_in.id())
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn test_id_nonce() {
-        let root = PeerNode::generate("192.168.0.1:666");
+    fn test_id_nonce() -> Result<()> {
+        let root = PeerNode::generate("192.168.0.1:666")?;
         println!("Nonce is {:?}", root.id().nonce());
         assert!(root.id().verify_nonce());
+        Ok(())
     }
 
     #[test]

@@ -7,26 +7,14 @@
 #[cfg(test)]
 mod tests {
 
-    use std::{
-        collections::HashMap,
-        net::{SocketAddr, ToSocketAddrs},
-        time::Duration,
-    };
+    use std::collections::HashMap;
+    use std::net::{AddrParseError, SocketAddr, ToSocketAddrs};
+    use std::time::Duration;
 
-    use kadcast::{config::Config, MessageInfo, NetworkListen, Peer};
+    use kadcast::config::Config;
+    use kadcast::{MessageInfo, NetworkListen, Peer};
     use tokio::{sync::mpsc, time::timeout};
-    use tracing::info;
-    use tracing::warn;
-
-    #[test]
-    fn test_dns_resolver() {
-        let server_details = "192.168.1.5:80";
-        let server: Vec<_> = server_details
-            .to_socket_addrs()
-            .expect("Unable to resolve domain")
-            .collect();
-        println!("{:?}", server);
-    }
+    use tracing::{info, warn};
 
     const NODES: i32 = 10;
     const BASE_PORT: i32 = 20000;
@@ -34,8 +22,18 @@ mod tests {
     const WAIT_SEC: u64 = 20;
     const MESSAGE_SIZE: usize = 100_000;
 
+    #[test]
+    fn test_dns_resolver() {
+        let server_details = "192.168.1.5:80";
+        let server: Vec<_> = server_details
+            .to_socket_addrs()
+            .expect("To resolve domain")
+            .collect();
+        println!("{:?}", server);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    async fn harness_test() {
+    async fn harness_test() -> Result<(), Box<dyn std::error::Error>> {
         // Generate a subscriber with the desired log level.
         let subscriber = tracing_subscriber::fmt::Subscriber::builder()
             .with_max_level(tracing::Level::INFO)
@@ -58,7 +56,7 @@ mod tests {
         let mut peers = HashMap::new();
         for i in 0..NODES {
             tokio::time::sleep(Duration::from_millis(500)).await;
-            peers.insert(i, create_peer(i, bootstraps.clone(), tx.clone()));
+            peers.insert(i, create_peer(i, bootstraps.clone(), tx.clone())?);
         }
         tokio::time::sleep(Duration::from_millis(2000)).await;
         let mut data: Vec<u8> = vec![0; MESSAGE_SIZE];
@@ -89,6 +87,7 @@ mod tests {
             res.is_ok(),
             "Not all nodes received the broadcasted message"
         );
+        Ok(())
     }
 
     async fn receive(
@@ -117,7 +116,7 @@ mod tests {
         i: i32,
         bootstrap: Vec<String>,
         grpc_sender: mpsc::Sender<(usize, (Vec<u8>, SocketAddr, u8))>,
-    ) -> Peer {
+    ) -> core::result::Result<Peer, AddrParseError> {
         let port = BASE_PORT + i;
         let public_addr = format!("127.0.0.1:{}", port).to_string();
         let listener = KadcastListener {

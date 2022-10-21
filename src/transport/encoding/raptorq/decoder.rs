@@ -162,13 +162,11 @@ impl Decoder for RaptorQDecoder {
 mod tests {
     use std::{thread, time::Duration};
 
-    use super::RaptorQDecoder;
+    use super::*;
+    use crate::peer::PeerNode;
+    use crate::tests::Result;
     use crate::transport::encoding::raptorq::RaptorQEncoder;
-    use crate::{
-        encoding::{message::Message, payload::BroadcastPayload},
-        peer::PeerNode,
-        transport::encoding::{Configurable, Decoder, Encoder},
-    };
+    use crate::transport::encoding::Encoder;
 
     impl RaptorQDecoder {
         fn cache_size(&self) -> usize {
@@ -177,8 +175,8 @@ mod tests {
     }
 
     #[test]
-    fn test_expiring_cache() {
-        let root = PeerNode::generate("192.168.0.1:666");
+    fn test_expiring_cache() -> Result<()> {
+        let root = PeerNode::generate("192.168.0.1:666")?;
         let enc =
             RaptorQEncoder::configure(&RaptorQEncoder::default_configuration());
         let mut conf = RaptorQDecoder::default_configuration();
@@ -194,8 +192,8 @@ mod tests {
                 height: 0,
                 gossip_frame: vec![0],
             },
-        )) {
-            dec.decode(n);
+        ))? {
+            dec.decode(n)?;
         }
         assert_eq!(dec.cache_size(), 1);
 
@@ -214,8 +212,8 @@ mod tests {
                     height: 0,
                     gossip_frame: vec![i],
                 },
-            )) {
-                dec.decode(n);
+            ))? {
+                dec.decode(n)?;
             }
         }
         assert_eq!(dec.cache_size(), 3);
@@ -230,9 +228,10 @@ mod tests {
                 height: 0,
                 gossip_frame: vec![0],
             },
-        )) {
-            dec.decode(n);
+        ))? {
+            dec.decode(n)?;
         }
         assert_eq!(dec.cache_size(), 1);
+        Ok(())
     }
 }
