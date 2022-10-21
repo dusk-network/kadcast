@@ -4,9 +4,12 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::transport::{encoding::Configurable, Encoder};
+use std::io;
 
-use crate::encoding::{message::Message, payload::BroadcastPayload};
+use crate::encoding::message::Message;
+use crate::encoding::payload::BroadcastPayload;
+use crate::transport::encoding::Configurable;
+use crate::transport::Encoder;
 
 const DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK: u32 = 5;
 const DEFAULT_MTU: u16 = 1300;
@@ -48,14 +51,14 @@ impl Configurable for RaptorQEncoder {
 }
 
 impl Encoder for RaptorQEncoder {
-    fn encode<'msg>(&self, msg: Message) -> Vec<Message> {
+    fn encode<'msg>(&self, msg: Message) -> io::Result<Vec<Message>> {
         if let Message::Broadcast(header, payload) = msg {
             let encoder =
                 ExtEncoder::with_defaults(&payload.gossip_frame, self.conf.mtu);
             let mut transmission_info =
                 encoder.get_config().serialize().to_vec();
 
-            let mut base_packet = payload.generate_uid().to_vec();
+            let mut base_packet = payload.generate_uid()?.to_vec();
             base_packet.append(&mut transmission_info);
 
             let mut repair_packets =
@@ -65,7 +68,7 @@ impl Encoder for RaptorQEncoder {
                 repair_packets = self.conf.min_repair_packets_per_block
             }
 
-            encoder
+            let messages = encoder
                 .get_encoded_packets(repair_packets)
                 .iter()
                 .map(|encoded_packet| {
@@ -79,9 +82,10 @@ impl Encoder for RaptorQEncoder {
                         },
                     )
                 })
-                .collect()
+                .collect();
+            Ok(messages)
         } else {
-            vec![msg]
+            Ok(vec![msg])
         }
     }
 }

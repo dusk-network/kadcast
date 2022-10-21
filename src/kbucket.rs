@@ -7,13 +7,12 @@
 use std::collections::HashMap;
 
 use bucket::Bucket;
+pub use bucket::InsertError;
+pub use bucket::InsertOk;
 pub use bucket::{NodeInsertError, NodeInsertOk};
 use itertools::Itertools;
 pub use key::{BinaryID, BinaryKey, BinaryNonce};
 pub use node::Node;
-
-pub use bucket::InsertError;
-pub use bucket::InsertOk;
 use tracing::info;
 
 mod bucket;
@@ -22,9 +21,8 @@ mod node;
 use crate::config::BucketConfig;
 use crate::K_ALPHA;
 use crate::K_BETA;
-use crate::K_ID_LEN_BYTES;
 
-pub type BucketHeight = usize;
+pub type BucketHeight = u8;
 
 pub(crate) struct Tree<V> {
     root: Node<V>,
@@ -52,16 +50,18 @@ impl<V> Tree<V> {
         };
     }
 
-    //iter the buckets (up to max_height, inclusive) and pick at most Beta
+    // iter the buckets (up to max_height, inclusive) and pick at most Beta
     // nodes for each bucket
     pub(crate) fn extract(
         &self,
-        max_h: Option<usize>,
+        max_h: Option<BucketHeight>,
     ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>
     {
         self.buckets
             .iter()
-            .filter(move |(&height, _)| height <= max_h.unwrap_or(usize::MAX))
+            .filter(move |(&height, _)| {
+                height <= max_h.unwrap_or(BucketHeight::MAX)
+            })
             .map(|(&height, bucket)| (height, bucket.pick::<K_BETA>()))
     }
 
@@ -100,7 +100,8 @@ impl<V> Tree<V> {
     pub(crate) fn idle_or_empty_heigth(
         &'static self,
     ) -> impl Iterator<Item = BucketHeight> {
-        (0..K_ID_LEN_BYTES * 8).filter(move |h| {
+        let max_buckets = (crate::K_ID_LEN_BYTES * 8) as BucketHeight;
+        (0..max_buckets).filter(move |h| {
             self.buckets.get(h).map_or_else(|| true, |b| b.is_idle())
         })
     }
@@ -116,7 +117,7 @@ impl<V> Tree<V> {
             .map(|(&height, bucket)| (height, bucket.pick::<K_ALPHA>()))
     }
 
-    pub(crate) fn has_peer(&self, peer: &BinaryKey) -> Option<usize> {
+    pub(crate) fn has_peer(&self, peer: &BinaryKey) -> Option<BucketHeight> {
         match self.root.id().calculate_distance(peer) {
             None => None,
             Some(height) => self.buckets.get(&height).and_then(|bucket| {
@@ -141,7 +142,7 @@ impl<V> Tree<V> {
             .flat_map(|(_, bucket)| bucket.alive_nodes())
     }
 
-    pub(crate) fn is_bucket_full(&self, height: usize) -> bool {
+    pub(crate) fn is_bucket_full(&self, height: BucketHeight) -> bool {
         self.buckets
             .get(&height)
             .map_or(false, |bucket| bucket.is_full())
@@ -159,61 +160,6 @@ impl<V> Tree<V> {
         }
     }
 }
-
-// pub struct TreeBuilder<V> {
-//     node_ttl: Duration,
-//     node_evict_after: Duration,
-//     root: Node<V>,
-//     bucket_ttl: Duration,
-// }
-
-// impl<V> TreeBuilder<V> {
-//     pub(crate) fn new(root: Node<V>) -> TreeBuilder<V> {
-//         TreeBuilder {
-//             root,
-//             node_evict_after: Duration::from_millis(
-//                 BUCKET_DEFAULT_NODE_EVICT_AFTER_MILLIS,
-//             ),
-//             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
-//             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
-//         }
-//     }
-
-//     pub fn with_node_ttl(mut self, node_ttl: Duration) -> TreeBuilder<V> {
-//         self.node_ttl = node_ttl;
-//         self
-//     }
-
-//     pub fn with_bucket_ttl(mut self, bucket_ttl: Duration) -> TreeBuilder<V>
-// {         self.bucket_ttl = bucket_ttl;
-//         self
-//     }
-
-//     pub fn with_node_evict_after(
-//         mut self,
-//         node_evict_after: Duration,
-//     ) -> TreeBuilder<V> {
-//         self.node_evict_after = node_evict_after;
-//         self
-//     }
-
-//     pub(crate) fn build(self) -> Tree<V> {
-//         info!(
-//             "Built table [K={}] with root: {:?}",
-//             crate::K_K,
-//             self.root.id()
-//         );
-//         Tree {
-//             root: self.root,
-//             buckets: HashMap::new(),
-//             config: BucketConfig {
-//                 bucket_ttl: self.bucket_ttl,
-//                 node_evict_after: self.node_evict_after,
-//                 node_ttl: self.node_ttl,
-//             },
-//         }
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

@@ -13,9 +13,11 @@ use crate::K_NONCE_LEN;
 pub type BinaryKey = [u8; K_ID_LEN_BYTES];
 pub type BinaryNonce = [u8; K_NONCE_LEN];
 
-use blake2::{Blake2s, Digest};
+use blake2::{Blake2s256, Digest};
 
 use crate::{K_DIFF_MIN_BIT, K_DIFF_PRODUCED_BIT};
+
+use super::BucketHeight;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct BinaryID {
@@ -52,7 +54,15 @@ impl BinaryID {
 
     // Returns the 0-based kadcast distance between 2 ID
     // `None` if they are identical
-    pub fn calculate_distance(&self, other: &BinaryKey) -> Option<usize> {
+    pub fn calculate_distance(
+        &self,
+        other: &BinaryKey,
+    ) -> Option<BucketHeight> {
+        assert!(
+            (K_ID_LEN_BYTES * BucketHeight::BITS as usize)
+                < BucketHeight::MAX as usize,
+            "K_ID_LEN_BYTES must be lower"
+        );
         self.as_binary()
             .iter()
             .zip(other.iter())
@@ -60,17 +70,16 @@ impl BinaryID {
             .enumerate()
             .rev()
             .find(|(_, b)| b != &0b0)
-            .map(|(i, b)| {
-                BinaryID::msb(b).expect("Can't be None") + (i << 3) - 1
-            })
+            .map(|(i, b)| (i as BucketHeight, b))
+            .map(|(i, b)| BinaryID::msb(b).expect("to be Some") + (i << 3) - 1)
     }
 
     // Returns the position of the most-significant bit set in a byte,
     // `None` if no bit is set
-    const fn msb(n: u8) -> Option<usize> {
+    const fn msb(n: u8) -> Option<u8> {
         match u8::BITS - n.leading_zeros() {
             0 => None,
-            n => Some(n as usize),
+            n => Some(n as u8),
         }
     }
 
@@ -83,7 +92,7 @@ impl BinaryID {
             panic!("PoW is less than minimum required, review your build config...")
         }
         let mut nonce: u32 = 0;
-        let mut hasher = Blake2s::new();
+        let mut hasher = Blake2s256::new();
         loop {
             hasher.update(id);
             let nonce_bytes = nonce.to_le_bytes();
@@ -102,7 +111,7 @@ impl BinaryID {
     }
 
     pub fn verify_nonce(&self) -> bool {
-        let mut hasher = Blake2s::new();
+        let mut hasher = Blake2s256::new();
         hasher.update(self.bytes);
         hasher.update(self.nonce);
         BinaryID::verify_difficulty(

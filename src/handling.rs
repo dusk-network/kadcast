@@ -4,7 +4,6 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::convert::TryInto;
 use std::net::SocketAddr;
 
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -200,12 +199,12 @@ impl MessageHandler {
                             let table_read = ktable.read().await;
 
                             let messages: Vec<(Message, Vec<SocketAddr>)> = table_read
-                                .extract(Some((payload.height - 1).into()))
+                                .extract(Some(payload.height - 1))
                                 .map(|(height, nodes)| {
                                     let msg = Message::Broadcast(
                                         my_header,
                                         BroadcastPayload {
-                                            height: height.try_into().unwrap(),
+                                            height,
                                             gossip_frame: payload
                                                 .gossip_frame
                                                 .clone(), //FIX_ME: avoid clone

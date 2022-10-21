@@ -4,15 +4,17 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::kbucket::{BinaryID, BinaryKey};
-use blake2::{Blake2s, Digest};
 use std::convert::TryInto;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{AddrParseError, IpAddr, SocketAddr};
+
+use blake2::{Blake2s256, Digest};
+
+use crate::kbucket::{BinaryID, BinaryKey};
 pub type PeerNode = Node<PeerInfo>;
 use crate::encoding::message::Header;
 use crate::encoding::payload::{IpInfo, PeerEncodedInfo};
-
 use crate::kbucket::Node;
+use crate::K_ID_LEN_BYTES;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PeerInfo {
     address: SocketAddr,
@@ -25,14 +27,13 @@ impl PeerInfo {
 }
 
 impl PeerNode {
-    pub fn generate(address: &str) -> Self {
-        let server: SocketAddr =
-            address.parse().expect("Unable to parse address");
-        let info = PeerInfo { address: server };
+    pub fn generate(address: &str) -> Result<Self, AddrParseError> {
+        let address: SocketAddr = address.parse()?;
+        let info = PeerInfo { address };
         let binary =
             PeerNode::compute_id(&info.address.ip(), info.address.port());
         let id = BinaryID::generate(binary);
-        Node::new(id, info)
+        Ok(Node::new(id, info))
     }
 
     pub fn from_socket(address: SocketAddr, id: BinaryID) -> Self {
@@ -46,20 +47,16 @@ impl PeerNode {
     }
 
     pub(crate) fn compute_id(ip: &IpAddr, port: u16) -> BinaryKey {
-        let mut hasher = Blake2s::new();
+        let mut hasher = Blake2s256::new();
         hasher.update(port.to_le_bytes());
         match ip {
             IpAddr::V4(ip) => hasher.update(ip.octets()),
             IpAddr::V6(ip) => hasher.update(ip.octets()),
         };
-        let a: [u8; 32] = hasher
-            .finalize()
-            .as_slice()
+        let hash = hasher.finalize();
+        hash[..K_ID_LEN_BYTES]
             .try_into()
-            .expect("Wrong length");
-        let mut x = vec![0u8; crate::K_ID_LEN_BYTES];
-        x.clone_from_slice(&a[..crate::K_ID_LEN_BYTES]);
-        x.try_into().expect("Wrong length")
+            .expect("compute_id length = K_ID_LEN_BYTES")
     }
 
     pub(crate) fn as_header(&self) -> Header {

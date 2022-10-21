@@ -4,14 +4,14 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::config::BucketConfig;
-use crate::K_K;
-
-use super::node::{Node, NodeEvictionStatus};
-use super::BinaryKey;
 use arrayvec::ArrayVec;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+
+use super::node::{Node, NodeEvictionStatus};
+use super::BinaryKey;
+use crate::config::BucketConfig;
+use crate::K_K;
 
 pub(super) struct Bucket<V> {
     nodes: arrayvec::ArrayVec<Node<V>, K_K>,
@@ -132,13 +132,17 @@ impl<V> Bucket<V> {
             self.try_perform_eviction();
             return Ok(NodeInsertOk::Updated {
                 pending_eviction: self.pending_eviction_node(),
-                updated: self.nodes.last().unwrap(),
+                updated: self.nodes.last().expect(
+                    "last node to exist because it's been just updated",
+                ),
             });
         }
         self.try_perform_eviction();
         match self.nodes.try_push(node) {
             Ok(_) => Ok(NodeInsertOk::Inserted {
-                inserted: self.nodes.last().unwrap(),
+                inserted: self.nodes.last().expect(
+                    "last node to exist because it's been just inserted",
+                ),
             }),
             Err(err) => {
                 if self

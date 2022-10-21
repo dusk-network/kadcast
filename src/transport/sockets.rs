@@ -4,16 +4,21 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{io, time::Duration};
+use std::io;
+use std::net::SocketAddr;
+use std::time::Duration;
 
-use super::*;
+use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
-use tokio::time::Interval;
+use tokio::time::{self, Interval};
 use tracing::{info, warn};
 
+use super::encoding::Configurable;
 use crate::config::NetworkConfig;
+
 const MIN_RETRY_COUNT: u8 = 1;
+
 pub(super) struct MultipleOutSocket {
     ipv4: UdpSocket,
     ipv6: UdpSocket,

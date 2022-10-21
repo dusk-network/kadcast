@@ -6,10 +6,9 @@
 
 use std::io::{self, Error, ErrorKind, Read, Write};
 
-use crate::kbucket::BinaryKey;
-
 pub(crate) use super::payload::{BroadcastPayload, NodePayload};
 pub use super::{header::Header, Marshallable};
+use crate::kbucket::BinaryKey;
 
 // PingMsg wire Ping message id.
 const ID_MSG_PING: u8 = 0;
@@ -56,10 +55,10 @@ impl Message {
         }
     }
 
-    pub(crate) fn bytes(&self) -> Vec<u8> {
+    pub(crate) fn bytes(&self) -> io::Result<Vec<u8>> {
         let mut bytes = vec![];
-        self.marshal_binary(&mut bytes).unwrap();
-        bytes
+        self.marshal_binary(&mut bytes)?;
+        Ok(bytes)
     }
 }
 

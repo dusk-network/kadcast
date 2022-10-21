@@ -4,9 +4,10 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
+use std::io::{self, ErrorKind};
 
-use blake2::{Blake2s, Digest};
+use blake2::{Blake2s256, Digest};
 use raptorq::ObjectTransmissionInformation;
 
 use crate::encoding::{payload::BroadcastPayload, Marshallable};
@@ -19,42 +20,68 @@ pub(crate) use encoder::RaptorQEncoder;
 
 struct ChunkedPayload<'a>(&'a BroadcastPayload);
 
-impl BroadcastPayload {
-    fn bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        self.marshal_binary(&mut bytes).unwrap();
-        bytes
+// ObjectTransmissionInformation Size (Raptorq header)
+const TRANSMISSION_INFO_SIZE: usize = 12;
+
+// UID Size (Blake2s256)
+const UID_SIZE: usize = 32;
+
+// EncodingPacket min size (RaptorQ packet)
+const MIN_ENCODING_PACKET_SIZE: usize = 5;
+
+const MIN_CHUNKED_SIZE: usize =
+    UID_SIZE + TRANSMISSION_INFO_SIZE + MIN_ENCODING_PACKET_SIZE;
+
+impl<'a> TryFrom<&'a BroadcastPayload> for ChunkedPayload<'a> {
+    type Error = io::Error;
+    fn try_from(value: &'a BroadcastPayload) -> Result<Self, Self::Error> {
+        if value.gossip_frame.len() < MIN_CHUNKED_SIZE {
+            Err(io::Error::new(
+                ErrorKind::UnexpectedEof,
+                "Chunked payload too short",
+            ))
+        } else {
+            Ok(ChunkedPayload(value))
+        }
     }
-    fn generate_uid(&self) -> [u8; 32] {
-        let mut hasher = Blake2s::new();
-        hasher.update(&self.bytes()[1..]);
-        hasher
-            .finalize()
-            .as_slice()
-            .try_into()
-            .expect("Wrong length")
+}
+
+impl BroadcastPayload {
+    fn bytes(&self) -> io::Result<Vec<u8>> {
+        let mut bytes = vec![];
+        self.marshal_binary(&mut bytes)?;
+        Ok(bytes)
+    }
+    fn generate_uid(&self) -> io::Result<[u8; UID_SIZE]> {
+        let mut hasher = Blake2s256::new();
+        // Remove the kadcast `height` field from the hash
+        hasher.update(&self.bytes()?[1..]);
+        Ok(hasher.finalize().into())
     }
 }
 impl<'a> ChunkedPayload<'a> {
     fn uid(&self) -> &[u8] {
-        &self.0.gossip_frame[0..32]
+        &self.0.gossip_frame[0..UID_SIZE]
     }
 
     fn transmission_info(&self) -> ObjectTransmissionInformation {
-        let slice = &self.0.gossip_frame[32..44];
-        let transmission_info: &[u8; 12] =
-            slice.try_into().expect("slice with incorrect length");
+        let slice =
+            &self.0.gossip_frame[UID_SIZE..(UID_SIZE + TRANSMISSION_INFO_SIZE)];
+        let transmission_info: &[u8; TRANSMISSION_INFO_SIZE] =
+            slice.try_into().expect("slice to be length 12");
         ObjectTransmissionInformation::deserialize(transmission_info)
     }
 
     fn encoded_chunk(&self) -> &[u8] {
-        &self.0.gossip_frame[44..]
+        &self.0.gossip_frame[(UID_SIZE + TRANSMISSION_INFO_SIZE)..]
     }
 
-    fn safe_uid(&self) -> [u8; 32] {
-        let mut hasher = Blake2s::new();
-        let uid = &self.0.gossip_frame[0..32];
-        let transmission_info = &self.0.gossip_frame[32..44];
+    fn safe_uid(&self) -> [u8; UID_SIZE] {
+        let mut hasher = Blake2s256::new();
+
+        let uid = &self.0.gossip_frame[0..UID_SIZE];
+        let transmission_info =
+            &self.0.gossip_frame[UID_SIZE..(UID_SIZE + TRANSMISSION_INFO_SIZE)];
         hasher.update(uid);
 
         // Why do we need transmission info?
@@ -66,11 +93,7 @@ impl<'a> ChunkedPayload<'a> {
         // If the corrupted info is part of the first received chunk, no message
         // can ever be decoded.
         hasher.update(transmission_info);
-        hasher
-            .finalize()
-            .as_slice()
-            .try_into()
-            .expect("Wrong length")
+        hasher.finalize().into()
     }
 }
 

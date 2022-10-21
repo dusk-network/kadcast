@@ -4,15 +4,17 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::{convert::TryInto, net::SocketAddr, time::Duration};
+use std::net::AddrParseError;
+use std::net::SocketAddr;
+use std::time::Duration;
 
 use config::Config;
-use encoding::message::Header;
-use encoding::{message::Message, payload::BroadcastPayload};
+use encoding::message::{Header, Message};
+use encoding::payload::BroadcastPayload;
 use handling::MessageHandler;
 pub use handling::MessageInfo;
 use itertools::Itertools;
-use kbucket::Tree;
+use kbucket::{BucketHeight, Tree};
 use mantainer::TableMantainer;
 use peer::{PeerInfo, PeerNode};
 use rand::prelude::IteratorRandom;
@@ -34,6 +36,7 @@ pub mod transport;
 // Max amount of nodes a bucket should contain
 const DEFAULT_K_K: usize = 20;
 const K_K: usize = get_k_k();
+// Do not increase this over 32
 const K_ID_LEN_BYTES: usize = 16;
 const K_NONCE_LEN: usize = 4;
 const K_DIFF_MIN_BIT: usize = 8;
@@ -76,9 +79,9 @@ impl Peer {
     pub fn new<L: NetworkListen + 'static>(
         config: Config,
         listener: L,
-    ) -> Self {
+    ) -> Result<Self, AddrParseError> {
         let tree = Tree::new(
-            PeerNode::generate(&config.public_address[..]),
+            PeerNode::generate(&config.public_address[..])?,
             config.bucket,
         );
 
@@ -107,7 +110,7 @@ impl Peer {
         WireNetwork::start(inbound_channel_tx, outbound_channel_rx, config);
         TableMantainer::start(bootstrapping_nodes, table, outbound_channel_tx);
         task::spawn(Peer::notifier(listener_channel_rx, listener));
-        peer
+        Ok(peer)
     }
 
     async fn notifier(
@@ -168,7 +171,11 @@ impl Peer {
     /// Note:
     /// The function returns just after the message is put on the internal queue
     /// system. It **does not guarantee** the message will be broadcasted
-    pub async fn broadcast(&self, message: &[u8], height: Option<usize>) {
+    pub async fn broadcast(
+        &self,
+        message: &[u8],
+        height: Option<BucketHeight>,
+    ) {
         if message.is_empty() {
             error!("Message empty");
             return;
@@ -179,11 +186,11 @@ impl Peer {
             .read()
             .await
             .extract(height)
-            .map(|(h, nodes)| {
+            .map(|(height, nodes)| {
                 let msg = Message::Broadcast(
                     self.header,
                     BroadcastPayload {
-                        height: h.try_into().unwrap(),
+                        height,
                         gossip_frame: message.to_vec(), //FIX_ME: avoid clone
                     },
                 );

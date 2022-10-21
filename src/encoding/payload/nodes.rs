@@ -9,6 +9,7 @@ use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 use crate::{encoding::Marshallable, kbucket::BinaryKey, K_ID_LEN_BYTES};
+
 #[derive(Debug, PartialEq)]
 pub(crate) struct NodePayload {
     pub(crate) peers: Vec<PeerEncodedInfo>,
@@ -74,7 +75,7 @@ impl Marshallable for PeerEncodedInfo {
                 let ipv6_bytes: [u8; 16] = concat_u8(&ipv4[1..], &ipv6[..])
                     .as_slice()
                     .try_into()
-                    .expect("Wrong length");
+                    .expect("ipv6_bytes to be length 16");
 
                 IpInfo::IPv6(ipv6_bytes)
             }
