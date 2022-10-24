@@ -8,7 +8,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 
 use tokio::sync::mpsc::Sender;
-use tracing::*;
+use tracing::{error, info};
 
 use crate::encoding::message::{Header, Message};
 use crate::kbucket::Tree;

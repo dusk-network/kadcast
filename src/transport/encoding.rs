@@ -7,14 +7,16 @@
 mod plain_encoder;
 mod raptorq;
 
+use std::io;
+
 pub(crate) use self::raptorq::RaptorQDecoder as TransportDecoder;
 pub(crate) use self::raptorq::RaptorQEncoder as TransportEncoder;
+use crate::encoding::message::Message;
 
 pub type TransportEncoderConfig =
     <self::TransportEncoder as Configurable>::TConf;
 pub type TransportDecoderConfig =
     <self::TransportDecoder as Configurable>::TConf;
-use crate::encoding::message::Message;
 
 pub trait Configurable {
     type TConf;
@@ -23,9 +25,9 @@ pub trait Configurable {
 }
 
 pub(crate) trait Encoder: Configurable {
-    fn encode(&self, msg: Message) -> Vec<Message>;
+    fn encode(&self, msg: Message) -> io::Result<Vec<Message>>;
 }
 
 pub(crate) trait Decoder: Configurable {
-    fn decode(&mut self, chunk: Message) -> Option<Message>;
+    fn decode(&mut self, chunk: Message) -> io::Result<Option<Message>>;
 }

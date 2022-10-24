@@ -1,19 +1,20 @@
 [package]
 name = "kadcast"
 authors = ["herr-seppia <seppia@dusk.network>"]
-version = "0.4.1"
+version = "0.5.0-rc.0"
 edition = "2018"
 description = "Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]
 keywords = ["p2p", "network", "kad", "peer-to-peer", "kadcast"]
 license = "MPL-2.0"
 repository = "https://github.com/dusk-network/kadcast"
+publish = false
 
 exclude = [".git*", "ARCHITECTURE.md", "architecture.jpg"]
 
 [dependencies]
 arrayvec = "0.7"
-blake2 = "0.9"
+blake2 = "0.10"
 rand = "0.8"
 tokio = { version = "1", features = ["rt", "net", "sync", "time", "io-std", "rt-multi-thread", "macros"] }
 raptorq = "1.6"

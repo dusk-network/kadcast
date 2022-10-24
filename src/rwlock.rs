@@ -7,8 +7,7 @@
 use std::{sync::Arc, time::Duration};
 
 use tokio::sync::RwLock as ExtRwLock;
-use tokio::sync::RwLockReadGuard;
-use tokio::sync::RwLockWriteGuard;
+use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
 use tokio::time::timeout;
 use tracing::warn;
 

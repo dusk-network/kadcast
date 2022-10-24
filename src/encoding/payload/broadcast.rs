@@ -7,6 +7,7 @@
 use std::io::{self, Read, Write};
 
 use crate::encoding::Marshallable;
+
 #[derive(Debug, PartialEq)]
 pub(crate) struct BroadcastPayload {
     pub(crate) height: u8,

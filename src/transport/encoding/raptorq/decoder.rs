@@ -4,18 +4,20 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::transport::{encoding::Configurable, Decoder};
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::io;
+use std::time::{Duration, Instant};
+
 use raptorq::{Decoder as ExtDecoder, EncodingPacket};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
 use tracing::{trace, warn};
 
-use crate::encoding::{message::Message, payload::BroadcastPayload};
-
 use super::ChunkedPayload;
+use crate::encoding::message::Message;
+use crate::encoding::payload::BroadcastPayload;
+use crate::transport::encoding::Configurable;
+use crate::transport::Decoder;
 
 const DEFAULT_CACHE_TTL_SECS: u64 = 60;
 const DEFAULT_CACHE_PRUNE_EVERY_SECS: u64 = 60 * 5;
@@ -69,10 +71,10 @@ impl CacheStatus {
 }
 
 impl Decoder for RaptorQDecoder {
-    fn decode(&mut self, message: Message) -> Option<Message> {
+    fn decode(&mut self, message: Message) -> io::Result<Option<Message>> {
         if let Message::Broadcast(header, payload) = message {
             trace!("> Decoding broadcast chunk");
-            let chunked = ChunkedPayload(&payload);
+            let chunked: ChunkedPayload = (&payload).try_into()?;
             let uid = chunked.safe_uid();
 
             // Perform a `match` on the cache entry against the uid.
@@ -116,9 +118,10 @@ impl Decoder for RaptorQDecoder {
                                 height: *max_height,
                                 gossip_frame: decoded,
                             };
-                            // Perform sanity check
-                            match chunked.uid() == payload.generate_uid() {
-                                true => {
+                            // Perform integrity check
+                            match payload.generate_uid() {
+                                // Compare received ID with the one generated
+                                Ok(uid) if chunked.uid().eq(&uid) => {
                                     Some(Message::Broadcast(header, payload))
                                 }
                                 _ => {
@@ -148,9 +151,9 @@ impl Decoder for RaptorQDecoder {
                 self.cache.retain(|_, status| !status.expired());
                 self.last_pruned = Instant::now();
             }
-            decoded
+            Ok(decoded)
         } else {
-            Some(message)
+            Ok(Some(message))
         }
     }
 }
@@ -159,13 +162,11 @@ impl Decoder for RaptorQDecoder {
 mod tests {
     use std::{thread, time::Duration};
 
-    use super::RaptorQDecoder;
+    use super::*;
+    use crate::peer::PeerNode;
+    use crate::tests::Result;
     use crate::transport::encoding::raptorq::RaptorQEncoder;
-    use crate::{
-        encoding::{message::Message, payload::BroadcastPayload},
-        peer::PeerNode,
-        transport::encoding::{Configurable, Decoder, Encoder},
-    };
+    use crate::transport::encoding::Encoder;
 
     impl RaptorQDecoder {
         fn cache_size(&self) -> usize {
@@ -174,8 +175,8 @@ mod tests {
     }
 
     #[test]
-    fn test_expiring_cache() {
-        let root = PeerNode::generate("192.168.0.1:666");
+    fn test_expiring_cache() -> Result<()> {
+        let root = PeerNode::generate("192.168.0.1:666")?;
         let enc =
             RaptorQEncoder::configure(&RaptorQEncoder::default_configuration());
         let mut conf = RaptorQDecoder::default_configuration();
@@ -191,8 +192,8 @@ mod tests {
                 height: 0,
                 gossip_frame: vec![0],
             },
-        )) {
-            dec.decode(n);
+        ))? {
+            dec.decode(n)?;
         }
         assert_eq!(dec.cache_size(), 1);
 
@@ -211,8 +212,8 @@ mod tests {
                     height: 0,
                     gossip_frame: vec![i],
                 },
-            )) {
-                dec.decode(n);
+            ))? {
+                dec.decode(n)?;
             }
         }
         assert_eq!(dec.cache_size(), 3);
@@ -227,9 +228,10 @@ mod tests {
                 height: 0,
                 gossip_frame: vec![0],
             },
-        )) {
-            dec.decode(n);
+        ))? {
+            dec.decode(n)?;
         }
         assert_eq!(dec.cache_size(), 1);
+        Ok(())
     }
 }

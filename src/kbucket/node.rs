@@ -7,6 +7,8 @@
 use std::time::{Duration, Instant};
 
 use super::key::BinaryID;
+use super::BucketHeight;
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Node<TValue> {
     id: BinaryID,
@@ -31,7 +33,10 @@ impl<TValue> Node<TValue> {
         }
     }
 
-    pub fn calculate_distance(&self, other: &Node<TValue>) -> Option<usize> {
+    pub fn calculate_distance(
+        &self,
+        other: &Node<TValue>,
+    ) -> Option<BucketHeight> {
         self.id.calculate_distance(other.id.as_binary())
     }
 

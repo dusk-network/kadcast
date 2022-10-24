@@ -6,9 +6,9 @@
 
 use std::io::{self, Error, ErrorKind, Read, Write};
 
+use super::Marshallable;
 use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
 
-use super::Marshallable;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Header {
     pub(crate) binary_id: BinaryID,

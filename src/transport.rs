@@ -7,25 +7,20 @@
 use std::net::SocketAddr;
 
 use socket2::SockRef;
-use tokio::{
-    io,
-    net::UdpSocket,
-    sync::mpsc::{self, Receiver, Sender},
-    time::{self},
-};
-use tracing::*;
+use tokio::io;
+use tokio::net::UdpSocket;
+use tokio::sync::mpsc::{self, Receiver, Sender};
+use tracing::{debug, error, info, warn};
 
 use crate::config::Config;
-use crate::{
-    encoding::{message::Message, Marshallable},
-    peer::PeerNode,
-    transport::{
-        encoding::{
-            Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
-        },
-        sockets::MultipleOutSocket,
-    },
+use crate::encoding::message::Message;
+use crate::encoding::Marshallable;
+use crate::peer::PeerNode;
+use crate::transport::encoding::{
+    Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
 };
+use crate::transport::sockets::MultipleOutSocket;
+
 pub(crate) type MessageBeanOut = (Message, Vec<SocketAddr>);
 pub(crate) type MessageBeanIn = (Message, SocketAddr);
 type UDPChunk = (Vec<u8>, SocketAddr);
@@ -46,16 +41,13 @@ impl WireNetwork {
         let (dec_chan_tx, dec_chan_rx) = mpsc::channel(conf.channel_size);
 
         tokio::spawn(async move {
-            WireNetwork::listen_out(outbound_channel_rx, &conf)
-                .await
-                .unwrap_or_else(|op| error!("Error in listen_out {:?}", op));
+            WireNetwork::listen_out(outbound_channel_rx, &conf).await
         });
 
         let c1 = c.clone();
         tokio::spawn(async move {
             WireNetwork::decode(inbound_channel_tx.clone(), dec_chan_rx, c)
                 .await
-                .unwrap_or_else(|op| error!("Error in decode {:?}", op));
         });
 
         tokio::spawn(async move {
@@ -108,7 +100,7 @@ impl WireNetwork {
         inbound_channel_tx: Sender<MessageBeanIn>,
         mut dec_chan_rx: Receiver<UDPChunk>,
         conf: Config,
-    ) -> io::Result<()> {
+    ) {
         debug!("WireNetwork::decode started");
         let mut decoder = TransportDecoder::configure(&conf.fec.decoder);
 
@@ -117,14 +109,15 @@ impl WireNetwork {
                 match Message::unmarshal_binary(&mut &message[..]) {
                     Ok(deser) => {
                         debug!("> Received raw message {}", deser.type_byte());
-                        let to_process = decoder.decode(deser);
-                        if let Some(message) = to_process {
-                            let valid_header = PeerNode::verify_header(
-                                message.header(),
-                                &remote_address.ip(),
-                            );
-                            match valid_header {
-                                true => {
+
+                        match decoder.decode(deser) {
+                            Err(e) =>  error!("Unable to process the message through the decoder: {}",e),
+                            Ok(Some(message)) => {
+                                let valid_header = PeerNode::verify_header(
+                                    message.header(),
+                                    &remote_address.ip(),
+                                );
+                                if valid_header {
                                     inbound_channel_tx
                                         .send((message, remote_address))
                                         .await
@@ -132,7 +125,7 @@ impl WireNetwork {
                                             |op| error!("Unable to send to inbound channel {:?}", op),
                                         );
                                 }
-                                false => {
+                                else {
                                     error!(
                                         "Invalid Id {:?} - {}",
                                         message.header(),
@@ -140,6 +133,7 @@ impl WireNetwork {
                                     );
                                 }
                             }
+                            _ => {}
                         }
                     }
                     Err(e) => error!(
@@ -154,7 +148,7 @@ impl WireNetwork {
     async fn listen_out(
         mut outbound_channel_rx: Receiver<MessageBeanOut>,
         conf: &Config,
-    ) -> io::Result<()> {
+    ) {
         debug!("WireNetwork::listen_out started");
         let mut output_sockets = MultipleOutSocket::configure(&conf.network);
         let encoder = TransportEncoder::configure(&conf.fec.encoder);
@@ -165,17 +159,25 @@ impl WireNetwork {
                     to,
                     message.type_byte()
                 );
-                let chunks: Vec<Vec<u8>> =
-                    encoder.encode(message).iter().map(|m| m.bytes()).collect();
-                for remote_addr in to.iter() {
-                    for chunk in &chunks {
-                        output_sockets
-                            .send(chunk, remote_addr)
-                            .await
-                            .unwrap_or_else(|e| {
-                                error!("Unable to send msg {}", e)
-                            });
+
+                match encoder.encode(message) {
+                    Ok(chunks) => {
+                        let chunks: Vec<Vec<u8>> = chunks
+                            .iter()
+                            .filter_map(|m| m.bytes().ok())
+                            .collect();
+                        for remote_addr in to.iter() {
+                            for chunk in &chunks {
+                                output_sockets
+                                    .send(chunk, remote_addr)
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        error!("Unable to send msg {}", e)
+                                    });
+                            }
+                        }
                     }
+                    Err(e) => error!("Unable to encode msg {}", e),
                 }
             }
         }
@@ -184,7 +186,7 @@ impl WireNetwork {
     pub fn configure_socket(
         socket: &UdpSocket,
         conf: Config,
-    ) -> std::io::Result<()> {
+    ) -> io::Result<()> {
         if let Some(udp_recv_buffer_size) = conf.network.udp_recv_buffer_size {
             let sock = SockRef::from(socket);
             match sock.set_recv_buffer_size(udp_recv_buffer_size) {

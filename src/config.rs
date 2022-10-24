@@ -4,13 +4,16 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use crate::transport::encoding::Configurable;
-use crate::transport::encoding::TransportDecoder;
-pub use crate::transport::encoding::TransportDecoderConfig;
-use crate::transport::encoding::TransportEncoder;
-pub use crate::transport::encoding::TransportEncoderConfig;
-use serde_derive::{Deserialize, Serialize};
 use std::time::Duration;
+
+use serde_derive::{Deserialize, Serialize};
+
+use crate::transport::encoding::{
+    Configurable, TransportDecoder, TransportEncoder,
+};
+pub use crate::transport::encoding::{
+    TransportDecoderConfig, TransportEncoderConfig,
+};
 
 /// Default value while a node is considered alive (no eviction will be
 /// requested)
