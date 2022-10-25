@@ -213,6 +213,18 @@ impl<V> Bucket<V> {
     pub(crate) fn is_full(&self) -> bool {
         self.nodes.is_full()
     }
+
+    pub(crate) fn remove_id(&mut self, id: &[u8]) -> Option<Node<V>> {
+        let node_idx =
+            self.nodes.iter().position(|s| s.id().as_binary() == id)?;
+
+        self.nodes.pop_at(node_idx).map(|removed| {
+            if let Some(pending) = self.pending_node.take() {
+                self.nodes.push(pending);
+            }
+            removed
+        })
+    }
 }
 
 #[cfg(test)]
@@ -233,17 +245,6 @@ mod tests {
 
         pub fn least_used_id(&self) -> Option<&BinaryKey> {
             self.nodes.first().map(|n| n.id().as_binary())
-        }
-
-        pub fn remove_id(&mut self, id: &[u8]) -> Option<Node<V>> {
-            let update_idx =
-                self.nodes.iter().position(|s| s.id().as_binary() == id)?;
-
-            let removed = self.nodes.pop_at(update_idx);
-            if let Some(pending) = self.pending_node.take() {
-                self.nodes.push(pending);
-            }
-            removed
         }
     }
 

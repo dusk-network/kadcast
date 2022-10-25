@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add network blocklist implementation [#117]
+
 ### Changed 
 - Change `Peer::new` to return a Result [#115]
 - Change `blake2` dependency from `0.9` to `0.10` [#115]
@@ -106,6 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#110]: https://github.com/dusk-network/kadcast/issues/110
 [#112]: https://github.com/dusk-network/kadcast/issues/112
 [#115]: https://github.com/dusk-network/kadcast/issues/115
+[#117]: https://github.com/dusk-network/kadcast/issues/117
 
 <!-- Releases -->
 

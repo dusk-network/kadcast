@@ -130,6 +130,14 @@ impl<V> Tree<V> {
         }
     }
 
+    pub(crate) fn remove_peer(&mut self, peer: &BinaryKey) -> Option<Node<V>> {
+        self.root.id().calculate_distance(peer).and_then(|height| {
+            self.buckets
+                .get_mut(&height)
+                .and_then(|bucket| bucket.remove_id(peer))
+        })
+    }
+
     pub(crate) fn remove_idle_nodes(&mut self) {
         self.buckets
             .iter_mut()
@@ -147,6 +155,7 @@ impl<V> Tree<V> {
             .get(&height)
             .map_or(false, |bucket| bucket.is_full())
     }
+
     pub(crate) fn new(root: Node<V>, config: BucketConfig) -> Tree<V> {
         info!(
             "Building table [K={}] with root: {:?}",
