@@ -33,6 +33,7 @@ pub const DEFAULT_CHANNEL_SIZE: usize = 1000;
 
 pub const DEFAULT_SEND_RETRY_COUNT: u8 = 3;
 pub const DEFAULT_SEND_RETRY_SLEEP_MILLIS: u64 = 5;
+pub const DEFAULT_BLOCKLIST_REFRESH_SECS: u64 = 10;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -146,6 +147,8 @@ pub struct NetworkConfig {
     #[serde(with = "humantime_serde")]
     pub udp_send_retry_interval: Duration,
     pub udp_send_retry_count: u8,
+    #[serde(with = "humantime_serde")]
+    pub blocklist_refresh_interval: Duration,
 }
 
 impl Default for FECConfig {
@@ -165,6 +168,9 @@ impl Default for NetworkConfig {
                 DEFAULT_SEND_RETRY_SLEEP_MILLIS,
             ),
             udp_send_retry_count: DEFAULT_SEND_RETRY_COUNT,
+            blocklist_refresh_interval: Duration::from_secs(
+                DEFAULT_BLOCKLIST_REFRESH_SECS,
+            ),
         }
     }
 }

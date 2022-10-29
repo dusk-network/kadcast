@@ -4,7 +4,9 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::collections::HashSet;
 use std::net::SocketAddr;
+use std::time::Instant;
 
 use socket2::SockRef;
 use tokio::io;
@@ -16,6 +18,7 @@ use crate::config::Config;
 use crate::encoding::message::Message;
 use crate::encoding::Marshallable;
 use crate::peer::PeerNode;
+use crate::rwlock::RwLock;
 use crate::transport::encoding::{
     Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
 };
@@ -36,6 +39,7 @@ impl WireNetwork {
         inbound_channel_tx: Sender<MessageBeanIn>,
         outbound_channel_rx: Receiver<MessageBeanOut>,
         conf: Config,
+        blocklist: RwLock<HashSet<SocketAddr>>,
     ) {
         let c = conf.clone();
         let (dec_chan_tx, dec_chan_rx) = mpsc::channel(conf.channel_size);
@@ -51,7 +55,7 @@ impl WireNetwork {
         });
 
         tokio::spawn(async move {
-            WireNetwork::listen_in(dec_chan_tx.clone(), c1)
+            WireNetwork::listen_in(dec_chan_tx.clone(), c1, blocklist)
                 .await
                 .unwrap_or_else(|op| error!("Error in listen_in {:?}", op));
         });
@@ -60,6 +64,7 @@ impl WireNetwork {
     async fn listen_in(
         dec_chan_tx: Sender<UDPChunk>,
         conf: Config,
+        blocklist: RwLock<HashSet<SocketAddr>>,
     ) -> io::Result<()> {
         debug!("WireNetwork::listen_in started");
 
@@ -74,18 +79,31 @@ impl WireNetwork {
         };
         info!("Listening on: {}", socket.local_addr()?);
 
+        // Using a local blocklist prevent the library to constantly requests a
+        // read access to the RwLock
+        let last_blocklist_refresh = Instant::now();
+        let blocklist_refresh = conf.network.blocklist_refresh_interval;
+        let mut local_blocklist = blocklist.read().await.clone();
+
         // Try to extend socket recv buffer size
         WireNetwork::configure_socket(&socket, conf)?;
 
         // Read UDP socket recv buffer and delegate the processing to decode
         // task
         loop {
+            if last_blocklist_refresh.elapsed() > blocklist_refresh {
+                local_blocklist = blocklist.read().await.clone();
+            }
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
             let (len, remote_address) =
                 socket.recv_from(&mut bytes).await.map_err(|e| {
                     error!("Error receiving from socket {}", e);
                     e
                 })?;
+
+            if local_blocklist.contains(&remote_address) {
+                continue;
+            }
 
             dec_chan_tx
                 .send((bytes[0..len].to_vec(), remote_address))

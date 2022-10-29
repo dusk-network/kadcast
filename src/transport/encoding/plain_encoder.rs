@@ -4,19 +4,16 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::collections::HashMap;
 use std::io;
 
 use super::{Configurable, Decoder, Encoder};
 use crate::encoding::message::Message;
 
-pub(crate) struct PlainEncoder {}
+pub struct PlainEncoder {}
 
 impl Configurable for PlainEncoder {
-    type TConf = HashMap<String, String>;
-    fn default_configuration() -> Self::TConf {
-        HashMap::new()
-    }
+    type TConf = ();
+    fn default_configuration() -> Self::TConf {}
     fn configure(_: &Self::TConf) -> Self {
         PlainEncoder {}
     }
@@ -30,10 +27,6 @@ impl Encoder for PlainEncoder {
 
 impl Decoder for PlainEncoder {
     fn decode(&mut self, chunk: Message) -> io::Result<Option<Message>> {
-        if let Message::Broadcast(header, payload) = chunk {
-            Ok(Some(Message::Broadcast(header, payload)))
-        } else {
-            Ok(Some(chunk))
-        }
+        Ok(Some(chunk))
     }
 }

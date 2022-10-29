@@ -4,6 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::collections::HashSet;
 use std::net::AddrParseError;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -62,6 +63,7 @@ pub struct Peer {
     outbound_sender: Sender<MessageBeanOut>,
     ktable: RwLock<Tree<PeerInfo>>,
     header: Header,
+    blocklist: RwLock<HashSet<SocketAddr>>,
 }
 
 /// [NetworkListen] is notified each time a broadcasted
@@ -94,10 +96,12 @@ impl Peer {
 
         let header = tree.root().as_header();
         let table = RwLock::new(tree, Duration::from_secs(1));
+        let blocklist = RwLock::new(HashSet::new(), Duration::from_secs(1));
         let peer = Peer {
             outbound_sender: outbound_channel_tx.clone(),
             ktable: table.clone(),
             header,
+            blocklist: blocklist.clone(),
         };
         let bootstrapping_nodes = config.bootstrapping_nodes.clone();
         MessageHandler::start(
@@ -107,7 +111,12 @@ impl Peer {
             notification_channel_tx,
             &config,
         );
-        WireNetwork::start(inbound_channel_tx, outbound_channel_rx, config);
+        WireNetwork::start(
+            inbound_channel_tx,
+            outbound_channel_rx,
+            config,
+            blocklist,
+        );
         TableMantainer::start(bootstrapping_nodes, table, outbound_channel_tx);
         task::spawn(Peer::notifier(listener_channel_rx, listener));
         Ok(peer)
@@ -237,6 +246,12 @@ impl Peer {
             .unwrap_or_else(|e| {
                 error!("Unable to send from send method {}", e)
             });
+    }
+
+    pub async fn block_source(&self, source: SocketAddr) {
+        self.blocklist.write().await.insert(source);
+        let binary_key = PeerNode::compute_id(&source.ip(), source.port());
+        self.ktable.write().await.remove_peer(&binary_key);
     }
 }
 

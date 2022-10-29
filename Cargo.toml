@@ -17,7 +17,7 @@ arrayvec = "0.7"
 blake2 = "0.10"
 rand = "0.8"
 tokio = { version = "1", features = ["rt", "net", "sync", "time", "io-std", "rt-multi-thread", "macros"] }
-raptorq = "1.6"
+raptorq = { version = "1.6", optional = true }
 tracing = "0.1"
 itertools = "0.10"
 konst = "0.2"
@@ -31,6 +31,9 @@ clap = "2.33.3"
 rustc_tools_util = "0.2"
 tracing-subscriber = "0.2"
 toml = "0.5"
+
+[features]
+default = [ "raptorq" ]
 
 [[example]]
 name = "kadcast"
