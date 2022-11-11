@@ -8,7 +8,6 @@ categories = ["network-programming"]
 keywords = ["p2p", "network", "kad", "peer-to-peer", "kadcast"]
 license = "MPL-2.0"
 repository = "https://github.com/dusk-network/kadcast"
-publish = false
 
 exclude = [".git*", "ARCHITECTURE.md", "architecture.jpg"]
 
