@@ -1,13 +1,14 @@
 [package]
 name = "kadcast"
 authors = ["herr-seppia <seppia@dusk.network>"]
-version = "0.5.0-rc.0"
+version = "0.5.0-rc.1"
 edition = "2018"
 description = "Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]
 keywords = ["p2p", "network", "kad", "peer-to-peer", "kadcast"]
 license = "MPL-2.0"
 repository = "https://github.com/dusk-network/kadcast"
+publish = false
 
 exclude = [".git*", "ARCHITECTURE.md", "architecture.jpg"]
 
