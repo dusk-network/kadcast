@@ -57,7 +57,7 @@ impl WireNetwork {
         tokio::spawn(async move {
             WireNetwork::listen_in(dec_chan_tx.clone(), c1, blocklist)
                 .await
-                .unwrap_or_else(|op| error!("Error in listen_in {:?}", op));
+                .unwrap_or_else(|e| error!("Error in listen_in {e}"));
         });
     }
 
@@ -97,7 +97,7 @@ impl WireNetwork {
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
             let (len, remote_address) =
                 socket.recv_from(&mut bytes).await.map_err(|e| {
-                    error!("Error receiving from socket {}", e);
+                    error!("Error receiving from socket {e}");
                     e
                 })?;
 
@@ -108,8 +108,8 @@ impl WireNetwork {
             dec_chan_tx
                 .send((bytes[0..len].to_vec(), remote_address))
                 .await
-                .unwrap_or_else(|op| {
-                    error!("Unable to send to dec_chan_tx channel {:?}", op)
+                .unwrap_or_else(|e| {
+                    error!("Unable to send to dec_chan_tx channel {e}")
                 });
         }
     }
@@ -123,41 +123,36 @@ impl WireNetwork {
         let mut decoder = TransportDecoder::configure(&conf.fec.decoder);
 
         loop {
-            if let Some((message, remote_address)) = dec_chan_rx.recv().await {
-                match Message::unmarshal_binary(&mut &message[..]) {
+            if let Some((data, src)) = dec_chan_rx.recv().await {
+                match Message::unmarshal_binary(&mut &data[..]) {
                     Ok(deser) => {
                         debug!("> Received raw message {}", deser.type_byte());
 
                         match decoder.decode(deser) {
-                            Err(e) =>  error!("Unable to process the message through the decoder: {}",e),
+                            Err(e) =>  error!("Unable to process the message through the decoder: {e}"),
                             Ok(Some(message)) => {
-                                let valid_header = PeerNode::verify_header(
-                                    message.header(),
-                                    &remote_address.ip(),
+                                let header =  message.header();
+                                let valid_header = PeerNode::verify_header(    
+                                    header,
+                                    &src.ip(),
                                 );
                                 if valid_header {
-                                    inbound_channel_tx
-                                        .send((message, remote_address))
+                                    inbound_channel_tx.send((message, src))
                                         .await
                                         .unwrap_or_else(
-                                            |op| error!("Unable to send to inbound channel {:?}", op),
+                                            |e| error!("Unable to send to inbound channel {e}"),
                                         );
                                 }
                                 else {
-                                    error!(
-                                        "Invalid Id {:?} - {}",
-                                        message.header(),
-                                        &remote_address.ip()
-                                    );
+                                    error!("Invalid Id {header:?} - from {src}");
                                 }
                             }
                             _ => {}
                         }
                     }
-                    Err(e) => error!(
-                        "Error deser from {:?} - {} - {}",
-                        message, remote_address, e
-                    ),
+                    Err(e) => {
+                        error!("Error deser from {data:?} - {src} - {e}")
+                    }
                 }
             }
         }
@@ -171,31 +166,31 @@ impl WireNetwork {
         let mut output_sockets = MultipleOutSocket::configure(&conf.network);
         let encoder = TransportEncoder::configure(&conf.fec.encoder);
         loop {
-            if let Some((message, to)) = outbound_channel_rx.recv().await {
+            if let Some((message, targets)) = outbound_channel_rx.recv().await {
                 debug!(
                     "< Message to send to ({:?}) - {:?} ",
-                    to,
+                    targets,
                     message.type_byte()
                 );
 
                 match encoder.encode(message) {
                     Ok(chunks) => {
-                        let chunks: Vec<Vec<u8>> = chunks
+                        let chunks = chunks
                             .iter()
                             .filter_map(|m| m.bytes().ok())
-                            .collect();
-                        for remote_addr in to.iter() {
+                            .collect::<Vec<_>>();
+                        for remote_addr in targets.iter() {
                             for chunk in &chunks {
                                 output_sockets
                                     .send(chunk, remote_addr)
                                     .await
                                     .unwrap_or_else(|e| {
-                                        error!("Unable to send msg {}", e)
+                                        error!("Unable to send msg {e}")
                                     });
                             }
                         }
                     }
-                    Err(e) => error!("Unable to encode msg {}", e),
+                    Err(e) => error!("Unable to encode msg {e}"),
                 }
             }
         }

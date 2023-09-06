@@ -88,8 +88,8 @@ impl TableMantainer {
         self.outbound_sender
             .send(message)
             .await
-            .unwrap_or_else(|op| {
-                error!("Unable to send message from mantainer {:?}", op)
+            .unwrap_or_else(|e| {
+                error!("Unable to send message from mantainer {e}")
             })
     }
 
