@@ -37,7 +37,7 @@ pub mod transport;
 // Max amount of nodes a bucket should contain
 const DEFAULT_K_K: usize = 20;
 const K_K: usize = get_k_k();
-// Do not increase this over 32
+
 const K_ID_LEN_BYTES: usize = 16;
 const K_NONCE_LEN: usize = 4;
 const K_DIFF_MIN_BIT: usize = 8;
