@@ -22,9 +22,14 @@ mod tests {
 
     use std::io::{BufReader, BufWriter, Cursor, Read, Seek};
 
+    use rand::RngCore;
+
     use super::Marshallable;
+    use crate::encoding::header::Header;
     use crate::encoding::message::Message;
-    use crate::encoding::payload::{BroadcastPayload, NodePayload};
+    use crate::encoding::payload::{
+        BroadcastPayload, NodePayload, PeerEncodedInfo,
+    };
     use crate::peer::PeerNode;
     use crate::tests::Result;
 
@@ -101,6 +106,34 @@ mod tests {
 
         println!("dese: {:?}", deser);
         assert_eq!(messge, deser);
+        Ok(())
+    }
+    #[test]
+    fn test_failing() -> Result<()> {
+        let mut data = [0u8; 4];
+        rand::thread_rng().fill_bytes(&mut data);
+        println!("{:?}", data);
+
+        let mut reader = BufReader::new(&data[..]);
+        Message::unmarshal_binary(&mut reader)
+            .expect_err("Message::unmarshal_binary should fail");
+
+        let mut reader = BufReader::new(&data[..]);
+        Header::unmarshal_binary(&mut reader)
+            .expect_err("Header::unmarshal_binary should fail");
+
+        let mut reader = BufReader::new(&data[..]);
+        BroadcastPayload::unmarshal_binary(&mut reader)
+            .expect_err("BroadcastPayload::unmarshal_binary should fail");
+
+        let mut reader = BufReader::new(&data[..]);
+        NodePayload::unmarshal_binary(&mut reader)
+            .expect_err("NodePayload::unmarshal_binary should fail");
+
+        let mut reader = BufReader::new(&data[..]);
+        PeerEncodedInfo::unmarshal_binary(&mut reader)
+            .expect_err("PeerEncodedInfo::unmarshal_binary should fail");
+
         Ok(())
     }
 }
