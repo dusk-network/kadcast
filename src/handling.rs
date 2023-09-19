@@ -59,7 +59,7 @@ impl MessageHandler {
             false => |header: Header, _: BinaryKey| Message::Ping(header),
         };
         let auto_propagate = config.auto_propagate;
-        let my_header = ktable.read().await.root().as_header();
+        let my_header = ktable.read().await.root().to_header();
         Self {
             my_header,
             auto_propagate,
@@ -96,7 +96,7 @@ impl MessageHandler {
 
                 let remote_peer = PeerNode::from_socket(
                     remote_peer_addr,
-                    message.header().binary_id,
+                    *message.header().binary_id(),
                 );
 
                 match handler.handle_peer(remote_peer).await {
@@ -197,9 +197,9 @@ impl MessageHandler {
         let messages: Vec<_> = peers
             .iter()
             //filter out my ID to avoid loopback
-            .filter(|&n| &n.id != self.my_header.binary_id.as_binary())
+            .filter(|&n| &n.id != self.my_header.binary_id().as_binary())
             .filter(|&n| {
-                let h = self.my_header.binary_id.calculate_distance(&n.id);
+                let h = self.my_header.binary_id().calculate_distance(&n.id);
                 match h {
                     None => false,
                     Some(h) => {

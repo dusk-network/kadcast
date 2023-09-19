@@ -42,8 +42,8 @@ impl PeerNode {
     }
 
     pub(crate) fn verify_header(header: &Header, ip: &IpAddr) -> bool {
-        *header.binary_id.as_binary()
-            == PeerNode::compute_id(ip, header.sender_port)
+        header.binary_id().as_binary()
+            == &PeerNode::compute_id(ip, header.sender_port)
     }
 
     pub(crate) fn compute_id(ip: &IpAddr, port: u16) -> BinaryKey {
@@ -59,7 +59,7 @@ impl PeerNode {
             .expect("compute_id length = K_ID_LEN_BYTES")
     }
 
-    pub(crate) fn as_header(&self) -> Header {
+    pub(crate) fn to_header(&self) -> Header {
         Header {
             binary_id: *self.id(),
             sender_port: self.value().address.port(),
@@ -86,9 +86,9 @@ mod tests {
     use crate::tests::Result;
     #[test]
     fn test_verify_header() -> Result<()> {
-        let wrong_header = PeerNode::generate("10.0.0.1:333")?.as_header();
+        let wrong_header = PeerNode::generate("10.0.0.1:333")?.to_header();
         let wrong_header_sameport =
-            PeerNode::generate("10.0.0.1:666")?.as_header();
+            PeerNode::generate("10.0.0.1:666")?.to_header();
         vec![
             PeerNode::generate("192.168.1.1:666")?,
             PeerNode::generate(
@@ -98,8 +98,8 @@ mod tests {
         .iter()
         .for_each(|n| {
             let ip = &n.value().address.ip();
-            PeerNode::verify_header(&n.as_header(), ip);
-            assert!(PeerNode::verify_header(&n.as_header(), ip));
+            PeerNode::verify_header(&n.to_header(), ip);
+            assert!(PeerNode::verify_header(&n.to_header(), ip));
             assert!(!PeerNode::verify_header(&wrong_header, ip));
             assert!(!PeerNode::verify_header(&wrong_header_sameport, ip));
         });

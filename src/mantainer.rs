@@ -33,7 +33,7 @@ impl TableMantainer {
     ) {
         tokio::spawn(async move {
             let my_ip = *ktable.read().await.root().value().address();
-            let header = ktable.read().await.root().as_header();
+            let header = ktable.read().await.root().to_header();
 
             let mantainer = Self {
                 bootstrapping_nodes,
@@ -49,7 +49,7 @@ impl TableMantainer {
     /// Check if the peer need to contact the bootstrappers in order to join the
     /// network
     async fn need_bootstrappers(&self) -> bool {
-        let binary_key = self.header.binary_id.as_binary();
+        let binary_key = self.header.binary_id().as_binary();
         self.ktable
             .read()
             .await
@@ -78,7 +78,7 @@ impl TableMantainer {
         while self.need_bootstrappers().await {
             info!("TableMantainer::contact_bootstrappers");
             let bootstrapping_nodes_addr = self.bootstrapping_nodes_addr();
-            let binary_key = self.header.binary_id.as_binary();
+            let binary_key = self.header.binary_id().as_binary();
             let find_nodes = Message::FindNodes(self.header, *binary_key);
             self.send((find_nodes, bootstrapping_nodes_addr)).await;
             tokio::time::sleep(Duration::from_secs(30)).await;

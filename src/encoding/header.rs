@@ -16,6 +16,12 @@ pub struct Header {
     pub(crate) reserved: [u8; 2],
 }
 
+impl Header {
+    pub fn binary_id(&self) -> &BinaryID {
+        &self.binary_id
+    }
+}
+
 impl Marshallable for Header {
     fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         if !self.binary_id.verify_nonce() {

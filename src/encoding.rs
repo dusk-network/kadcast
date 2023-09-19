@@ -36,13 +36,13 @@ mod tests {
     #[test]
     fn test_encode_ping() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
-        let a = Message::Ping(peer.as_header());
+        let a = Message::Ping(peer.to_header());
         test_kadkast_marshal(a)
     }
     #[test]
     fn test_encode_pong() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
-        let a = Message::Pong(peer.as_header());
+        let a = Message::Pong(peer.to_header());
         test_kadkast_marshal(a)
     }
 
@@ -50,7 +50,7 @@ mod tests {
     fn test_encode_find_nodes() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
         let target = *PeerNode::generate("192.168.1.1:666")?.id().as_binary();
-        let a = Message::FindNodes(peer.as_header(), target);
+        let a = Message::FindNodes(peer.to_header(), target);
         test_kadkast_marshal(a)
     }
 
@@ -66,21 +66,21 @@ mod tests {
         .iter()
         .map(|f| f.as_peer_info())
         .collect();
-        let a = Message::Nodes(peer.as_header(), NodePayload { peers: nodes });
+        let a = Message::Nodes(peer.to_header(), NodePayload { peers: nodes });
         test_kadkast_marshal(a)
     }
 
     #[test]
     fn test_encode_empty_nodes() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
-        let a = Message::Nodes(peer.as_header(), NodePayload { peers: vec![] });
+        let a = Message::Nodes(peer.to_header(), NodePayload { peers: vec![] });
         test_kadkast_marshal(a)
     }
     #[test]
     fn test_encode_broadcast() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
         let a = Message::Broadcast(
-            peer.as_header(),
+            peer.to_header(),
             BroadcastPayload {
                 height: 10,
                 gossip_frame: vec![3, 5, 6, 7],

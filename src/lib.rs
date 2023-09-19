@@ -94,7 +94,7 @@ impl Peer {
         let (notification_channel_tx, listener_channel_rx) =
             mpsc::channel(config.channel_size);
 
-        let header = tree.root().as_header();
+        let header = tree.root().to_header();
         let table = RwLock::new(tree, Duration::from_secs(1));
         let blocklist = RwLock::new(HashSet::new(), Duration::from_secs(1));
         let peer = Peer {
