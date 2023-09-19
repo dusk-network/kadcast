@@ -170,17 +170,16 @@ impl WireNetwork {
         loop {
             if let Some((message, targets)) = out_channel_rx.recv().await {
                 debug!(
-                    "< Message to send to ({:?}) - {:?} ",
-                    targets,
+                    "< Message to send to ({targets:?}) - {:?} ",
                     message.type_byte()
                 );
 
                 match encoder.encode(message) {
                     Ok(chunks) => {
-                        let chunks = chunks
+                        let chunks: Vec<_> = chunks
                             .iter()
                             .filter_map(|m| m.bytes().ok())
-                            .collect::<Vec<_>>();
+                            .collect();
                         for remote_addr in targets.iter() {
                             for chunk in &chunks {
                                 out_socket
@@ -202,17 +201,12 @@ impl WireNetwork {
         socket: &UdpSocket,
         conf: &Config,
     ) -> io::Result<()> {
-        if let Some(udp_recv_buffer_size) = conf.network.udp_recv_buffer_size {
+        if let Some(size) = conf.network.udp_recv_buffer_size {
             let sock = SockRef::from(socket);
-            match sock.set_recv_buffer_size(udp_recv_buffer_size) {
-                Ok(_) => {
-                    info!("udp_recv_buffer is now {}", udp_recv_buffer_size)
-                }
+            match sock.set_recv_buffer_size(size) {
+                Ok(_) => info!("udp_recv_buffer is now {size}"),
                 Err(e) => {
-                    error!(
-                        "Error setting udp_recv_buffer to {} - {}",
-                        udp_recv_buffer_size, e
-                    );
+                    error!("Error setting udp_recv_buffer to {size} - {e}",);
                     warn!(
                         "udp_recv_buffer is still {}",
                         sock.recv_buffer_size().unwrap_or(0)

@@ -25,10 +25,11 @@ pub(crate) struct TableMantainer {
 }
 
 impl TableMantainer {
-    pub(crate) fn start(
+    pub fn start(
         bootstrapping_nodes: Vec<String>,
         ktable: RwLock<Tree<PeerInfo>>,
         outbound_sender: Sender<MessageBeanOut>,
+        idle_time: Duration,
     ) {
         tokio::spawn(async move {
             let my_ip = *ktable.read().await.root().value().address();
@@ -41,7 +42,7 @@ impl TableMantainer {
                 my_ip,
                 header,
             };
-            mantainer.monitor_buckets().await;
+            mantainer.monitor_buckets(idle_time).await;
         });
     }
 
@@ -97,10 +98,8 @@ impl TableMantainer {
     /// 1. Contact bootstrappers (if needed)
     /// 2. Ping idle buckets
     /// 3. Remove idles nodes from buckets
-    async fn monitor_buckets(&self) {
+    async fn monitor_buckets(&self, idle_time: Duration) {
         info!("TableMantainer::monitor_buckets started");
-        let idle_time: Duration =
-            { self.ktable.read().await.config.bucket_ttl };
         loop {
             self.contact_bootstrappers().await;
             info!("TableMantainer::monitor_buckets back to sleep");

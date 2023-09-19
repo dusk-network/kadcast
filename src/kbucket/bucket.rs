@@ -170,7 +170,7 @@ impl<V> Bucket<V> {
     pub fn pick<const ITEM_COUNT: usize>(
         &self,
     ) -> impl Iterator<Item = &Node<V>> {
-        let mut idxs: Vec<usize> = (0..self.nodes.len()).collect();
+        let mut idxs: Vec<_> = (0..self.nodes.len()).collect();
         idxs.shuffle(&mut thread_rng());
         idxs.into_iter()
             .take(ITEM_COUNT)

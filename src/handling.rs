@@ -194,7 +194,7 @@ impl MessageHandler {
             return;
         }
         let reader = self.ktable.read().await;
-        let messages = peers
+        let messages: Vec<_> = peers
             .iter()
             //filter out my ID to avoid loopback
             .filter(|&n| &n.id != self.my_header.binary_id.as_binary())
@@ -216,7 +216,7 @@ impl MessageHandler {
                     vec![n.to_socket_address()],
                 )
             })
-            .collect::<Vec<_>>();
+            .collect();
         for tosend in messages {
             self.outbound_sender.send(tosend).await.unwrap_or_else(|e| {
                 error!("Unable to send FindNodes after reply {e}")
@@ -250,7 +250,7 @@ impl MessageHandler {
             let new_height = height - 1;
             debug!("Extracting for height {new_height}");
 
-            let messages = {
+            let messages: Vec<_> = {
                 let table_read = self.ktable.read().await;
                 let target_nodes = table_read.extract(Some(new_height));
 
@@ -263,11 +263,11 @@ impl MessageHandler {
                             gossip_frame,
                         };
                         let msg = Message::Broadcast(self.my_header, payload);
-                        let targets: Vec<SocketAddr> =
+                        let targets =
                             nodes.map(|node| *node.value().address()).collect();
                         (msg, targets)
                     })
-                    .collect::<Vec<_>>()
+                    .collect()
             };
 
             for msg in messages {

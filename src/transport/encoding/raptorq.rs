@@ -112,10 +112,10 @@ mod tests {
     #[test]
     fn test_encode() -> Result<()> {
         #[cfg(not(debug_assertions))]
-        let mut data: Vec<u8> = vec![0; 3_000_000];
+        let mut data = vec![0; 3_000_000];
 
         #[cfg(debug_assertions)]
-        let mut data: Vec<u8> = vec![0; 100_000];
+        let mut data = vec![0; 100_000];
 
         for i in 0..data.len() {
             data[i] = rand::Rng::gen(&mut rand::thread_rng());

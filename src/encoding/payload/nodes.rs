@@ -89,6 +89,7 @@ impl Marshallable for PeerEncodedInfo {
         Ok(PeerEncodedInfo { ip, port, id })
     }
 }
+
 impl Marshallable for NodePayload {
     fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         let len = self.peers.len() as u16;
@@ -99,7 +100,7 @@ impl Marshallable for NodePayload {
         Ok(())
     }
     fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self> {
-        let mut peers: Vec<PeerEncodedInfo> = vec![];
+        let mut peers = vec![];
         let mut len = [0; 2];
         reader.read_exact(&mut len)?;
         for _ in 0..u16::from_le_bytes(len) {
