@@ -22,22 +22,27 @@ mod tests {
 
     use std::io::{BufReader, BufWriter, Cursor, Read, Seek};
 
+    use rand::RngCore;
+
     use super::Marshallable;
+    use crate::encoding::header::Header;
     use crate::encoding::message::Message;
-    use crate::encoding::payload::{BroadcastPayload, NodePayload};
+    use crate::encoding::payload::{
+        BroadcastPayload, NodePayload, PeerEncodedInfo,
+    };
     use crate::peer::PeerNode;
     use crate::tests::Result;
 
     #[test]
     fn test_encode_ping() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
-        let a = Message::Ping(peer.as_header());
+        let a = Message::Ping(peer.to_header());
         test_kadkast_marshal(a)
     }
     #[test]
     fn test_encode_pong() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
-        let a = Message::Pong(peer.as_header());
+        let a = Message::Pong(peer.to_header());
         test_kadkast_marshal(a)
     }
 
@@ -45,7 +50,7 @@ mod tests {
     fn test_encode_find_nodes() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
         let target = *PeerNode::generate("192.168.1.1:666")?.id().as_binary();
-        let a = Message::FindNodes(peer.as_header(), target);
+        let a = Message::FindNodes(peer.to_header(), target);
         test_kadkast_marshal(a)
     }
 
@@ -61,21 +66,21 @@ mod tests {
         .iter()
         .map(|f| f.as_peer_info())
         .collect();
-        let a = Message::Nodes(peer.as_header(), NodePayload { peers: nodes });
+        let a = Message::Nodes(peer.to_header(), NodePayload { peers: nodes });
         test_kadkast_marshal(a)
     }
 
     #[test]
     fn test_encode_empty_nodes() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
-        let a = Message::Nodes(peer.as_header(), NodePayload { peers: vec![] });
+        let a = Message::Nodes(peer.to_header(), NodePayload { peers: vec![] });
         test_kadkast_marshal(a)
     }
     #[test]
     fn test_encode_broadcast() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666")?;
         let a = Message::Broadcast(
-            peer.as_header(),
+            peer.to_header(),
             BroadcastPayload {
                 height: 10,
                 gossip_frame: vec![3, 5, 6, 7],
@@ -101,6 +106,34 @@ mod tests {
 
         println!("dese: {:?}", deser);
         assert_eq!(messge, deser);
+        Ok(())
+    }
+    #[test]
+    fn test_failing() -> Result<()> {
+        let mut data = [0u8; 4];
+        rand::thread_rng().fill_bytes(&mut data);
+        println!("{:?}", data);
+
+        let mut reader = BufReader::new(&data[..]);
+        Message::unmarshal_binary(&mut reader)
+            .expect_err("Message::unmarshal_binary should fail");
+
+        let mut reader = BufReader::new(&data[..]);
+        Header::unmarshal_binary(&mut reader)
+            .expect_err("Header::unmarshal_binary should fail");
+
+        let mut reader = BufReader::new(&data[..]);
+        BroadcastPayload::unmarshal_binary(&mut reader)
+            .expect_err("BroadcastPayload::unmarshal_binary should fail");
+
+        let mut reader = BufReader::new(&data[..]);
+        NodePayload::unmarshal_binary(&mut reader)
+            .expect_err("NodePayload::unmarshal_binary should fail");
+
+        let mut reader = BufReader::new(&data[..]);
+        PeerEncodedInfo::unmarshal_binary(&mut reader)
+            .expect_err("PeerEncodedInfo::unmarshal_binary should fail");
+
         Ok(())
     }
 }

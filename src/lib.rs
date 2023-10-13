@@ -16,7 +16,7 @@ use handling::MessageHandler;
 pub use handling::MessageInfo;
 use itertools::Itertools;
 use kbucket::{BucketHeight, Tree};
-use mantainer::TableMantainer;
+use maintainer::TableMaintainer;
 use peer::{PeerInfo, PeerNode};
 use rand::prelude::IteratorRandom;
 pub(crate) use rwlock::RwLock;
@@ -29,7 +29,7 @@ pub mod config;
 mod encoding;
 mod handling;
 mod kbucket;
-mod mantainer;
+mod maintainer;
 mod peer;
 mod rwlock;
 pub mod transport;
@@ -37,7 +37,7 @@ pub mod transport;
 // Max amount of nodes a bucket should contain
 const DEFAULT_K_K: usize = 20;
 const K_K: usize = get_k_k();
-// Do not increase this over 32
+
 const K_ID_LEN_BYTES: usize = 16;
 const K_NONCE_LEN: usize = 4;
 const K_DIFF_MIN_BIT: usize = 8;
@@ -94,7 +94,7 @@ impl Peer {
         let (notification_channel_tx, listener_channel_rx) =
             mpsc::channel(config.channel_size);
 
-        let header = tree.root().as_header();
+        let header = tree.root().to_header();
         let table = RwLock::new(tree, Duration::from_secs(1));
         let blocklist = RwLock::new(HashSet::new(), Duration::from_secs(1));
         let peer = Peer {
@@ -103,7 +103,8 @@ impl Peer {
             header,
             blocklist: blocklist.clone(),
         };
-        let bootstrapping_nodes = config.bootstrapping_nodes.clone();
+        let nodes = config.bootstrapping_nodes.clone();
+        let idle_time = config.bucket.bucket_ttl;
         MessageHandler::start(
             table.clone(),
             inbound_channel_rx,
@@ -117,7 +118,7 @@ impl Peer {
             config,
             blocklist,
         );
-        TableMantainer::start(bootstrapping_nodes, table, outbound_channel_tx);
+        TableMaintainer::start(nodes, table, outbound_channel_tx, idle_time);
         task::spawn(Peer::notifier(listener_channel_rx, listener));
         Ok(peer)
     }
@@ -166,7 +167,7 @@ impl Peer {
         */
         table_read.all_sorted().for_each(|(h, nodes)| {
             let nodes_joined = nodes.map(|p| p.value().address()).join(",");
-            info!("H: {} - Nodes {}", h, nodes_joined);
+            info!("H: {h} - Nodes {nodes_joined}");
         });
     }
 
@@ -190,7 +191,7 @@ impl Peer {
             return;
         }
 
-        let tosend: Vec<(Message, Vec<SocketAddr>)> = self
+        let tosend: Vec<_> = self
             .ktable
             .read()
             .await
@@ -203,7 +204,7 @@ impl Peer {
                         gossip_frame: message.to_vec(), //FIX_ME: avoid clone
                     },
                 );
-                let targets: Vec<SocketAddr> =
+                let targets =
                     nodes.map(|node| *node.value().address()).collect();
                 (msg, targets)
             })
@@ -211,7 +212,7 @@ impl Peer {
 
         for i in tosend {
             self.outbound_sender.send(i).await.unwrap_or_else(|e| {
-                error!("Unable to send from broadcast {}", e)
+                error!("Unable to send from broadcast {e}")
             });
         }
     }
@@ -243,9 +244,7 @@ impl Peer {
         self.outbound_sender
             .send((msg, targets))
             .await
-            .unwrap_or_else(|e| {
-                error!("Unable to send from send method {}", e)
-            });
+            .unwrap_or_else(|e| error!("Unable to send from send method {e}"));
     }
 
     pub async fn block_source(&self, source: SocketAddr) {

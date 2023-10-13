@@ -16,7 +16,7 @@ use crate::peer::PeerInfo;
 use crate::transport::MessageBeanOut;
 use crate::RwLock;
 
-pub(crate) struct TableMantainer {
+pub(crate) struct TableMaintainer {
     bootstrapping_nodes: Vec<String>,
     ktable: RwLock<Tree<PeerInfo>>,
     outbound_sender: Sender<MessageBeanOut>,
@@ -24,31 +24,32 @@ pub(crate) struct TableMantainer {
     header: Header,
 }
 
-impl TableMantainer {
-    pub(crate) fn start(
+impl TableMaintainer {
+    pub fn start(
         bootstrapping_nodes: Vec<String>,
         ktable: RwLock<Tree<PeerInfo>>,
         outbound_sender: Sender<MessageBeanOut>,
+        idle_time: Duration,
     ) {
         tokio::spawn(async move {
             let my_ip = *ktable.read().await.root().value().address();
-            let header = ktable.read().await.root().as_header();
+            let header = ktable.read().await.root().to_header();
 
-            let mantainer = Self {
+            let maintainer = Self {
                 bootstrapping_nodes,
                 ktable,
                 outbound_sender,
                 my_ip,
                 header,
             };
-            mantainer.monitor_buckets().await;
+            maintainer.monitor_buckets(idle_time).await;
         });
     }
 
     /// Check if the peer need to contact the bootstrappers in order to join the
     /// network
     async fn need_bootstrappers(&self) -> bool {
-        let binary_key = self.header.binary_id.as_binary();
+        let binary_key = self.header.binary_id().as_binary();
         self.ktable
             .read()
             .await
@@ -75,9 +76,9 @@ impl TableMantainer {
     /// Try to contact the bootstrappers node until no needed anymore
     async fn contact_bootstrappers(&self) {
         while self.need_bootstrappers().await {
-            info!("TableMantainer::contact_bootstrappers");
+            info!("TableMaintainer::contact_bootstrappers");
             let bootstrapping_nodes_addr = self.bootstrapping_nodes_addr();
-            let binary_key = self.header.binary_id.as_binary();
+            let binary_key = self.header.binary_id().as_binary();
             let find_nodes = Message::FindNodes(self.header, *binary_key);
             self.send((find_nodes, bootstrapping_nodes_addr)).await;
             tokio::time::sleep(Duration::from_secs(30)).await;
@@ -88,8 +89,8 @@ impl TableMantainer {
         self.outbound_sender
             .send(message)
             .await
-            .unwrap_or_else(|op| {
-                error!("Unable to send message from mantainer {:?}", op)
+            .unwrap_or_else(|e| {
+                error!("Unable to send message from maintainer {e}")
             })
     }
 
@@ -97,20 +98,18 @@ impl TableMantainer {
     /// 1. Contact bootstrappers (if needed)
     /// 2. Ping idle buckets
     /// 3. Remove idles nodes from buckets
-    async fn monitor_buckets(&self) {
-        info!("TableMantainer::monitor_buckets started");
-        let idle_time: Duration =
-            { self.ktable.read().await.config.bucket_ttl };
+    async fn monitor_buckets(&self, idle_time: Duration) {
+        info!("TableMaintainer::monitor_buckets started");
         loop {
             self.contact_bootstrappers().await;
-            info!("TableMantainer::monitor_buckets back to sleep");
+            info!("TableMaintainer::monitor_buckets back to sleep");
 
             tokio::time::sleep(idle_time).await;
 
-            info!("TableMantainer::monitor_buckets woke up");
+            info!("TableMaintainer::monitor_buckets woke up");
             self.ping_idle_buckets().await;
 
-            info!("TableMantainer::monitor_buckets removing idle nodes");
+            info!("TableMaintainer::monitor_buckets removing idle nodes");
             self.ktable.write().await.remove_idle_nodes();
         }
     }

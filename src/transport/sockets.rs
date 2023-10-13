@@ -62,6 +62,7 @@ impl Configurable for MultipleOutSocket {
         }
     }
 }
+
 impl MultipleOutSocket {
     pub(super) async fn send(
         &mut self,

@@ -13,6 +13,7 @@ pub use bucket::{NodeInsertError, NodeInsertOk};
 use itertools::Itertools;
 pub use key::{BinaryID, BinaryKey, BinaryNonce};
 pub use node::Node;
+use std::collections::hash_map::Entry;
 use tracing::info;
 
 mod bucket;
@@ -27,7 +28,7 @@ pub type BucketHeight = u8;
 pub(crate) struct Tree<V> {
     root: Node<V>,
     buckets: HashMap<BucketHeight, Bucket<V>>,
-    pub(crate) config: BucketConfig,
+    config: BucketConfig,
 }
 
 impl<V> Tree<V> {
@@ -43,10 +44,8 @@ impl<V> Tree<V> {
 
     fn get_or_create_bucket(&mut self, height: BucketHeight) -> &mut Bucket<V> {
         return match self.buckets.entry(height) {
-            std::collections::hash_map::Entry::Occupied(o) => o.into_mut(),
-            std::collections::hash_map::Entry::Vacant(v) => {
-                v.insert(Bucket::new(self.config))
-            }
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => v.insert(Bucket::new(self.config)),
         };
     }
 
@@ -57,11 +56,10 @@ impl<V> Tree<V> {
         max_h: Option<BucketHeight>,
     ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>
     {
+        let max_h = max_h.unwrap_or(BucketHeight::MAX);
         self.buckets
             .iter()
-            .filter(move |(&height, _)| {
-                height <= max_h.unwrap_or(BucketHeight::MAX)
-            })
+            .filter(move |(&height, _)| height <= max_h)
             .map(|(&height, bucket)| (height, bucket.pick::<K_BETA>()))
     }
 
@@ -78,10 +76,9 @@ impl<V> Tree<V> {
             .flat_map(|(_, b)| b.peers())
             .filter(|p| p.id().as_binary() != other)
             .sorted_by(|a, b| {
-                Ord::cmp(
-                    &a.id().calculate_distance(other),
-                    &b.id().calculate_distance(other),
-                )
+                let distance_a = a.id().calculate_distance(other);
+                let distance_b = b.id().calculate_distance(other);
+                distance_a.cmp(&distance_b)
             })
             .take(ITEM_COUNT)
     }
@@ -92,7 +89,7 @@ impl<V> Tree<V> {
     {
         self.buckets
             .iter()
-            .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
+            .sorted_by(|&(a, _), &(b, _)| a.cmp(b))
             .map(|(&height, bucket)| (height, bucket.peers()))
     }
 
@@ -113,21 +110,17 @@ impl<V> Tree<V> {
     {
         self.buckets
             .iter()
-            .filter(move |(_, bucket)| bucket.is_idle())
+            .filter(|(_, bucket)| bucket.is_idle())
             .map(|(&height, bucket)| (height, bucket.pick::<K_ALPHA>()))
     }
 
+    // Return the height of a Peer
     pub(crate) fn has_peer(&self, peer: &BinaryKey) -> Option<BucketHeight> {
-        match self.root.id().calculate_distance(peer) {
-            None => None,
-            Some(height) => self.buckets.get(&height).and_then(|bucket| {
-                if bucket.has_node(peer) {
-                    Some(height)
-                } else {
-                    None
-                }
-            }),
-        }
+        self.root.id().calculate_distance(peer).and_then(|height| {
+            self.buckets
+                .get(&height)
+                .and_then(|bucket| bucket.has_node(peer).then_some(height))
+        })
     }
 
     pub(crate) fn remove_peer(&mut self, peer: &BinaryKey) -> Option<Node<V>> {

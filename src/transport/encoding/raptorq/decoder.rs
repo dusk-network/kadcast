@@ -187,7 +187,7 @@ mod tests {
 
         //Decode first message
         for n in enc.encode(Message::Broadcast(
-            root.as_header(),
+            root.to_header(),
             BroadcastPayload {
                 height: 0,
                 gossip_frame: vec![0],
@@ -207,7 +207,7 @@ mod tests {
         // Decode other 3 messages
         for i in 1..4 {
             for n in enc.encode(Message::Broadcast(
-                root.as_header(),
+                root.to_header(),
                 BroadcastPayload {
                     height: 0,
                     gossip_frame: vec![i],
@@ -223,7 +223,7 @@ mod tests {
 
         // Decode message, it should remove the previous 3
         for n in enc.encode(Message::Broadcast(
-            root.as_header(),
+            root.to_header(),
             BroadcastPayload {
                 height: 0,
                 gossip_frame: vec![0],

@@ -36,47 +36,40 @@ pub(crate) mod sockets;
 
 impl WireNetwork {
     pub fn start(
-        inbound_channel_tx: Sender<MessageBeanIn>,
-        outbound_channel_rx: Receiver<MessageBeanOut>,
+        in_channel_tx: Sender<MessageBeanIn>,
+        out_channel_rx: Receiver<MessageBeanOut>,
         conf: Config,
         blocklist: RwLock<HashSet<SocketAddr>>,
     ) {
-        let c = conf.clone();
+        let decoder = TransportDecoder::configure(&conf.fec.decoder);
+        let encoder = TransportEncoder::configure(&conf.fec.encoder);
+        let out_socket = MultipleOutSocket::configure(&conf.network);
         let (dec_chan_tx, dec_chan_rx) = mpsc::channel(conf.channel_size);
 
-        tokio::spawn(async move {
-            WireNetwork::listen_out(outbound_channel_rx, &conf).await
-        });
-
-        let c1 = c.clone();
-        tokio::spawn(async move {
-            WireNetwork::decode(inbound_channel_tx.clone(), dec_chan_rx, c)
+        let outgoing = Self::outgoing(out_channel_rx, out_socket, encoder);
+        let decoder = Self::decoder(in_channel_tx, dec_chan_rx, decoder);
+        let incoming = async {
+            Self::incoming(dec_chan_tx, conf, blocklist)
                 .await
-        });
+                .unwrap_or_else(|e| error!("Error in incoming_loop {e}"));
+        };
 
-        tokio::spawn(async move {
-            WireNetwork::listen_in(dec_chan_tx.clone(), c1, blocklist)
-                .await
-                .unwrap_or_else(|op| error!("Error in listen_in {:?}", op));
-        });
+        tokio::spawn(outgoing);
+        tokio::spawn(decoder);
+        tokio::spawn(incoming);
     }
 
-    async fn listen_in(
+    async fn incoming(
         dec_chan_tx: Sender<UDPChunk>,
         conf: Config,
         blocklist: RwLock<HashSet<SocketAddr>>,
     ) -> io::Result<()> {
-        debug!("WireNetwork::listen_in started");
+        debug!("WireNetwork::incoming loop started");
 
-        let socket = {
-            let listen_address = conf
-                .listen_address
-                .clone()
-                .unwrap_or_else(|| conf.public_address.clone());
-            UdpSocket::bind(listen_address)
-                .await
-                .expect("Unable to bind address")
-        };
+        let listen_address =
+            conf.listen_address.as_ref().unwrap_or(&conf.public_address);
+        let socket = UdpSocket::bind(listen_address).await?;
+
         info!("Listening on: {}", socket.local_addr()?);
 
         // Using a local blocklist prevent the library to constantly requests a
@@ -86,7 +79,7 @@ impl WireNetwork {
         let mut local_blocklist = blocklist.read().await.clone();
 
         // Try to extend socket recv buffer size
-        WireNetwork::configure_socket(&socket, conf)?;
+        Self::configure_socket(&socket, &conf)?;
 
         // Read UDP socket recv buffer and delegate the processing to decode
         // task
@@ -94,10 +87,11 @@ impl WireNetwork {
             if last_blocklist_refresh.elapsed() > blocklist_refresh {
                 local_blocklist = blocklist.read().await.clone();
             }
+
             let mut bytes = [0; MAX_DATAGRAM_SIZE];
             let (len, remote_address) =
                 socket.recv_from(&mut bytes).await.map_err(|e| {
-                    error!("Error receiving from socket {}", e);
+                    error!("Error receiving from socket {e}");
                     e
                 })?;
 
@@ -108,94 +102,96 @@ impl WireNetwork {
             dec_chan_tx
                 .send((bytes[0..len].to_vec(), remote_address))
                 .await
-                .unwrap_or_else(|op| {
-                    error!("Unable to send to dec_chan_tx channel {:?}", op)
+                .unwrap_or_else(|e| {
+                    error!("Unable to send to dec_chan_tx channel {e}")
                 });
         }
     }
 
-    async fn decode(
-        inbound_channel_tx: Sender<MessageBeanIn>,
+    async fn decoder(
+        in_channel_tx: Sender<MessageBeanIn>,
         mut dec_chan_rx: Receiver<UDPChunk>,
-        conf: Config,
+        mut decoder: TransportDecoder,
     ) {
-        debug!("WireNetwork::decode started");
-        let mut decoder = TransportDecoder::configure(&conf.fec.decoder);
-
+        debug!("WireNetwork::decoder loop started");
         loop {
-            if let Some((message, remote_address)) = dec_chan_rx.recv().await {
-                match Message::unmarshal_binary(&mut &message[..]) {
+            if let Some((data, src)) = dec_chan_rx.recv().await {
+                match Message::unmarshal_binary(&mut &data[..]) {
                     Ok(deser) => {
                         debug!("> Received raw message {}", deser.type_byte());
-
-                        match decoder.decode(deser) {
-                            Err(e) =>  error!("Unable to process the message through the decoder: {}",e),
-                            Ok(Some(message)) => {
-                                let valid_header = PeerNode::verify_header(
-                                    message.header(),
-                                    &remote_address.ip(),
-                                );
-                                if valid_header {
-                                    inbound_channel_tx
-                                        .send((message, remote_address))
-                                        .await
-                                        .unwrap_or_else(
-                                            |op| error!("Unable to send to inbound channel {:?}", op),
-                                        );
-                                }
-                                else {
-                                    error!(
-                                        "Invalid Id {:?} - {}",
-                                        message.header(),
-                                        &remote_address.ip()
-                                    );
-                                }
-                            }
-                            _ => {}
-                        }
+                        Self::handle_raw_message(
+                            &mut decoder,
+                            deser,
+                            src,
+                            &in_channel_tx,
+                        )
+                        .await;
                     }
-                    Err(e) => error!(
-                        "Error deser from {:?} - {} - {}",
-                        message, remote_address, e
-                    ),
+                    Err(e) => {
+                        error!("Error deser from {data:?} - {src} - {e}")
+                    }
                 }
             }
         }
     }
 
-    async fn listen_out(
-        mut outbound_channel_rx: Receiver<MessageBeanOut>,
-        conf: &Config,
+    async fn handle_raw_message(
+        decoder: &mut TransportDecoder,
+        deser: Message,
+        src: SocketAddr,
+        in_channel_tx: &Sender<MessageBeanIn>,
     ) {
-        debug!("WireNetwork::listen_out started");
-        let mut output_sockets = MultipleOutSocket::configure(&conf.network);
-        let encoder = TransportEncoder::configure(&conf.fec.encoder);
+        match decoder.decode(deser) {
+            Err(e) => {
+                error!("Unable to process the message through the decoder: {e}")
+            }
+            Ok(Some(message)) => {
+                let header = message.header();
+                let valid_header = PeerNode::verify_header(header, &src.ip());
+
+                if valid_header {
+                    in_channel_tx.send((message, src)).await.unwrap_or_else(
+                        |e| error!("Unable to send to inbound channel {e}"),
+                    );
+                } else {
+                    error!("Invalid Id {header:?} - from {src}");
+                }
+            }
+            _ => {}
+        }
+    }
+
+    async fn outgoing(
+        mut out_channel_rx: Receiver<MessageBeanOut>,
+        mut out_socket: MultipleOutSocket,
+        encoder: TransportEncoder,
+    ) {
+        debug!("WireNetwork::outgoing loop started");
         loop {
-            if let Some((message, to)) = outbound_channel_rx.recv().await {
+            if let Some((message, targets)) = out_channel_rx.recv().await {
                 debug!(
-                    "< Message to send to ({:?}) - {:?} ",
-                    to,
+                    "< Message to send to ({targets:?}) - {:?} ",
                     message.type_byte()
                 );
 
                 match encoder.encode(message) {
                     Ok(chunks) => {
-                        let chunks: Vec<Vec<u8>> = chunks
+                        let chunks: Vec<_> = chunks
                             .iter()
                             .filter_map(|m| m.bytes().ok())
                             .collect();
-                        for remote_addr in to.iter() {
+                        for remote_addr in targets.iter() {
                             for chunk in &chunks {
-                                output_sockets
+                                out_socket
                                     .send(chunk, remote_addr)
                                     .await
                                     .unwrap_or_else(|e| {
-                                        error!("Unable to send msg {}", e)
+                                        error!("Unable to send msg {e}")
                                     });
                             }
                         }
                     }
-                    Err(e) => error!("Unable to encode msg {}", e),
+                    Err(e) => error!("Unable to encode msg {e}"),
                 }
             }
         }
@@ -203,19 +199,14 @@ impl WireNetwork {
 
     pub fn configure_socket(
         socket: &UdpSocket,
-        conf: Config,
+        conf: &Config,
     ) -> io::Result<()> {
-        if let Some(udp_recv_buffer_size) = conf.network.udp_recv_buffer_size {
+        if let Some(size) = conf.network.udp_recv_buffer_size {
             let sock = SockRef::from(socket);
-            match sock.set_recv_buffer_size(udp_recv_buffer_size) {
-                Ok(_) => {
-                    info!("udp_recv_buffer is now {}", udp_recv_buffer_size)
-                }
+            match sock.set_recv_buffer_size(size) {
+                Ok(_) => info!("udp_recv_buffer is now {size}"),
                 Err(e) => {
-                    error!(
-                        "Error setting udp_recv_buffer to {} - {}",
-                        udp_recv_buffer_size, e
-                    );
+                    error!("Error setting udp_recv_buffer to {size} - {e}",);
                     warn!(
                         "udp_recv_buffer is still {}",
                         sock.recv_buffer_size().unwrap_or(0)

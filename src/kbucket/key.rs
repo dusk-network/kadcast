@@ -19,6 +19,17 @@ use crate::{K_DIFF_MIN_BIT, K_DIFF_PRODUCED_BIT};
 
 use super::BucketHeight;
 
+const _: () = assert!(
+    (K_ID_LEN_BYTES * BucketHeight::BITS as usize) < BucketHeight::MAX as usize,
+    "K_ID_LEN_BYTES must be lower than BucketHeight::MAX"
+);
+
+#[allow(clippy::assertions_on_constants)]
+const _: () = assert!(
+    K_DIFF_PRODUCED_BIT >= K_DIFF_MIN_BIT,
+    "PoW is less than minimum required, review your build config..."
+);
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct BinaryID {
     bytes: BinaryKey,
@@ -58,11 +69,6 @@ impl BinaryID {
         &self,
         other: &BinaryKey,
     ) -> Option<BucketHeight> {
-        assert!(
-            (K_ID_LEN_BYTES * BucketHeight::BITS as usize)
-                < BucketHeight::MAX as usize,
-            "K_ID_LEN_BYTES must be lower"
-        );
         self.as_binary()
             .iter()
             .zip(other.iter())
@@ -88,9 +94,6 @@ impl BinaryID {
     }
 
     pub(crate) fn generate(id: BinaryKey) -> Self {
-        if K_DIFF_PRODUCED_BIT < K_DIFF_MIN_BIT {
-            panic!("PoW is less than minimum required, review your build config...")
-        }
         let mut nonce: u32 = 0;
         let mut hasher = Blake2s256::new();
         loop {
