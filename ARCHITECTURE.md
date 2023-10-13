@@ -12,7 +12,7 @@ The `kadcast::peer` is the entry point of the library and the only public API. I
 ## Message Handler
 The `Message Handler` represents the core component of the library. It handles the incoming messages and replies according to the specification.
 
-## Mantainer
+## Maintainer
 The `Maintainer` performs the [initial bootstrap](../bootstrapping) as well as the `k-table` [maintenance](../periodic-network-manteinance).
 It keeps track of idle buckets and is in charge of triggering the routing nodes lookup.
 

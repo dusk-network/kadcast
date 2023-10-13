@@ -16,7 +16,7 @@ use crate::peer::PeerInfo;
 use crate::transport::MessageBeanOut;
 use crate::RwLock;
 
-pub(crate) struct TableMantainer {
+pub(crate) struct TableMaintainer {
     bootstrapping_nodes: Vec<String>,
     ktable: RwLock<Tree<PeerInfo>>,
     outbound_sender: Sender<MessageBeanOut>,
@@ -24,7 +24,7 @@ pub(crate) struct TableMantainer {
     header: Header,
 }
 
-impl TableMantainer {
+impl TableMaintainer {
     pub fn start(
         bootstrapping_nodes: Vec<String>,
         ktable: RwLock<Tree<PeerInfo>>,
@@ -35,14 +35,14 @@ impl TableMantainer {
             let my_ip = *ktable.read().await.root().value().address();
             let header = ktable.read().await.root().to_header();
 
-            let mantainer = Self {
+            let maintainer = Self {
                 bootstrapping_nodes,
                 ktable,
                 outbound_sender,
                 my_ip,
                 header,
             };
-            mantainer.monitor_buckets(idle_time).await;
+            maintainer.monitor_buckets(idle_time).await;
         });
     }
 
@@ -76,7 +76,7 @@ impl TableMantainer {
     /// Try to contact the bootstrappers node until no needed anymore
     async fn contact_bootstrappers(&self) {
         while self.need_bootstrappers().await {
-            info!("TableMantainer::contact_bootstrappers");
+            info!("TableMaintainer::contact_bootstrappers");
             let bootstrapping_nodes_addr = self.bootstrapping_nodes_addr();
             let binary_key = self.header.binary_id().as_binary();
             let find_nodes = Message::FindNodes(self.header, *binary_key);
@@ -90,7 +90,7 @@ impl TableMantainer {
             .send(message)
             .await
             .unwrap_or_else(|e| {
-                error!("Unable to send message from mantainer {e}")
+                error!("Unable to send message from maintainer {e}")
             })
     }
 
@@ -99,17 +99,17 @@ impl TableMantainer {
     /// 2. Ping idle buckets
     /// 3. Remove idles nodes from buckets
     async fn monitor_buckets(&self, idle_time: Duration) {
-        info!("TableMantainer::monitor_buckets started");
+        info!("TableMaintainer::monitor_buckets started");
         loop {
             self.contact_bootstrappers().await;
-            info!("TableMantainer::monitor_buckets back to sleep");
+            info!("TableMaintainer::monitor_buckets back to sleep");
 
             tokio::time::sleep(idle_time).await;
 
-            info!("TableMantainer::monitor_buckets woke up");
+            info!("TableMaintainer::monitor_buckets woke up");
             self.ping_idle_buckets().await;
 
-            info!("TableMantainer::monitor_buckets removing idle nodes");
+            info!("TableMaintainer::monitor_buckets removing idle nodes");
             self.ktable.write().await.remove_idle_nodes();
         }
     }

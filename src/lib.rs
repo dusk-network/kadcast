@@ -16,7 +16,7 @@ use handling::MessageHandler;
 pub use handling::MessageInfo;
 use itertools::Itertools;
 use kbucket::{BucketHeight, Tree};
-use mantainer::TableMantainer;
+use maintainer::TableMaintainer;
 use peer::{PeerInfo, PeerNode};
 use rand::prelude::IteratorRandom;
 pub(crate) use rwlock::RwLock;
@@ -29,7 +29,7 @@ pub mod config;
 mod encoding;
 mod handling;
 mod kbucket;
-mod mantainer;
+mod maintainer;
 mod peer;
 mod rwlock;
 pub mod transport;
@@ -118,7 +118,7 @@ impl Peer {
             config,
             blocklist,
         );
-        TableMantainer::start(nodes, table, outbound_channel_tx, idle_time);
+        TableMaintainer::start(nodes, table, outbound_channel_tx, idle_time);
         task::spawn(Peer::notifier(listener_channel_rx, listener));
         Ok(peer)
     }
