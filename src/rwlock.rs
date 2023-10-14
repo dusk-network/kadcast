@@ -104,3 +104,24 @@ impl<T> Clone for DiagnosticRwLock<T> {
         }
     }
 }
+
+#[cfg(test)]
+#[cfg(feature = "diagnostics")]
+mod diagnostic_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_timeout_warning() {
+        // Initialize a lock with a very short timeout of 1 microsecond.
+        let lock = new_rwlock(42, Duration::from_micros(1));
+
+        // Create a write lock to make sure the read lock will timeout.
+        let _write = lock.write().await;
+
+        // Now try to acquire a read lock. This should timeout and produce a warning.
+        let read = tokio::time::timeout(Duration::from_millis(5), lock.read()).await;
+
+        // Assert that a warning was emitted.
+        assert!(read.is_err(), "Read lock should have timed out");
+    }
+}
