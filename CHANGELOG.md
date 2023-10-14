@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add new facade function `new_rwlock` to creating `RwLock` based on feature flag. [#94]
+
+### Changed
+
+- Change `RwLock` API to support diagnostics feature flag [#94]
+
 ## [0.5.0] - 2023-05-17
 
 ### Added
@@ -102,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#87]: https://github.com/dusk-network/kadcast/issues/87
 [#90]: https://github.com/dusk-network/kadcast/issues/90
 [#92]: https://github.com/dusk-network/kadcast/issues/92
+[#94]: https://github.com/dusk-network/kadcast/issues/94
 [#96]: https://github.com/dusk-network/kadcast/issues/96
 [#97]: https://github.com/dusk-network/kadcast/issues/97
 [#99]: https://github.com/dusk-network/kadcast/issues/99

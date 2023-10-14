@@ -96,7 +96,8 @@ impl Peer {
 
         let header = tree.root().to_header();
         let table = rwlock::new_rwlock(tree, Duration::from_secs(1));
-        let blocklist = rwlock::new_rwlock(HashSet::new(), Duration::from_secs(1));
+        let blocklist =
+            rwlock::new_rwlock(HashSet::new(), Duration::from_secs(1));
         let peer = Peer {
             outbound_sender: outbound_channel_tx.clone(),
             ktable: table.clone(),
