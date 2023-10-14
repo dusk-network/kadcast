@@ -3,6 +3,19 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
+
+/// This module provides abstractions for read-write locks.
+///
+/// Two types of `RwLock`s are supported:
+/// - `DiagnosticRwLock`: Used when the `diagnostics` feature flag is
+///   enabled. It will log warnings if a read or write lock cannot be
+///   acquired within a specified timeout.
+/// - `tokio::sync:RwLock`: Used by default. Behaves like a standard
+///   read-write lock.
+///
+/// To instantiate a new lock, use the `new_rwlock` function. This function
+/// takes care of which lock to provide based on the set feature flag,
+/// while offering a unified API.
 use std::{sync::Arc, time::Duration};
 
 use tokio::sync::RwLock as ExtRwLock;
@@ -15,24 +28,38 @@ use tokio::{
 use tracing::warn;
 
 #[cfg(feature = "diagnostics")]
+/// Type alias for `RwLock` when the `diagnostics` feature is enabled.
 pub(super) type RwLock<T> = DiagnosticRwLock<T>;
 
 #[cfg(feature = "diagnostics")]
+/// Diagnostics read-write lock.
 pub(super) struct DiagnosticRwLock<T> {
     arc_lock: Arc<ExtRwLock<T>>,
     timeout: Duration,
 }
 
 #[cfg(not(feature = "diagnostics"))]
+/// Default type alias for `RwLock`.
 pub(super) type RwLock<T> = Arc<ExtRwLock<T>>;
 
-#[cfg(feature = "diagnostics")]
+/// Creates a new `RwLock`. Based on whether the `diagnostics` feature is
+/// enabled:
+/// - When enabled, a `DiagnosticRwLock` is returned.
+/// - Otherwise, a standard `RwLock` will be returned.
+///
+/// # Parameters
+/// - `value`: The value to be wrapped by the lock.
+/// - `timeout`: The timeout duration for acquiring a lock before a warning is
+///   emitted. Used only when the `diagnostics` feature is enabled.
+///
+/// # Returns
+/// An instnace of either `DiagnosticRwLock<T>` or `Arc<ExtRwLock<T>>`,
+/// depending on the `diagnostics` feature flag.
+#[allow(unused_variables)]
 pub(super) fn new_rwlock<T>(value: T, timeout: Duration) -> RwLock<T> {
+    #[cfg(feature = "diagnostics")]
     return DiagnosticRwLock::new(value, timeout);
-}
-
-#[cfg(not(feature = "diagnostics"))]
-pub(super) fn new_rwlock<T>(value: T, _timeout: Duration) -> RwLock<T> {
+    #[cfg(not(feature = "diagnostics"))]
     return Arc::new(ExtRwLock::new(value));
 }
 
