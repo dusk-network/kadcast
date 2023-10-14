@@ -3,21 +3,40 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
-
 use std::{sync::Arc, time::Duration};
 
 use tokio::sync::RwLock as ExtRwLock;
-use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
-use tokio::time::timeout;
+#[cfg(feature = "diagnostics")]
+use tokio::{
+    sync::{RwLockReadGuard, RwLockWriteGuard},
+    time::timeout,
+};
+#[cfg(feature = "diagnostics")]
 use tracing::warn;
 
+#[cfg(feature = "diagnostics")]
 pub(super) type RwLock<T> = DiagnosticRwLock<T>;
 
+#[cfg(feature = "diagnostics")]
 pub(super) struct DiagnosticRwLock<T> {
     arc_lock: Arc<ExtRwLock<T>>,
     timeout: Duration,
 }
 
+#[cfg(not(feature = "diagnostics"))]
+pub(super) type RwLock<T> = Arc<ExtRwLock<T>>;
+
+#[cfg(feature = "diagnostics")]
+pub(super) fn new_rwlock<T>(value: T, timeout: Duration) -> RwLock<T> {
+    return DiagnosticRwLock::new(value, timeout);
+}
+
+#[cfg(not(feature = "diagnostics"))]
+pub(super) fn new_rwlock<T>(value: T, _timeout: Duration) -> RwLock<T> {
+    return Arc::new(ExtRwLock::new(value));
+}
+
+#[cfg(feature = "diagnostics")]
 impl<T> DiagnosticRwLock<T> {
     pub(crate) fn new(inner: T, timeout: Duration) -> Self {
         Self {
@@ -49,6 +68,7 @@ impl<T> DiagnosticRwLock<T> {
     }
 }
 
+#[cfg(feature = "diagnostics")]
 impl<T> Clone for DiagnosticRwLock<T> {
     fn clone(&self) -> Self {
         Self {
