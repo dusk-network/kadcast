@@ -7,7 +7,6 @@
 use std::collections::HashSet;
 use std::net::AddrParseError;
 use std::net::SocketAddr;
-use std::time::Duration;
 
 use config::Config;
 use encoding::message::{Header, Message};
@@ -95,9 +94,8 @@ impl Peer {
             mpsc::channel(config.channel_size);
 
         let header = tree.root().to_header();
-        let table = rwlock::new_rwlock(tree, Duration::from_secs(1));
-        let blocklist =
-            rwlock::new_rwlock(HashSet::new(), Duration::from_secs(1));
+        let table = rwlock::new(tree);
+        let blocklist = rwlock::new(HashSet::new());
         let peer = Peer {
             outbound_sender: outbound_channel_tx.clone(),
             ktable: table.clone(),

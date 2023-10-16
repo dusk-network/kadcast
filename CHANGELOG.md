@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add new facade function `new_rwlock` to creating `RwLock` based on feature flag. [#94]
+- Add new facade function `new` to creating `RwLock` based on feature flag. [#94]
 
 ### Changed
 
