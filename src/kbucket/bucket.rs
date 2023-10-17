@@ -126,7 +126,7 @@ impl<V> Bucket<V> {
         &mut self,
         node: Node<V>,
     ) -> Result<InsertOk<V>, InsertError<V>> {
-        if !node.is_id_valid() {
+        if !node.id().verify_nonce() {
             return Err(NodeInsertError::Invalid(node));
         }
         if self.refresh_node(node.id().as_binary()).is_some() {
