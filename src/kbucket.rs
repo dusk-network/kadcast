@@ -102,7 +102,7 @@ impl<V> Tree<V> {
     ) -> impl Iterator<Item = BucketHeight> {
         let max_buckets = (crate::K_ID_LEN_BYTES * 8) as BucketHeight;
         (0..max_buckets).filter(move |h| {
-            self.buckets.get(h).map_or_else(|| true, |b| b.is_idle())
+            self.buckets.get(h).map_or_else(|| true, |b| b.has_idle())
         })
     }
 
@@ -113,7 +113,7 @@ impl<V> Tree<V> {
     {
         self.buckets
             .iter()
-            .filter(|(_, bucket)| bucket.is_idle())
+            .filter(|(_, bucket)| bucket.has_idle())
             .map(|(&height, bucket)| (height, bucket.pick::<K_ALPHA>()))
     }
 

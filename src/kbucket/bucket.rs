@@ -190,7 +190,7 @@ impl<V> Bucket<V> {
         self.nodes.iter()
     }
 
-    pub(crate) fn is_idle(&self) -> bool {
+    pub(crate) fn has_idle(&self) -> bool {
         self.nodes.first().map_or(false, |n| {
             n.seen_at.elapsed() > self.bucket_config.bucket_ttl
         })
