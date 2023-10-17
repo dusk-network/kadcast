@@ -221,7 +221,9 @@ impl<V> Bucket<V> {
 
         self.nodes.pop_at(node_idx).map(|removed| {
             if let Some(pending) = self.pending_node.take() {
-                self.nodes.push(pending);
+                if pending.is_alive(self.bucket_config.node_ttl) {
+                    self.nodes.push(pending);
+                }
             }
             removed
         })
