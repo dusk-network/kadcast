@@ -15,6 +15,7 @@ pub struct Node<TValue> {
     value: TValue,
     pub(super) eviction_status: NodeEvictionStatus,
     pub(super) seen_at: Instant,
+    pub(crate) network_id: u8,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -24,12 +25,13 @@ pub enum NodeEvictionStatus {
 }
 
 impl<TValue> Node<TValue> {
-    pub fn new(id: BinaryID, value: TValue) -> Self {
+    pub fn new(id: BinaryID, value: TValue, network_id: u8) -> Self {
         Node {
             id,
             value,
             seen_at: Instant::now(),
             eviction_status: NodeEvictionStatus::None,
+            network_id,
         }
     }
 

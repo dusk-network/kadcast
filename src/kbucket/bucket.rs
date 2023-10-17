@@ -38,6 +38,7 @@ pub enum NodeInsertOk<'a, TNode> {
 pub enum NodeInsertError<TNode> {
     Invalid(TNode),
     Full(TNode),
+    MismatchNetwork(TNode),
 }
 
 impl<'a, TNode> NodeInsertOk<'a, TNode> {
@@ -256,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_lru_base_5secs() -> Result<()> {
-        let root = PeerNode::generate("127.0.0.1:666")?;
+        let root = PeerNode::generate("127.0.0.1:666", 0)?;
         let mut config = BucketConfig::default();
         config.node_evict_after = Duration::from_millis(1000);
         config.node_ttl = Duration::from_secs(5);
@@ -264,9 +265,9 @@ mod tests {
         let mut route_table = Tree::new(root, config);
 
         let bucket = route_table.bucket_for_test();
-        let node1 = PeerNode::generate("192.168.1.1:8080")?;
+        let node1 = PeerNode::generate("192.168.1.1:8080", 0)?;
         let id_node1 = node1.id().as_binary().clone();
-        let node1_copy = PeerNode::generate("192.168.1.1:8080")?;
+        let node1_copy = PeerNode::generate("192.168.1.1:8080", 0)?;
         match bucket.insert(node1).expect("This should return an ok()") {
             NodeInsertOk::Inserted { .. } => {}
             _ => assert!(false),
@@ -282,7 +283,7 @@ mod tests {
             _ => assert!(false),
         }
         assert_eq!(Some(&id_node1), bucket.last_id());
-        let node2 = PeerNode::generate("192.168.1.2:8080")?;
+        let node2 = PeerNode::generate("192.168.1.2:8080", 0)?;
         let id_node2 = node2.id().as_binary().clone();
 
         match bucket.insert(node2).expect("This should return an ok()") {
@@ -295,7 +296,7 @@ mod tests {
         assert_eq!(Some(&id_node1), bucket.least_used_id());
 
         match bucket
-            .insert(PeerNode::generate("192.168.1.1:8080")?)
+            .insert(PeerNode::generate("192.168.1.1:8080", 0)?)
             .expect("This should return an ok()")
         {
             NodeInsertOk::Updated { .. } => {}
@@ -313,6 +314,7 @@ mod tests {
             match bucket
                 .insert(PeerNode::generate(
                     &format!("192.168.1.{}:8080", i)[..],
+                    0,
                 )?)
                 .expect("This should return an ok()")
             {
@@ -323,7 +325,7 @@ mod tests {
             }
         }
         assert_eq!(bucket.pick::<K_BETA>().count(), K_BETA);
-        let pending = PeerNode::generate("192.168.1.21:8080")?;
+        let pending = PeerNode::generate("192.168.1.21:8080", 0)?;
         let pending_id = pending.id().as_binary().clone();
         match bucket.insert(pending).expect_err("this should be error") {
             NodeInsertError::Full(pending) => {
@@ -339,7 +341,8 @@ mod tests {
                             &pending_id
                         );
                         thread::sleep(Duration::from_secs(1));
-                        let pending = PeerNode::generate("192.168.1.21:8080")?;
+                        let pending =
+                            PeerNode::generate("192.168.1.21:8080", 0)?;
                         match bucket.insert(pending).expect("this should be ok")
                         {
                             NodeInsertOk::Inserted { inserted: _ } => {}

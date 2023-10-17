@@ -37,6 +37,9 @@ pub const DEFAULT_BLOCKLIST_REFRESH_SECS: u64 = 10;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// KadcastID
+    pub kadcast_id: Option<u8>,
+
     /// Public `SocketAddress` of the [Peer]. No domain name allowed
     ///
     /// This is the address where other peers can contact you.
@@ -86,6 +89,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             public_address: "127.0.0.1:9000".to_string(),
+            kadcast_id: None,
             listen_address: None,
             bootstrapping_nodes: vec![],
             auto_propagate: ENABLE_BROADCAST_PROPAGATION,

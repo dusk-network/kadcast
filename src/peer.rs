@@ -27,18 +27,25 @@ impl PeerInfo {
 }
 
 impl PeerNode {
-    pub fn generate(address: &str) -> Result<Self, AddrParseError> {
-        let address: SocketAddr = address.parse()?;
+    pub fn generate(
+        address: impl AsRef<str>,
+        network_id: u8,
+    ) -> Result<Self, AddrParseError> {
+        let address: SocketAddr = address.as_ref().parse()?;
         let info = PeerInfo { address };
         let binary =
             PeerNode::compute_id(&info.address.ip(), info.address.port());
         let id = BinaryID::generate(binary);
-        Ok(Node::new(id, info))
+        Ok(Node::new(id, info, network_id))
     }
 
-    pub fn from_socket(address: SocketAddr, id: BinaryID) -> Self {
+    pub fn from_socket(
+        address: SocketAddr,
+        id: BinaryID,
+        network_id: u8,
+    ) -> Self {
         let info = PeerInfo { address };
-        Node::new(id, info)
+        Node::new(id, info, network_id)
     }
 
     pub(crate) fn verify_header(header: &Header, ip: &IpAddr) -> bool {
@@ -64,6 +71,7 @@ impl PeerNode {
             binary_id: *self.id(),
             sender_port: self.value().address.port(),
             reserved: [0; 2],
+            network_id: self.network_id,
         }
     }
 
@@ -86,13 +94,14 @@ mod tests {
     use crate::tests::Result;
     #[test]
     fn test_verify_header() -> Result<()> {
-        let wrong_header = PeerNode::generate("10.0.0.1:333")?.to_header();
+        let wrong_header = PeerNode::generate("10.0.0.1:333", 0)?.to_header();
         let wrong_header_sameport =
-            PeerNode::generate("10.0.0.1:666")?.to_header();
+            PeerNode::generate("10.0.0.1:666", 0)?.to_header();
         vec![
-            PeerNode::generate("192.168.1.1:666")?,
+            PeerNode::generate("192.168.1.1:666", 0)?,
             PeerNode::generate(
                 "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666",
+                0,
             )?,
         ]
         .iter()

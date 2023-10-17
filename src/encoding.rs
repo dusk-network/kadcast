@@ -35,32 +35,34 @@ mod tests {
 
     #[test]
     fn test_encode_ping() -> Result<()> {
-        let peer = PeerNode::generate("192.168.0.1:666")?;
+        let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let a = Message::Ping(peer.to_header());
         test_kadkast_marshal(a)
     }
     #[test]
     fn test_encode_pong() -> Result<()> {
-        let peer = PeerNode::generate("192.168.0.1:666")?;
+        let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let a = Message::Pong(peer.to_header());
         test_kadkast_marshal(a)
     }
 
     #[test]
     fn test_encode_find_nodes() -> Result<()> {
-        let peer = PeerNode::generate("192.168.0.1:666")?;
-        let target = *PeerNode::generate("192.168.1.1:666")?.id().as_binary();
+        let peer = PeerNode::generate("192.168.0.1:666", 0)?;
+        let target =
+            *PeerNode::generate("192.168.1.1:666", 0)?.id().as_binary();
         let a = Message::FindNodes(peer.to_header(), target);
         test_kadkast_marshal(a)
     }
 
     #[test]
     fn test_encode_nodes() -> Result<()> {
-        let peer = PeerNode::generate("192.168.0.1:666")?;
+        let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let nodes = vec![
-            PeerNode::generate("192.168.1.1:666")?,
+            PeerNode::generate("192.168.1.1:666", 0)?,
             PeerNode::generate(
                 "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:666",
+                0,
             )?,
         ]
         .iter()
@@ -72,13 +74,13 @@ mod tests {
 
     #[test]
     fn test_encode_empty_nodes() -> Result<()> {
-        let peer = PeerNode::generate("192.168.0.1:666")?;
+        let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let a = Message::Nodes(peer.to_header(), NodePayload { peers: vec![] });
         test_kadkast_marshal(a)
     }
     #[test]
     fn test_encode_broadcast() -> Result<()> {
-        let peer = PeerNode::generate("192.168.0.1:666")?;
+        let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let a = Message::Broadcast(
             peer.to_header(),
             BroadcastPayload {

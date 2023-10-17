@@ -97,6 +97,7 @@ impl MessageHandler {
                 let remote_peer = PeerNode::from_socket(
                     remote_peer_addr,
                     *message.header().binary_id(),
+                    message.header().network_id,
                 );
 
                 match handler.handle_peer(remote_peer).await {
@@ -111,6 +112,14 @@ impl MessageHandler {
                         error!(
                             "Unable to insert node - INVALID {}",
                             n.value().address()
+                        );
+                        continue;
+                    }
+                    Err(NodeInsertError::MismatchNetwork(n)) => {
+                        error!(
+                            "Unable to insert node - NETWORK MISMATCH {} - {}",
+                            n.value().address(),
+                            n.network_id,
                         );
                         continue;
                     }

@@ -169,12 +169,12 @@ mod tests {
 
     #[test]
     fn test_distance() -> Result<()> {
-        let n1 = PeerNode::generate("192.168.0.1:666")?;
-        let n2 = PeerNode::generate("192.168.0.1:666")?;
+        let n1 = PeerNode::generate("192.168.0.1:666", 0)?;
+        let n2 = PeerNode::generate("192.168.0.1:666", 0)?;
         assert_eq!(n1.calculate_distance(&n2), None);
         assert_eq!(n1.id().calculate_distance_native(n2.id()), None);
         for i in 2..255 {
-            let n_in = PeerNode::generate(&format!("192.168.0.{}:666", i)[..])?;
+            let n_in = PeerNode::generate(format!("192.168.0.{}:666", i), 0)?;
             assert_eq!(
                 n1.calculate_distance(&n_in),
                 n1.id().calculate_distance_native(n_in.id())
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_id_nonce() -> Result<()> {
-        let root = PeerNode::generate("192.168.0.1:666")?;
+        let root = PeerNode::generate("192.168.0.1:666", 0)?;
         println!("Nonce is {:?}", root.id().nonce());
         assert!(root.id().verify_nonce());
         Ok(())

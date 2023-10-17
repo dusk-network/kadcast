@@ -13,6 +13,7 @@ use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
 pub struct Header {
     pub(crate) binary_id: BinaryID,
     pub(crate) sender_port: u16,
+    pub(crate) network_id: u8,
     pub(crate) reserved: [u8; 2],
 }
 
@@ -30,6 +31,7 @@ impl Marshallable for Header {
         writer.write_all(self.binary_id.as_binary())?;
         writer.write_all(self.binary_id.nonce())?;
         writer.write_all(&self.sender_port.to_le_bytes())?;
+        writer.write_all(&[self.network_id])?;
         writer.write_all(&self.reserved)?;
         Ok(())
     }
@@ -50,12 +52,19 @@ impl Marshallable for Header {
         let mut port_buffer = [0; 2];
         reader.read_exact(&mut port_buffer)?;
         let port = u16::from_le_bytes(port_buffer);
+
+        let mut network_id = [0; 1];
+        reader.read_exact(&mut network_id)?;
+        let network_id = network_id[0];
+
         let mut reserved = [0; 2];
         reader.read_exact(&mut reserved)?;
+
         Ok(Header {
             binary_id,
             sender_port: port,
             reserved,
+            network_id,
         })
     }
 }

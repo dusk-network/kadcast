@@ -7,8 +7,9 @@
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::net::{AddrParseError, SocketAddr, ToSocketAddrs};
+    use std::ops::Range;
     use std::time::Duration;
 
     use kadcast::config::Config;
@@ -54,17 +55,26 @@ mod tests {
             v
         };
         let mut peers = HashMap::new();
-        for i in 0..NODES {
+
+        // Use a wrong network_id for the first bootstrapper
+        peers.insert(
+            0,
+            create_peer(0, bootstraps.clone(), tx.clone(), Some(2))?,
+        );
+        for i in 1..NODES {
             tokio::time::sleep(Duration::from_millis(500)).await;
-            peers.insert(i, create_peer(i, bootstraps.clone(), tx.clone())?);
+            peers.insert(
+                i,
+                create_peer(i, bootstraps.clone(), tx.clone(), Some(1))?,
+            );
         }
+
         tokio::time::sleep(Duration::from_millis(2000)).await;
         let mut data: Vec<u8> = vec![0; MESSAGE_SIZE];
         for i in 0..data.len() {
             data[i] = rand::Rng::gen(&mut rand::thread_rng());
         }
-        for i in 1..NODES {
-            // for (i, p) in peers.iter() {
+        for i in 0..NODES {
             info!("ROUTING TABLE PEER #{}", i);
             peers.get(&i).unwrap().report().await;
             info!("----------------------");
@@ -80,9 +90,23 @@ mod tests {
             .unwrap()
             .broadcast(&data, None)
             .await;
-        let res =
-            timeout(Duration::from_secs(WAIT_SEC), receive(rx, NODES - 1))
-                .await;
+        let expected_message_broadcasted = NODES;
+        // Remove the invalid network id
+        let expected_message_sent = expected_message_broadcasted - 1;
+        // Remove the sender
+        let expected_message_received = expected_message_sent - 1;
+
+        let start_expected_range = BASE_PORT + 1; // remove the first invalid node
+        let end_expected_range =
+            start_expected_range + expected_message_received;
+
+        let expected_received_range = start_expected_range..end_expected_range;
+
+        let res = timeout(
+            Duration::from_secs(WAIT_SEC),
+            receive(rx, expected_received_range),
+        )
+        .await;
         assert!(
             res.is_ok(),
             "Not all nodes received the broadcasted message"
@@ -92,30 +116,34 @@ mod tests {
 
     async fn receive(
         mut rx: mpsc::Receiver<(usize, (Vec<u8>, SocketAddr, u8))>,
-        expected: i32,
+        expected_from: Range<i32>,
     ) {
-        let mut missing = HashMap::new();
-        for i in (BASE_PORT + 1)..(BASE_PORT + expected) {
-            missing.insert(i, i);
+        let mut missing = HashSet::new();
+        info!("{expected_from:?}");
+        for i in expected_from {
+            missing.insert(i);
         }
+        info!("{missing:?}");
         let mut i = 0;
         while !missing.is_empty() {
             if let Some((receiver_port, message)) = rx.recv().await {
                 i = i + 1;
-                missing.remove(&(receiver_port as i32));
+                let removed = missing.remove(&(receiver_port as i32));
                 info!(
-                    "RECEIVER PORT: {} - Message N° {} got from {:?}",
-                    receiver_port, i, message.1
+                    "RECEIVER PORT: {} - Message N° {} got from {:?} -  Left {} - Removed {:?}",
+                    receiver_port, i, message.1, missing.len(), removed
                 );
             }
         }
         info!("Received All {} messages", i);
+        info!("{missing:?}");
     }
 
     fn create_peer(
         i: i32,
         bootstrap: Vec<String>,
         grpc_sender: mpsc::Sender<(usize, (Vec<u8>, SocketAddr, u8))>,
+        network_id: Option<u8>,
     ) -> core::result::Result<Peer, AddrParseError> {
         let port = BASE_PORT + i;
         let public_addr = format!("127.0.0.1:{}", port).to_string();
@@ -124,6 +152,7 @@ mod tests {
             receiver_port: port as usize,
         };
         let mut conf = Config::default();
+        conf.kadcast_id = network_id;
         conf.bootstrapping_nodes = bootstrap;
         conf.public_address = public_addr;
         Peer::new(conf, listener)
