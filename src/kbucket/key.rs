@@ -56,15 +56,19 @@ impl Marshallable for BinaryKey {
 }
 
 impl BinaryID {
+    /// Returns the binary key associated with this `BinaryID`.
     pub fn as_binary(&self) -> &BinaryKey {
         &self.bytes
     }
+
+    /// Returns the binary nonce associated with this `BinaryID`.
     pub fn nonce(&self) -> &BinaryNonce {
         &self.nonce
     }
 
-    // Returns the 0-based kadcast distance between 2 ID
-    // `None` if they are identical
+    /// Calculates the 0-based Kadcast distance between two `BinaryID`s.
+    ///
+    /// Returns `None` if the two IDs are identical.
     pub fn calculate_distance(
         &self,
         other: &BinaryKey,
@@ -80,8 +84,9 @@ impl BinaryID {
             .map(|(i, b)| BinaryID::msb(b).expect("to be Some") + (i << 3) - 1)
     }
 
-    // Returns the position of the most-significant bit set in a byte,
-    // `None` if no bit is set
+    /// Returns the position of the most significant bit set in a byte.
+    ///
+    /// Returns `None` if no bit is set.
     const fn msb(n: u8) -> Option<u8> {
         match u8::BITS - n.leading_zeros() {
             0 => None,
@@ -89,10 +94,16 @@ impl BinaryID {
         }
     }
 
+    /// Creates a new `BinaryID` by combining a `BinaryKey` and a `BinaryNonce`.
     pub(crate) fn from_nonce(id: BinaryKey, nonce: BinaryNonce) -> Self {
-        BinaryID { bytes: id, nonce }
+        Self { bytes: id, nonce }
     }
 
+    /// Generates a new `BinaryID` using the given `BinaryKey`.
+    ///
+    /// This function generates a unique identifier by repeatedly hashing the
+    /// provided `BinaryKey` with an incrementing nonce value until a
+    /// difficulty threshold is met.
     pub(crate) fn generate(id: BinaryKey) -> Self {
         let mut nonce: u32 = 0;
         let mut hasher = Blake2s256::new();
@@ -113,6 +124,8 @@ impl BinaryID {
         }
     }
 
+    /// Verifies that the nonce of the `BinaryID` meets the minimum difficulty
+    /// requirements.
     pub fn verify_nonce(&self) -> bool {
         let mut hasher = Blake2s256::new();
         hasher.update(self.bytes);
@@ -123,6 +136,8 @@ impl BinaryID {
         )
     }
 
+    /// Verifies the difficulty of a binary value according to the specified
+    /// criteria.
     pub(crate) fn verify_difficulty<'a, I>(
         bytes: &mut I,
         difficulty: usize,
