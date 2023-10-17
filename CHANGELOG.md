@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add new facade function `new` to creating `RwLock` based on feature flag. [#94]
+- Add `NetworkId` in configuration [#123]
 
 ### Changed
 
 - Change `RwLock` API to support diagnostics feature flag [#94]
+- Change network wire encoding to support `NetworkId` [#123]
 
 ## [0.5.0] - 2023-05-17
 
@@ -121,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#112]: https://github.com/dusk-network/kadcast/issues/112
 [#115]: https://github.com/dusk-network/kadcast/issues/115
 [#117]: https://github.com/dusk-network/kadcast/issues/117
+[#123]: https://github.com/dusk-network/kadcast/issues/123
 
 <!-- Releases -->
 

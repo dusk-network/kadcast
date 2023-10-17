@@ -36,6 +36,9 @@ impl<V> Tree<V> {
         &mut self,
         node: Node<V>,
     ) -> Result<InsertOk<V>, InsertError<V>> {
+        if self.root().network_id != node.network_id {
+            return Err(NodeInsertError::MismatchNetwork(node));
+        }
         match self.root.calculate_distance(&node) {
             None => Err(NodeInsertError::Invalid(node)),
             Some(height) => self.get_or_create_bucket(height).insert(node),
@@ -99,7 +102,7 @@ impl<V> Tree<V> {
     ) -> impl Iterator<Item = BucketHeight> {
         let max_buckets = (crate::K_ID_LEN_BYTES * 8) as BucketHeight;
         (0..max_buckets).filter(move |h| {
-            self.buckets.get(h).map_or_else(|| true, |b| b.is_idle())
+            self.buckets.get(h).map_or_else(|| true, |b| b.has_idle())
         })
     }
 
@@ -110,7 +113,7 @@ impl<V> Tree<V> {
     {
         self.buckets
             .iter()
-            .filter(|(_, bucket)| bucket.is_idle())
+            .filter(|(_, bucket)| bucket.has_idle())
             .map(|(&height, bucket)| (height, bucket.pick::<K_ALPHA>()))
     }
 
@@ -172,29 +175,24 @@ mod tests {
     use crate::tests::Result;
     #[test]
     fn test_buckets() -> Result<()> {
-        let root = PeerNode::generate("192.168.0.1:666")?;
+        let root = PeerNode::generate("192.168.0.1:666", 0)?;
         let mut config = BucketConfig::default();
         config.node_evict_after = Duration::from_millis(5000);
         config.node_ttl = Duration::from_secs(60);
 
         let mut route_table = Tree::new(root, config);
         for i in 2..255 {
-            let res = route_table.insert(PeerNode::generate(
-                &format!("192.168.0.{}:666", i)[..],
-            )?);
+            let node = PeerNode::generate(format!("192.168.0.{}:666", i), 0)?;
+            let res = route_table.insert(node);
             match res {
-                Ok(_) => {}
-                Err(error) => match error {
-                    NodeInsertError::Invalid(_) => {
-                        assert!(false)
-                    }
-                    _ => {}
-                },
+                Ok(_) | Err(NodeInsertError::Full(_)) => {}
+                _ => panic!("Node must be valid"),
             }
         }
         let res = route_table
-            .insert(PeerNode::generate("192.168.0.1:666")?)
+            .insert(PeerNode::generate("192.168.0.1:666", 0)?)
             .expect_err("this should be an error");
+
         assert!(if let NodeInsertError::Invalid(_) = res {
             true
         } else {

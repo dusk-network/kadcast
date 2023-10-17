@@ -65,8 +65,8 @@ pub struct Peer {
     blocklist: RwLock<HashSet<SocketAddr>>,
 }
 
-/// [NetworkListen] is notified each time a broadcasted
-/// message is received from the network
+/// The [NetworkListen] trait receives notifications whenever a broadcasted
+/// message is received from the network.
 pub trait NetworkListen: Send {
     fn on_message(&self, message: Vec<u8>, metadata: MessageInfo);
 }
@@ -81,8 +81,9 @@ impl Peer {
         config: Config,
         listener: L,
     ) -> Result<Self, AddrParseError> {
+        let network_id = config.kadcast_id.unwrap_or_default();
         let tree = Tree::new(
-            PeerNode::generate(&config.public_address[..])?,
+            PeerNode::generate(&config.public_address[..], network_id)?,
             config.bucket,
         );
 
@@ -246,6 +247,16 @@ impl Peer {
             .unwrap_or_else(|e| error!("Unable to send from send method {e}"));
     }
 
+    /// Blocks a network source and removes it from the routing table.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The address of the network source to be blocked.
+    ///
+    /// This method blocks a network source by adding its address to the
+    /// blocklist and subsequently removes the corresponding peer from the
+    /// routing table. This action prevents further communication with the
+    /// blocked source.
     pub async fn block_source(&self, source: SocketAddr) {
         self.blocklist.write().await.insert(source);
         let binary_key = PeerNode::compute_id(&source.ip(), source.port());
