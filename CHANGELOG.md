@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2023-11-01
+
 ### Added
 
-- Add new facade function `new` to creating `RwLock` based on feature flag. [#94]
+- Add new facade function `new` to creating `RwLock` based on feature flag [#94]
 - Add `NetworkId` in configuration [#123]
 
 ### Changed
@@ -127,7 +129,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- Releases -->
 
-[Unreleased]: https://github.com/dusk-network/kadcast/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/dusk-network/kadcast/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/dusk-network/kadcast/compare/v0.5.0...v0.6.0
 [0.5.1]: https://github.com/dusk-network/kadcast/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/dusk-network/kadcast/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/dusk-network/kadcast/compare/v0.3.0...v0.4.0
