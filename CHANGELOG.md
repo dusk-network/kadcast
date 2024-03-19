@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Remove `iter.rev()` from BinaryID verification [#139]
+
 ## [0.6.0] - 2023-11-01
 
 ### Added
@@ -126,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#115]: https://github.com/dusk-network/kadcast/issues/115
 [#117]: https://github.com/dusk-network/kadcast/issues/117
 [#123]: https://github.com/dusk-network/kadcast/issues/123
+[#139]: https://github.com/dusk-network/kadcast/issues/139
 
 <!-- Releases -->
 
