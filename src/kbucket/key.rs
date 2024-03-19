@@ -120,7 +120,7 @@ impl BinaryID {
             let nonce_bytes = nonce.to_le_bytes();
             hasher.update(nonce_bytes);
             if BinaryID::verify_difficulty(
-                &mut hasher.finalize_reset().iter().rev(),
+                &mut hasher.finalize_reset().iter(),
                 K_DIFF_PRODUCED_BIT,
             ) {
                 return Self {
@@ -139,7 +139,7 @@ impl BinaryID {
         hasher.update(self.bytes);
         hasher.update(self.nonce);
         BinaryID::verify_difficulty(
-            &mut hasher.finalize().iter().rev(),
+            &mut hasher.finalize().iter(),
             K_DIFF_MIN_BIT,
         )
     }
