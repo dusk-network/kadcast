@@ -106,7 +106,7 @@ impl<V> Tree<V> {
         })
     }
 
-    //pick at most Alpha nodes for each idle bucket
+    // pick at most Alpha nodes for each idle bucket
     pub(crate) fn idle_buckets(
         &self,
     ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>
@@ -132,6 +132,10 @@ impl<V> Tree<V> {
                 .get_mut(&height)
                 .and_then(|bucket| bucket.remove_id(peer))
         })
+    }
+
+    pub(crate) fn idle_nodes(&self) -> impl Iterator<Item = &Node<V>> {
+        self.buckets.iter().flat_map(|(_, b)| b.idle_nodes())
     }
 
     pub(crate) fn remove_idle_nodes(&mut self) {

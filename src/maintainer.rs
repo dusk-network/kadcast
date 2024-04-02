@@ -91,7 +91,7 @@ impl TableMaintainer {
 
     /// This is the main function of this utility class. It's responsible to:
     /// 1. Contact bootstrappers (if needed)
-    /// 2. Ping idle buckets
+    /// 2. Find new node for idle buckets
     /// 3. Remove idles nodes from buckets
     async fn monitor_buckets(&self, idle_time: Duration, min_peers: usize) {
         info!("TableMaintainer::monitor_buckets started");
@@ -102,16 +102,30 @@ impl TableMaintainer {
             tokio::time::sleep(idle_time).await;
 
             info!("TableMaintainer::monitor_buckets woke up");
-            self.ping_idle_buckets().await;
+            self.find_new_nodes().await;
 
             info!("TableMaintainer::monitor_buckets removing idle nodes");
-            self.ktable.write().await.remove_idle_nodes();
+            self.ping_and_remove_idles().await;
         }
     }
 
     /// Search for idle buckets (no message received) and try to contact some of
     /// the belonging nodes
-    async fn ping_idle_buckets(&self) {
+    async fn ping_and_remove_idles(&self) {
+        let idles = self
+            .ktable
+            .read()
+            .await
+            .idle_nodes()
+            .map(|n| *n.value().address())
+            .collect();
+        self.send((Message::Ping(self.header), idles)).await;
+        self.ktable.write().await.remove_idle_nodes();
+    }
+
+    /// Search for idle buckets (no message received) and try to contact some of
+    /// the belonging nodes
+    async fn find_new_nodes(&self) {
         let table_lock_read = self.ktable.read().await;
 
         let find_node_messages = table_lock_read
