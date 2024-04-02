@@ -35,6 +35,13 @@ pub const DEFAULT_SEND_RETRY_COUNT: u8 = 3;
 pub const DEFAULT_SEND_RETRY_SLEEP_MILLIS: u64 = 5;
 pub const DEFAULT_BLOCKLIST_REFRESH_SECS: u64 = 10;
 
+/// Default minimum peers required for network integration without bootstrapping
+pub const DEFAULT_MIN_PEERS_FOR_INTEGRATION: usize = 3;
+
+const fn default_min_peers() -> usize {
+    DEFAULT_MIN_PEERS_FOR_INTEGRATION
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
     /// KadcastID
@@ -122,6 +129,16 @@ pub struct BucketConfig {
     /// Default value [BUCKET_DEFAULT_TTL_SECS]
     #[serde(with = "humantime_serde")]
     pub bucket_ttl: Duration,
+
+    /// Minimum number of nodes at which bootstrapping is not required
+    ///
+    /// This value represents the minimum number of nodes required for a peer
+    /// to consider bootstrapping unnecessary and seamlessly integrate into
+    /// the existing network.
+    ///
+    /// Default value [DEFAULT_MIN_PEERS_FOR_INTEGRATION]
+    #[serde(default = "default_min_peers")]
+    pub min_peers: usize,
 }
 
 impl Default for BucketConfig {
@@ -132,6 +149,7 @@ impl Default for BucketConfig {
             ),
             node_ttl: Duration::from_millis(BUCKET_DEFAULT_NODE_TTL_MILLIS),
             bucket_ttl: Duration::from_secs(BUCKET_DEFAULT_TTL_SECS),
+            min_peers: default_min_peers(),
         }
     }
 }

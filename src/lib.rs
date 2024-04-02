@@ -105,6 +105,7 @@ impl Peer {
         };
         let nodes = config.bootstrapping_nodes.clone();
         let idle_time = config.bucket.bucket_ttl;
+        let min_peers = config.bucket.min_peers;
         MessageHandler::start(
             table.clone(),
             inbound_channel_rx,
@@ -118,7 +119,13 @@ impl Peer {
             config,
             blocklist,
         );
-        TableMaintainer::start(nodes, table, outbound_channel_tx, idle_time);
+        TableMaintainer::start(
+            nodes,
+            table,
+            outbound_channel_tx,
+            idle_time,
+            min_peers,
+        );
         task::spawn(Peer::notifier(listener_channel_rx, listener));
         Ok(peer)
     }
