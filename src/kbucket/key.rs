@@ -95,8 +95,16 @@ impl BinaryID {
     }
 
     /// Creates a new `BinaryID` by combining a `BinaryKey` and a `BinaryNonce`.
-    pub(crate) fn from_nonce(id: BinaryKey, nonce: BinaryNonce) -> Self {
-        Self { bytes: id, nonce }
+    pub(crate) fn from_nonce(
+        id: BinaryKey,
+        nonce: BinaryNonce,
+    ) -> io::Result<Self> {
+        let ret = Self { bytes: id, nonce };
+        if ret.verify_nonce() {
+            Ok(ret)
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "Invalid Nonce"))
+        }
     }
 
     /// Generates a new `BinaryID` using the given `BinaryKey`.

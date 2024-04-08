@@ -44,10 +44,8 @@ impl Marshallable for Header {
         reader.read_exact(&mut id)?;
         let mut nonce = [0; K_NONCE_LEN];
         reader.read_exact(&mut nonce)?;
-        let binary_id = BinaryID::from_nonce(id, nonce);
-        if !binary_id.verify_nonce() {
-            return Err(Error::new(ErrorKind::Other, "Invalid Nonce"));
-        }
+
+        let binary_id = BinaryID::from_nonce(id, nonce)?;
 
         let mut port_buffer = [0; 2];
         reader.read_exact(&mut port_buffer)?;
