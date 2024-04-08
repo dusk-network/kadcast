@@ -30,6 +30,7 @@ impl TableMaintainer {
         ktable: RwLock<Tree<PeerInfo>>,
         outbound_sender: Sender<MessageBeanOut>,
         idle_time: Duration,
+        min_peers: usize,
     ) {
         tokio::spawn(async move {
             let my_ip = *ktable.read().await.root().value().address();
@@ -42,20 +43,14 @@ impl TableMaintainer {
                 my_ip,
                 header,
             };
-            maintainer.monitor_buckets(idle_time).await;
+            maintainer.monitor_buckets(idle_time, min_peers).await;
         });
     }
 
     /// Check if the peer need to contact the bootstrappers in order to join the
     /// network
-    async fn need_bootstrappers(&self) -> bool {
-        let binary_key = self.header.binary_id().as_binary();
-        self.ktable
-            .read()
-            .await
-            .closest_peers::<10>(binary_key)
-            .count()
-            < 3
+    async fn need_bootstrappers(&self, min_peers: usize) -> bool {
+        self.ktable.read().await.alive_nodes().count() < min_peers
     }
 
     /// Return a vector containing the Socket Addresses bound to the provided
@@ -74,8 +69,8 @@ impl TableMaintainer {
     }
 
     /// Try to contact the bootstrappers node until no needed anymore
-    async fn contact_bootstrappers(&self) {
-        while self.need_bootstrappers().await {
+    async fn contact_bootstrappers(&self, min_peers: usize) {
+        while self.need_bootstrappers(min_peers).await {
             info!("TableMaintainer::contact_bootstrappers");
             let bootstrapping_nodes_addr = self.bootstrapping_nodes_addr();
             let binary_key = self.header.binary_id().as_binary();
@@ -98,10 +93,10 @@ impl TableMaintainer {
     /// 1. Contact bootstrappers (if needed)
     /// 2. Ping idle buckets
     /// 3. Remove idles nodes from buckets
-    async fn monitor_buckets(&self, idle_time: Duration) {
+    async fn monitor_buckets(&self, idle_time: Duration, min_peers: usize) {
         info!("TableMaintainer::monitor_buckets started");
         loop {
-            self.contact_bootstrappers().await;
+            self.contact_bootstrappers(min_peers).await;
             info!("TableMaintainer::monitor_buckets back to sleep");
 
             tokio::time::sleep(idle_time).await;

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `BucketConfig::min_peers` in configuration [#135]
+
+### Changed
+
+- Change 'need_bootstrappers' to have dinamically threshold [#135]
+
 ## [0.6.0] - 2023-11-01
 
 ### Added
@@ -126,6 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#115]: https://github.com/dusk-network/kadcast/issues/115
 [#117]: https://github.com/dusk-network/kadcast/issues/117
 [#123]: https://github.com/dusk-network/kadcast/issues/123
+[#135]: https://github.com/dusk-network/kadcast/issues/135
 
 <!-- Releases -->
 
