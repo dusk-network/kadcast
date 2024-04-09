@@ -75,7 +75,7 @@ impl Encoder for RaptorQEncoder {
                     let mut packet_with_uid = base_packet.clone();
                     packet_with_uid.append(&mut encoded_packet.serialize());
                     Message::Broadcast(
-                        header,
+                        header.clone(),
                         BroadcastPayload {
                             height: payload.height,
                             gossip_frame: packet_with_uid,

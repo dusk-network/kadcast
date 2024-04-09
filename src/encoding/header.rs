@@ -9,12 +9,12 @@ use std::io::{self, Error, ErrorKind, Read, Write};
 use super::Marshallable;
 use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Header {
     pub(crate) binary_id: BinaryID,
     pub(crate) sender_port: u16,
     pub(crate) network_id: u8,
-    pub(crate) reserved: [u8; 2],
+    pub(crate) reserved: Vec<u8>,
 }
 
 impl Header {
@@ -32,6 +32,7 @@ impl Marshallable for Header {
         writer.write_all(self.binary_id.nonce())?;
         writer.write_all(&self.sender_port.to_le_bytes())?;
         writer.write_all(&[self.network_id])?;
+        writer.write_all(&(self.reserved.len() as u16).to_le_bytes())?;
         writer.write_all(&self.reserved)?;
         Ok(())
     }
@@ -55,8 +56,16 @@ impl Marshallable for Header {
         reader.read_exact(&mut network_id)?;
         let network_id = network_id[0];
 
-        let mut reserved = [0; 2];
-        reader.read_exact(&mut reserved)?;
+        let mut reserved_len = [0; 2];
+        reader.read_exact(&mut reserved_len)?;
+        let reserved_len = u16::from_le_bytes(reserved_len);
+        let reserved = if reserved_len > 0 {
+            let mut reserved = vec![0u8; reserved_len as usize];
+            reader.read_exact(&mut reserved)?;
+            reserved
+        } else {
+            vec![]
+        };
 
         Ok(Header {
             binary_id,

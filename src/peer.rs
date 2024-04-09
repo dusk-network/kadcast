@@ -70,7 +70,7 @@ impl PeerNode {
         Header {
             binary_id: *self.id(),
             sender_port: self.value().address.port(),
-            reserved: [0; 2],
+            reserved: vec![],
             network_id: self.network_id,
         }
     }
