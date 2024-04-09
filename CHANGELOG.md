@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Change 'need_bootstrappers' to have dinamically threshold [#135]
 - Change `BinaryID::from_nonce` to return result [#136]
+- Change maintainer to ping nodes while removal [#138]
 
 ## [0.6.0] - 2023-11-01
 
@@ -137,6 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#123]: https://github.com/dusk-network/kadcast/issues/123
 [#135]: https://github.com/dusk-network/kadcast/issues/135
 [#136]: https://github.com/dusk-network/kadcast/issues/136
+[#138]: https://github.com/dusk-network/kadcast/issues/138
 
 <!-- Releases -->
 
