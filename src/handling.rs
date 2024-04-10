@@ -46,6 +46,10 @@ pub(crate) struct MessageHandler {
 }
 
 impl MessageHandler {
+    fn my_header(&self) -> Header {
+        self.my_header.clone()
+    }
+
     async fn new(
         ktable: RwLock<Tree<PeerInfo>>,
         outbound_sender: Sender<MessageBeanOut>,
@@ -142,7 +146,7 @@ impl MessageHandler {
         if let Some(pending) = result.pending_eviction() {
             self.outbound_sender
                 .send((
-                    Message::Ping(self.my_header),
+                    Message::Ping(self.my_header()),
                     vec![*pending.value().address()],
                 ))
                 .await
@@ -173,7 +177,7 @@ impl MessageHandler {
 
     async fn handle_ping(&self, remote_node_addr: SocketAddr) {
         self.outbound_sender
-            .send((Message::Pong(self.my_header), vec![remote_node_addr]))
+            .send((Message::Pong(self.my_header()), vec![remote_node_addr]))
             .await
             .unwrap_or_else(|e| error!("Unable to send Pong {e}"));
     }
@@ -190,7 +194,7 @@ impl MessageHandler {
             .closest_peers::<K_K>(target)
             .map(|p| p.as_peer_info())
             .collect();
-        let message = Message::Nodes(self.my_header, NodePayload { peers });
+        let message = Message::Nodes(self.my_header(), NodePayload { peers });
         self.outbound_sender
             .send((message, vec![remote_node_addr]))
             .await
@@ -221,7 +225,7 @@ impl MessageHandler {
             })
             .map(|n| {
                 (
-                    (self.nodes_reply_fn)(self.my_header, n.id),
+                    (self.nodes_reply_fn)(self.my_header(), n.id),
                     vec![n.to_socket_address()],
                 )
             })
@@ -271,7 +275,7 @@ impl MessageHandler {
                             height,
                             gossip_frame,
                         };
-                        let msg = Message::Broadcast(self.my_header, payload);
+                        let msg = Message::Broadcast(self.my_header(), payload);
                         let targets =
                             nodes.map(|node| *node.value().address()).collect();
                         (msg, targets)

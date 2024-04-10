@@ -74,7 +74,8 @@ impl TableMaintainer {
             info!("TableMaintainer::contact_bootstrappers");
             let bootstrapping_nodes_addr = self.bootstrapping_nodes_addr();
             let binary_key = self.header.binary_id().as_binary();
-            let find_nodes = Message::FindNodes(self.header, *binary_key);
+            let find_nodes =
+                Message::FindNodes(self.header.clone(), *binary_key);
             self.send((find_nodes, bootstrapping_nodes_addr)).await;
             tokio::time::sleep(Duration::from_secs(30)).await;
         }
@@ -119,7 +120,7 @@ impl TableMaintainer {
             .idle_nodes()
             .map(|n| *n.value().address())
             .collect();
-        self.send((Message::Ping(self.header), idles)).await;
+        self.send((Message::Ping(self.header.clone()), idles)).await;
         self.ktable.write().await.remove_idle_nodes();
     }
 
@@ -133,7 +134,10 @@ impl TableMaintainer {
             .flat_map(|(_, idle_nodes)| idle_nodes)
             .map(|target| {
                 (
-                    Message::FindNodes(self.header, *target.id().as_binary()),
+                    Message::FindNodes(
+                        self.header.clone(),
+                        *target.id().as_binary(),
+                    ),
                     //TODO: Extract alpha nodes
                     vec![*target.value().address()],
                 )

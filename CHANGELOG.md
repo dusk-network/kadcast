@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix 'reserved' field compatibility [#137]
+
 ## [0.6.1] - 2024-04-10
 
 ### Added
@@ -140,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#123]: https://github.com/dusk-network/kadcast/issues/123
 [#135]: https://github.com/dusk-network/kadcast/issues/135
 [#136]: https://github.com/dusk-network/kadcast/issues/136
+[#137]: https://github.com/dusk-network/kadcast/issues/137
 [#138]: https://github.com/dusk-network/kadcast/issues/138
 
 <!-- Releases -->
