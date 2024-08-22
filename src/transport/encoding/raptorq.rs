@@ -76,13 +76,8 @@ impl<'a> ChunkedPayload<'a> {
         &self.0.gossip_frame[(UID_SIZE + TRANSMISSION_INFO_SIZE)..]
     }
 
-    fn safe_uid(&self) -> [u8; UID_SIZE] {
-        let mut hasher = Blake2s256::new();
-
-        let uid = &self.0.gossip_frame[0..UID_SIZE];
-        let transmission_info =
-            &self.0.gossip_frame[UID_SIZE..(UID_SIZE + TRANSMISSION_INFO_SIZE)];
-        hasher.update(uid);
+    fn uid_with_info(&self) -> [u8; UID_SIZE + TRANSMISSION_INFO_SIZE] {
+        let uid = &self.0.gossip_frame[0..UID_SIZE + TRANSMISSION_INFO_SIZE];
 
         // Why do we need transmission info?
         //
@@ -90,10 +85,13 @@ impl<'a> ChunkedPayload<'a> {
         // it is critical to decode packets.
         // Since it is sent over UDP alongside the encoded chunked bytes,
         // corrupted transmission info can be received.
-        // If the corrupted info is part of the first received chunk, no message
-        // can ever be decoded.
-        hasher.update(transmission_info);
-        hasher.finalize().into()
+        // If the corrupted info is part of the first received chunk, no
+        // message // can ever be decoded.
+        //
+        // ** UPDATE:
+        // Hashing has been removed in order to increase the decoding
+        // performance
+        uid.try_into().expect("slice to be length 44")
     }
 }
 

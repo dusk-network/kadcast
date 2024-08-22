@@ -13,7 +13,7 @@ use raptorq::{Decoder as ExtDecoder, EncodingPacket};
 use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
 
-use super::ChunkedPayload;
+use super::{ChunkedPayload, TRANSMISSION_INFO_SIZE, UID_SIZE};
 use crate::encoding::message::Message;
 use crate::encoding::payload::BroadcastPayload;
 use crate::transport::encoding::Configurable;
@@ -23,7 +23,7 @@ const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
 const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
 
 pub struct RaptorQDecoder {
-    cache: HashMap<[u8; 32], CacheStatus>,
+    cache: HashMap<[u8; UID_SIZE + TRANSMISSION_INFO_SIZE], CacheStatus>,
     last_pruned: Instant,
     conf: RaptorQDecoderConf,
 }
@@ -73,7 +73,7 @@ impl Decoder for RaptorQDecoder {
         if let Message::Broadcast(header, payload) = message {
             trace!("> Decoding broadcast chunk");
             let chunked: ChunkedPayload = (&payload).try_into()?;
-            let uid = chunked.safe_uid();
+            let uid = chunked.uid_with_info();
 
             // Perform a `match` on the cache entry against the uid.
             let status = match self.cache.entry(uid) {
