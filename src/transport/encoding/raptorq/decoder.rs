@@ -19,8 +19,8 @@ use crate::encoding::payload::BroadcastPayload;
 use crate::transport::encoding::Configurable;
 use crate::transport::Decoder;
 
-const DEFAULT_CACHE_TTL_SECS: u64 = 60;
-const DEFAULT_CACHE_PRUNE_EVERY_SECS: u64 = 60 * 5;
+const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
+const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
 
 pub struct RaptorQDecoder {
     cache: HashMap<[u8; 32], CacheStatus>,
@@ -40,10 +40,8 @@ impl Configurable for RaptorQDecoder {
     type TConf = RaptorQDecoderConf;
     fn default_configuration() -> Self::TConf {
         RaptorQDecoderConf {
-            cache_prune_every: Duration::from_secs(
-                DEFAULT_CACHE_PRUNE_EVERY_SECS,
-            ),
-            cache_ttl: Duration::from_secs(DEFAULT_CACHE_TTL_SECS),
+            cache_prune_every: DEFAULT_CACHE_PRUNE_EVERY,
+            cache_ttl: DEFAULT_CACHE_TTL,
         }
     }
     fn configure(conf: &Self::TConf) -> Self {
