@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix raptorQ cache default config
+
+### Changed
+
+- Change the EncodedChunk UUID generation
+- Change `raptorq` dependency from `1.6` to `2.0`
+
 ## [0.6.1] - 2024-04-10
 
 ### Added
