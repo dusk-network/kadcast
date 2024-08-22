@@ -14,7 +14,7 @@ use crate::encoding::message::{
     BroadcastPayload, Header, Message, NodePayload,
 };
 use crate::kbucket::{BinaryKey, NodeInsertError, Tree};
-use crate::peer::{PeerInfo, PeerNode};
+use crate::peer::{self, PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
 use crate::{RwLock, K_K};
 
@@ -93,6 +93,12 @@ impl MessageHandler {
                 debug!("Handler received message");
                 trace!("Handler received message {:?}", message);
                 remote_peer_addr.set_port(message.header().sender_port);
+
+                let header = message.header();
+                let src = remote_peer_addr.ip();
+                if !PeerNode::verify_header(header, &src) {
+                    error!("Invalid Id {header:?} - from {src}");
+                }
 
                 let remote_peer = PeerNode::from_socket(
                     remote_peer_addr,
