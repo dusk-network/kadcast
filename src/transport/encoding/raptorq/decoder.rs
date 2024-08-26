@@ -22,7 +22,7 @@ use crate::transport::Decoder;
 const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
 const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
 
-const DEFAULT_MAX_UDP_LEN: usize = 10_000_000;
+const DEFAULT_MAX_UDP_LEN: u64 = 10 * 1_024 * 1_024;
 
 pub struct RaptorQDecoder {
     cache: HashMap<[u8; UID_SIZE + TRANSMISSION_INFO_SIZE], CacheStatus>,
@@ -38,10 +38,10 @@ pub struct RaptorQDecoderConf {
     pub cache_prune_every: Duration,
 
     #[serde(default = "default_max_udp_len")]
-    pub max_udp_len: usize,
+    pub max_udp_len: u64,
 }
 
-const fn default_max_udp_len() -> usize {
+const fn default_max_udp_len() -> u64 {
     DEFAULT_MAX_UDP_LEN
 }
 

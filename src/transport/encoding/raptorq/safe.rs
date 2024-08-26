@@ -52,6 +52,7 @@ fn int_div_ceil(num: u64, denom: u64) -> u32 {
 // K'_max as defined in section 5.1.2
 const MAX_SOURCE_SYMBOLS_PER_BLOCK: u32 = 56403;
 
+#[derive(Debug, Clone)]
 pub(crate) struct SafeObjectTransmissionInformation {
     pub inner: ObjectTransmissionInformation,
     pub max_blocks: usize,
