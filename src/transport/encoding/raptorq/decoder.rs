@@ -22,6 +22,8 @@ use crate::transport::Decoder;
 const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
 const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
 
+const DEFAULT_MAX_UDP_LEN: usize = 10_000_000;
+
 pub struct RaptorQDecoder {
     cache: HashMap<[u8; UID_SIZE + TRANSMISSION_INFO_SIZE], CacheStatus>,
     last_pruned: Instant,
@@ -34,6 +36,13 @@ pub struct RaptorQDecoderConf {
     pub cache_ttl: Duration,
     #[serde(with = "humantime_serde")]
     pub cache_prune_every: Duration,
+
+    #[serde(default = "default_max_udp_len")]
+    pub max_udp_len: usize,
+}
+
+const fn default_max_udp_len() -> usize {
+    DEFAULT_MAX_UDP_LEN
 }
 
 impl Configurable for RaptorQDecoder {
@@ -42,6 +51,7 @@ impl Configurable for RaptorQDecoder {
         RaptorQDecoderConf {
             cache_prune_every: DEFAULT_CACHE_PRUNE_EVERY,
             cache_ttl: DEFAULT_CACHE_TTL,
+            max_udp_len: default_max_udp_len(),
         }
     }
     fn configure(conf: &Self::TConf) -> Self {
@@ -84,7 +94,7 @@ impl Decoder for RaptorQDecoder {
                 // CacheStatus::Receiving status and binds a new Decoder with
                 // the received transmission information
                 std::collections::hash_map::Entry::Vacant(v) => {
-                    let info = chunked.transmission_info();
+                    let info = chunked.transmission_info(self.conf.max_udp_len);
                     match info {
                         Ok(safe_info) => v.insert(CacheStatus::Receiving(
                             ExtDecoder::new(safe_info.inner),

@@ -8,12 +8,13 @@ use std::convert::{TryFrom, TryInto};
 use std::io::{self, ErrorKind};
 
 use blake2::{Blake2s256, Digest};
-use raptorq::ObjectTransmissionInformation;
+use safe::{SafeObjectTransmissionInformation, TransmissionInformationError};
 
 use crate::encoding::{payload::BroadcastPayload, Marshallable};
 
 mod decoder;
 mod encoder;
+mod safe;
 
 pub(crate) use decoder::RaptorQDecoder;
 pub(crate) use encoder::RaptorQEncoder;
@@ -66,11 +67,16 @@ impl<'a> ChunkedPayload<'a> {
 
     fn transmission_info(
         &self,
+        max_udp_len: usize,
     ) -> Result<SafeObjectTransmissionInformation, TransmissionInformationError>
     {
         let slice =
             &self.0.gossip_frame[UID_SIZE..(UID_SIZE + TRANSMISSION_INFO_SIZE)];
-        SafeObjectTransmissionInformation::try_from(slice)?;
+        let info = SafeObjectTransmissionInformation::try_from(slice)?;
+        match info.max_blocks < max_udp_len {
+            true => Ok(info),
+            false => Err(TransmissionInformationError::TransferLengthExceeded),
+        }
     }
 
     fn encoded_chunk(&self) -> &[u8] {
