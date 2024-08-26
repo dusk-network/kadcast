@@ -14,7 +14,7 @@ use crate::encoding::message::{
     BroadcastPayload, Header, Message, NodePayload,
 };
 use crate::kbucket::{BinaryKey, NodeInsertError, Tree};
-use crate::peer::{self, PeerInfo, PeerNode};
+use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
 use crate::{RwLock, K_K};
 

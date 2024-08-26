@@ -17,7 +17,6 @@ use tracing::{debug, error, info, warn};
 use crate::config::Config;
 use crate::encoding::message::Message;
 use crate::encoding::Marshallable;
-use crate::peer::PeerNode;
 use crate::rwlock::RwLock;
 use crate::transport::encoding::{
     Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,

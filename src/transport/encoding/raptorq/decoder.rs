@@ -54,14 +54,14 @@ impl Configurable for RaptorQDecoder {
 }
 
 enum CacheStatus {
-    Receiving(ExtDecoder, Instant, u8),
+    Receiving(ExtDecoder, Instant, u8, usize),
     Processed(Instant),
 }
 
 impl CacheStatus {
     fn expired(&self) -> bool {
         let expire_on = match self {
-            CacheStatus::Receiving(_, expire_on, _) => expire_on,
+            CacheStatus::Receiving(_, expire_on, _, _) => expire_on,
             CacheStatus::Processed(expire_on) => expire_on,
         };
         expire_on < &Instant::now()
@@ -84,18 +84,28 @@ impl Decoder for RaptorQDecoder {
                 // CacheStatus::Receiving status and binds a new Decoder with
                 // the received transmission information
                 std::collections::hash_map::Entry::Vacant(v) => {
-                    v.insert(CacheStatus::Receiving(
-                        ExtDecoder::new(chunked.transmission_info()),
-                        Instant::now() + self.conf.cache_ttl,
-                        payload.height,
-                    ))
+                    let info = chunked.transmission_info();
+                    match info {
+                        Ok(safe_info) => v.insert(CacheStatus::Receiving(
+                            ExtDecoder::new(safe_info.inner),
+                            Instant::now() + self.conf.cache_ttl,
+                            payload.height,
+                            safe_info.max_blocks,
+                        )),
+                        Err(e) => {
+                            return Err(io::Error::new(
+                                io::ErrorKind::Other,
+                                format!("Invalid transmission info {e:?}",),
+                            ));
+                        }
+                    }
                 }
             };
 
             let decoded = match status {
                 // Avoid to repropagate already processed messages
                 CacheStatus::Processed(_) => None,
-                CacheStatus::Receiving(decoder, _, max_height) => {
+                CacheStatus::Receiving(decoder, _, max_height, max_blocks) => {
                     // Depending on Beta replication, we can receive chunks of
                     // the same message from multiple peers.
                     // Those peers can send with different broadcast height.
@@ -104,11 +114,16 @@ impl Decoder for RaptorQDecoder {
                     if payload.height > *max_height {
                         *max_height = payload.height;
                     }
+                    let packet =
+                        EncodingPacket::deserialize(chunked.encoded_chunk());
+                    if packet.payload_id().source_block_number() as usize
+                        >= *max_blocks
+                    {
+                        return Ok(None);
+                    };
 
                     decoder
-                        .decode(EncodingPacket::deserialize(
-                            chunked.encoded_chunk(),
-                        ))
+                        .decode(packet)
                         // If decoded successfully, create the new
                         // BroadcastMessage
                         .and_then(|decoded| {

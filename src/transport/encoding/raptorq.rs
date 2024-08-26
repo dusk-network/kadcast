@@ -64,12 +64,13 @@ impl<'a> ChunkedPayload<'a> {
         &self.0.gossip_frame[0..UID_SIZE]
     }
 
-    fn transmission_info(&self) -> ObjectTransmissionInformation {
+    fn transmission_info(
+        &self,
+    ) -> Result<SafeObjectTransmissionInformation, TransmissionInformationError>
+    {
         let slice =
             &self.0.gossip_frame[UID_SIZE..(UID_SIZE + TRANSMISSION_INFO_SIZE)];
-        let transmission_info: &[u8; TRANSMISSION_INFO_SIZE] =
-            slice.try_into().expect("slice to be length 12");
-        ObjectTransmissionInformation::deserialize(transmission_info)
+        SafeObjectTransmissionInformation::try_from(slice)?;
     }
 
     fn encoded_chunk(&self) -> &[u8] {
@@ -100,6 +101,8 @@ mod tests {
 
     use std::time::Instant;
 
+    use io::{BufWriter, Cursor};
+
     use super::*;
     use crate::encoding::message::Message;
     use crate::peer::PeerNode;
@@ -108,7 +111,7 @@ mod tests {
         Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
     };
     #[test]
-    fn test_encode() -> Result<()> {
+    fn test_encode_raptorq() -> Result<()> {
         #[cfg(not(debug_assertions))]
         let mut data = vec![0; 3_000_000];
 
@@ -160,5 +163,107 @@ mod tests {
             "Unable to decode"
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_encode_raptorq_junk() -> Result<()> {
+        #[cfg(not(debug_assertions))]
+        let mut data = vec![0; 3_000_000];
+
+        #[cfg(debug_assertions)]
+        let mut data = vec![0; 100_000];
+
+        for i in 0..data.len() {
+            data[i] = rand::Rng::gen(&mut rand::thread_rng());
+        }
+        let peer = PeerNode::generate("192.168.0.1:666", 0)?;
+        let header = peer.to_header();
+        let payload = BroadcastPayload {
+            height: 255,
+            gossip_frame: data.clone(),
+        };
+        println!("orig payload len {}", payload.bytes()?.len());
+        let message = Message::Broadcast(header, payload);
+        let message_bytes = message.bytes()?;
+        println!("orig message len {}", message_bytes.len());
+        let start = Instant::now();
+        let encoder = TransportEncoder::configure(
+            &TransportEncoder::default_configuration(),
+        );
+        let chunks = encoder.encode(message)?;
+        println!("Encoded in: {:?}", start.elapsed());
+        println!("encoded chunks {}", chunks.len());
+        let mut decoder = TransportDecoder::configure(
+            &TransportDecoder::default_configuration(),
+        );
+        let junks_messages = 100;
+        println!("start spamming with {junks_messages} junk messages");
+        let mut decoded = None;
+        for _ in 0..junks_messages {
+            let mut data = data.clone();
+            for i in 0..data.len() {
+                data[i] = rand::Rng::gen(&mut rand::thread_rng());
+            }
+            let result = decoder.decode(Message::Broadcast(
+                header.clone(),
+                BroadcastPayload {
+                    height: 255,
+                    gossip_frame: data.clone(),
+                },
+            ));
+            match result {
+                Ok(Some(_)) => panic!("This should be junk data"),
+                _ => {}
+            }
+        }
+        let mut i = 0;
+        let mut sizetotal = 0;
+        println!("start decoding (with additional *100 junk messages");
+        let start = Instant::now();
+        for chunk in chunks {
+            i = i + 1;
+            sizetotal += chunk.bytes()?.len();
+            let cloned_chunk = clone_and_corrupt_msg(&chunk)?;
+            if let Some(d) = decoder.decode(chunk).unwrap() {
+                decoded = Some(d);
+                println!("Decoder after {} messages ", i);
+                break;
+            }
+            for _ in 0..100 {
+                let cloned_chunk = clone_and_corrupt_msg(&cloned_chunk)?;
+                if decoder.decode(cloned_chunk).unwrap().is_some() {
+                    panic!("currupted message should not be decodable");
+                }
+            }
+        }
+        println!("Decoded in: {:?}", start.elapsed());
+        println!("avg chunks size {}", sizetotal / i);
+        assert_eq!(
+            decoded.unwrap().bytes()?,
+            message_bytes,
+            "Unable to decode"
+        );
+        Ok(())
+    }
+
+    use std::io::BufReader;
+    use std::io::Read;
+    use std::io::Seek;
+    fn clone_and_corrupt_msg(messge: &Message) -> Result<Message> {
+        let mut c = Cursor::new(Vec::new());
+        let mut writer = BufWriter::new(c);
+        messge.marshal_binary(&mut writer)?;
+        c = writer.into_inner()?;
+        let mut bytes = vec![];
+        c.seek(std::io::SeekFrom::Start(0))?;
+        c.read_to_end(&mut bytes)?;
+        for i in 100..bytes.len() {
+            bytes[i] = rand::Rng::gen(&mut rand::thread_rng());
+        }
+        let c = Cursor::new(bytes);
+        // c.seek(std::io::SeekFrom::Start(0))?;
+        let mut reader = BufReader::new(c);
+        let msg = Message::unmarshal_binary(&mut reader)?;
+        Ok(msg)
     }
 }
