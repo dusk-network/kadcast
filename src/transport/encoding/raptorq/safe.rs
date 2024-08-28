@@ -34,7 +34,7 @@ use std::convert::{TryFrom, TryInto};
 
 use raptorq::ObjectTransmissionInformation;
 
-use super::TRANSMISSION_INFO_SIZE;
+use super::{encoder::MAX_MTU, TRANSMISSION_INFO_SIZE};
 
 // This should eventually become <https://doc.rust-lang.org/std/primitive.u64.html#method.div_ceil>
 // when it gets stabilized, and this function should be removed.
@@ -61,7 +61,11 @@ pub(crate) struct SafeObjectTransmissionInformation {
 #[derive(Debug, Clone)]
 pub enum TransmissionInformationError {
     InvalidSize,
-    SourceBlocksEmpy,
+    SourceBlocksZero,
+    SymbolSizeZero,
+    SymbolSizeGreaterThanMTU,
+    SymbolSizeNotAligned,
+    TransferLengthZero,
     TransferLengthExceeded,
     TooManySourceSymbols,
 }
@@ -75,7 +79,23 @@ impl TryFrom<&[u8]> for SafeObjectTransmissionInformation {
         let config = ObjectTransmissionInformation::deserialize(value);
 
         if config.source_blocks() == 0 {
-            return Err(TransmissionInformationError::SourceBlocksEmpy);
+            return Err(TransmissionInformationError::SourceBlocksZero);
+        }
+
+        if config.symbol_size() == 0 {
+            return Err(TransmissionInformationError::SymbolSizeZero);
+        }
+
+        if config.transfer_length() == 0 {
+            return Err(TransmissionInformationError::TransferLengthZero);
+        }
+
+        if config.symbol_size() > MAX_MTU {
+            return Err(TransmissionInformationError::SymbolSizeGreaterThanMTU);
+        }
+
+        if config.symbol_alignment() != 8 {
+            return Err(TransmissionInformationError::SymbolSizeNotAligned);
         }
 
         let kt =
