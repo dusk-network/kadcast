@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::io;
 use std::time::{Duration, Instant};
@@ -25,7 +25,7 @@ const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
 const DEFAULT_MAX_UDP_LEN: u64 = 10 * 1_024 * 1_024;
 
 pub struct RaptorQDecoder {
-    cache: HashMap<[u8; UID_SIZE + TRANSMISSION_INFO_SIZE], CacheStatus>,
+    cache: BTreeMap<[u8; UID_SIZE + TRANSMISSION_INFO_SIZE], CacheStatus>,
     last_pruned: Instant,
     conf: RaptorQDecoderConf,
 }
@@ -57,7 +57,7 @@ impl Configurable for RaptorQDecoder {
     fn configure(conf: &Self::TConf) -> Self {
         Self {
             conf: *conf,
-            cache: HashMap::new(),
+            cache: BTreeMap::new(),
             last_pruned: Instant::now(),
         }
     }
@@ -88,12 +88,12 @@ impl Decoder for RaptorQDecoder {
             // Perform a `match` on the cache entry against the uid.
             let status = match self.cache.entry(uid) {
                 // Cache status exists: return it
-                std::collections::hash_map::Entry::Occupied(o) => o.into_mut(),
+                std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
 
                 // Cache status not found: creates a new entry with
                 // CacheStatus::Receiving status and binds a new Decoder with
                 // the received transmission information
-                std::collections::hash_map::Entry::Vacant(v) => {
+                std::collections::btree_map::Entry::Vacant(v) => {
                     let info = chunked.transmission_info(self.conf.max_udp_len);
                     match info {
                         Ok(safe_info) => v.insert(CacheStatus::Receiving(
