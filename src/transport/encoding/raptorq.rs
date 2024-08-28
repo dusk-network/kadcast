@@ -224,22 +224,26 @@ mod tests {
         }
         let mut i = 0;
         let mut sizetotal = 0;
-        println!("start decoding (with additional *100 junk messages");
+        println!("start decoding (with additional junk messages");
         let start = Instant::now();
+        let mut junk = 0;
         for chunk in chunks {
             i = i + 1;
             sizetotal += chunk.bytes()?.len();
             let cloned_chunk = clone_and_corrupt_msg(&chunk)?;
+            for _ in 0..1000 {
+                let cloned_chunk = clone_and_corrupt_msg(&cloned_chunk)?;
+                let result = decoder.decode(cloned_chunk);
+                match result {
+                    Ok(Some(_)) => panic!("This should be junk data"),
+                    _ => {}
+                }
+                junk += 1;
+            }
             if let Some(d) = decoder.decode(chunk).unwrap() {
                 decoded = Some(d);
-                println!("Decoder after {} messages ", i);
+                println!("Decoder after {i} messages (and {junk} messages) ");
                 break;
-            }
-            for _ in 0..100 {
-                let cloned_chunk = clone_and_corrupt_msg(&cloned_chunk)?;
-                if decoder.decode(cloned_chunk).unwrap().is_some() {
-                    panic!("currupted message should not be decodable");
-                }
             }
         }
         println!("Decoded in: {:?}", start.elapsed());
@@ -263,7 +267,7 @@ mod tests {
         let mut bytes = vec![];
         c.seek(std::io::SeekFrom::Start(0))?;
         c.read_to_end(&mut bytes)?;
-        for i in 100..bytes.len() {
+        for i in 44..bytes.len() {
             bytes[i] = rand::Rng::gen(&mut rand::thread_rng());
         }
         let c = Cursor::new(bytes);
