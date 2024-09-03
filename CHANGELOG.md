@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `max_udp_len` configuration parameter
-- Add checks for MTU to be in range between 1296 and 8192
+- Add range checks to MTU (between 1296 and 8192)
 
 ### Fixed
 
@@ -21,7 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Change the EncodedChunk UUID generation
 - Change `raptorq` dependency from `1.6` to `2.0`
-- Change default MTU to `8192`
 
 ## [0.6.1] - 2024-04-10
 
