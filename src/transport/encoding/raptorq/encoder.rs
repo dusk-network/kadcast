@@ -14,8 +14,8 @@ use crate::transport::Encoder;
 const DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK: u32 = 5;
 const DEFAULT_MTU: u16 = 1300;
 
-pub const MAX_MTU: u16 = 8192;
-pub const MIN_MTU: u16 = 1296;
+pub(crate) const MAX_MTU: u16 = 8192;
+pub(crate) const MIN_MTU: u16 = 1296;
 
 const DEFAULT_FEQ_REDUNDANCY: f32 = 0.15;
 

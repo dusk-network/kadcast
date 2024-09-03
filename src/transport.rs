@@ -100,8 +100,6 @@ impl WireNetwork {
 
             dec_chan_tx
                 .try_send((bytes[0..len].to_vec(), remote_address))
-                // .send((bytes[0..len].to_vec(), remote_address))
-                // .await
                 .unwrap_or_else(|e| {
                     error!("Unable to send to dec_chan_tx channel {e}")
                 });

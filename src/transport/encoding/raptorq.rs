@@ -93,11 +93,12 @@ impl<'a> ChunkedPayload<'a> {
         // Since it is sent over UDP alongside the encoded chunked bytes,
         // corrupted transmission info can be received.
         // If the corrupted info is part of the first received chunk, no
-        // message // can ever be decoded.
+        // message can ever be decoded.
         //
         // ** UPDATE:
-        // Hashing has been removed in order to increase the decoding
-        // performance
+        // Since the correctness of an UDP packet is already guaranteed by OS
+        // checksum checks, Hashing has been removed in order to increase the
+        // decoding performance.
         uid.try_into().expect("slice to be length 44")
     }
 }
@@ -174,19 +175,21 @@ mod tests {
     #[test]
     fn test_encode_raptorq_junk() -> Result<()> {
         #[cfg(not(debug_assertions))]
-        let mut data = vec![0; 3_000_000];
+        const DATA_LEN: usize = 3_000_000;
 
         #[cfg(debug_assertions)]
-        let mut data = vec![0; 100_000];
+        const DATA_LEN: usize = 100_00;
 
-        for i in 0..data.len() {
+        let mut data = vec![0; DATA_LEN];
+
+        for i in 0..DATA_LEN {
             data[i] = rand::Rng::gen(&mut rand::thread_rng());
         }
         let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let header = peer.to_header();
         let payload = BroadcastPayload {
             height: 255,
-            gossip_frame: data.clone(),
+            gossip_frame: data,
         };
         println!("orig payload len {}", payload.bytes()?.len());
         let message = Message::Broadcast(header, payload);
@@ -206,25 +209,24 @@ mod tests {
         println!("start spamming with {junks_messages} junk messages");
         let mut decoded = None;
         for _ in 0..junks_messages {
-            let mut data = data.clone();
-            for i in 0..data.len() {
-                data[i] = rand::Rng::gen(&mut rand::thread_rng());
+            let mut gossip_frame = vec![];
+            for _ in 0..DATA_LEN {
+                gossip_frame.push(rand::Rng::gen(&mut rand::thread_rng()));
             }
-            let result = decoder.decode(Message::Broadcast(
-                header.clone(),
+            let msg = Message::Broadcast(
+                header,
                 BroadcastPayload {
                     height: 255,
-                    gossip_frame: data.clone(),
+                    gossip_frame,
                 },
-            ));
-            match result {
-                Ok(Some(_)) => panic!("This should be junk data"),
-                _ => {}
+            );
+            if let Ok(Some(_)) = decoder.decode(msg) {
+                panic!("This should be junk data");
             }
         }
         let mut i = 0;
         let mut sizetotal = 0;
-        println!("start decoding (with additional junk messages");
+        println!("start decoding (with additional junk messages)");
         let start = Instant::now();
         let mut junk = 0;
         for chunk in chunks {
@@ -233,10 +235,8 @@ mod tests {
             let cloned_chunk = clone_and_corrupt_msg(&chunk)?;
             for _ in 0..1000 {
                 let cloned_chunk = clone_and_corrupt_msg(&cloned_chunk)?;
-                let result = decoder.decode(cloned_chunk);
-                match result {
-                    Ok(Some(_)) => panic!("This should be junk data"),
-                    _ => {}
+                if let Ok(Some(_)) = decoder.decode(cloned_chunk) {
+                    panic!("This should be junk data");
                 }
                 junk += 1;
             }
@@ -259,10 +259,10 @@ mod tests {
     use std::io::BufReader;
     use std::io::Read;
     use std::io::Seek;
-    fn clone_and_corrupt_msg(messge: &Message) -> Result<Message> {
+    fn clone_and_corrupt_msg(message: &Message) -> Result<Message> {
         let mut c = Cursor::new(Vec::new());
         let mut writer = BufWriter::new(c);
-        messge.marshal_binary(&mut writer)?;
+        message.marshal_binary(&mut writer)?;
         c = writer.into_inner()?;
         let mut bytes = vec![];
         c.seek(std::io::SeekFrom::Start(0))?;
@@ -271,7 +271,6 @@ mod tests {
             bytes[i] = rand::Rng::gen(&mut rand::thread_rng());
         }
         let c = Cursor::new(bytes);
-        // c.seek(std::io::SeekFrom::Start(0))?;
         let mut reader = BufReader::new(c);
         let msg = Message::unmarshal_binary(&mut reader)?;
         Ok(msg)
