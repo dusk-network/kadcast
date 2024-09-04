@@ -13,6 +13,10 @@ use crate::transport::Encoder;
 
 const DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK: u32 = 5;
 const DEFAULT_MTU: u16 = 1300;
+
+pub(crate) const MAX_MTU: u16 = 8192;
+pub(crate) const MIN_MTU: u16 = 1296;
+
 const DEFAULT_FEQ_REDUNDANCY: f32 = 0.15;
 
 use raptorq::Encoder as ExtEncoder;
@@ -46,7 +50,17 @@ impl Configurable for RaptorQEncoder {
         RaptorQEncoderConf::default()
     }
     fn configure(conf: &Self::TConf) -> Self {
-        Self { conf: *conf }
+        let mut conf = *conf;
+        let mtu = conf.mtu;
+        if mtu > MAX_MTU {
+            tracing::warn!("MTU={mtu} too high, changing to {DEFAULT_MTU}");
+            conf.mtu = DEFAULT_MTU;
+        }
+        if mtu < MIN_MTU {
+            tracing::warn!("MTU={mtu} too low, changing to {DEFAULT_MTU}");
+            conf.mtu = DEFAULT_MTU;
+        }
+        Self { conf }
     }
 }
 

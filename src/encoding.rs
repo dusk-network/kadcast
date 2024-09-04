@@ -100,9 +100,9 @@ mod tests {
         let mut bytes = vec![];
         c.seek(std::io::SeekFrom::Start(0))?;
         c.read_to_end(&mut bytes)?;
-        c.seek(std::io::SeekFrom::Start(0))?;
         println!("bytes: {:?}", bytes);
         println!("byhex: {:02X?}", bytes);
+        let c = Cursor::new(bytes);
         let mut reader = BufReader::new(c);
         let deser = Message::unmarshal_binary(&mut reader)?;
 

@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::io;
 use std::time::{Duration, Instant};
@@ -13,17 +13,19 @@ use raptorq::{Decoder as ExtDecoder, EncodingPacket};
 use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
 
-use super::ChunkedPayload;
+use super::{ChunkedPayload, TRANSMISSION_INFO_SIZE, UID_SIZE};
 use crate::encoding::message::Message;
 use crate::encoding::payload::BroadcastPayload;
 use crate::transport::encoding::Configurable;
 use crate::transport::Decoder;
 
-const DEFAULT_CACHE_TTL_SECS: u64 = 60;
-const DEFAULT_CACHE_PRUNE_EVERY_SECS: u64 = 60 * 5;
+const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
+const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
+
+const DEFAULT_MAX_UDP_LEN: u64 = 10 * 1_024 * 1_024;
 
 pub struct RaptorQDecoder {
-    cache: HashMap<[u8; 32], CacheStatus>,
+    cache: BTreeMap<[u8; UID_SIZE + TRANSMISSION_INFO_SIZE], CacheStatus>,
     last_pruned: Instant,
     conf: RaptorQDecoderConf,
 }
@@ -34,36 +36,42 @@ pub struct RaptorQDecoderConf {
     pub cache_ttl: Duration,
     #[serde(with = "humantime_serde")]
     pub cache_prune_every: Duration,
+
+    #[serde(default = "default_max_udp_len")]
+    pub max_udp_len: u64,
+}
+
+const fn default_max_udp_len() -> u64 {
+    DEFAULT_MAX_UDP_LEN
 }
 
 impl Configurable for RaptorQDecoder {
     type TConf = RaptorQDecoderConf;
     fn default_configuration() -> Self::TConf {
         RaptorQDecoderConf {
-            cache_prune_every: Duration::from_secs(
-                DEFAULT_CACHE_PRUNE_EVERY_SECS,
-            ),
-            cache_ttl: Duration::from_secs(DEFAULT_CACHE_TTL_SECS),
+            cache_prune_every: DEFAULT_CACHE_PRUNE_EVERY,
+            cache_ttl: DEFAULT_CACHE_TTL,
+            max_udp_len: default_max_udp_len(),
         }
     }
     fn configure(conf: &Self::TConf) -> Self {
         Self {
             conf: *conf,
-            cache: HashMap::new(),
+            cache: BTreeMap::new(),
             last_pruned: Instant::now(),
         }
     }
 }
 
 enum CacheStatus {
-    Receiving(ExtDecoder, Instant, u8),
+    Receiving(ExtDecoder, Instant, u8, usize),
     Processed(Instant),
 }
 
 impl CacheStatus {
     fn expired(&self) -> bool {
         let expire_on = match self {
-            CacheStatus::Receiving(_, expire_on, _) => expire_on,
+            CacheStatus::Receiving(_, expire_on, _, _) => expire_on,
             CacheStatus::Processed(expire_on) => expire_on,
         };
         expire_on < &Instant::now()
@@ -75,29 +83,39 @@ impl Decoder for RaptorQDecoder {
         if let Message::Broadcast(header, payload) = message {
             trace!("> Decoding broadcast chunk");
             let chunked: ChunkedPayload = (&payload).try_into()?;
-            let uid = chunked.safe_uid();
+            let uid = chunked.uid_with_info();
 
             // Perform a `match` on the cache entry against the uid.
             let status = match self.cache.entry(uid) {
                 // Cache status exists: return it
-                std::collections::hash_map::Entry::Occupied(o) => o.into_mut(),
+                std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
 
                 // Cache status not found: creates a new entry with
                 // CacheStatus::Receiving status and binds a new Decoder with
                 // the received transmission information
-                std::collections::hash_map::Entry::Vacant(v) => {
-                    v.insert(CacheStatus::Receiving(
-                        ExtDecoder::new(chunked.transmission_info()),
-                        Instant::now() + self.conf.cache_ttl,
-                        payload.height,
-                    ))
+                std::collections::btree_map::Entry::Vacant(v) => {
+                    let info = chunked.transmission_info(self.conf.max_udp_len);
+                    match info {
+                        Ok(safe_info) => v.insert(CacheStatus::Receiving(
+                            ExtDecoder::new(safe_info.inner),
+                            Instant::now() + self.conf.cache_ttl,
+                            payload.height,
+                            safe_info.max_blocks,
+                        )),
+                        Err(e) => {
+                            return Err(io::Error::new(
+                                io::ErrorKind::Other,
+                                format!("Invalid transmission info {e:?}",),
+                            ));
+                        }
+                    }
                 }
             };
 
             let decoded = match status {
                 // Avoid to repropagate already processed messages
                 CacheStatus::Processed(_) => None,
-                CacheStatus::Receiving(decoder, _, max_height) => {
+                CacheStatus::Receiving(decoder, _, max_height, max_blocks) => {
                     // Depending on Beta replication, we can receive chunks of
                     // the same message from multiple peers.
                     // Those peers can send with different broadcast height.
@@ -106,11 +124,16 @@ impl Decoder for RaptorQDecoder {
                     if payload.height > *max_height {
                         *max_height = payload.height;
                     }
+                    let packet =
+                        EncodingPacket::deserialize(chunked.encoded_chunk());
+                    if packet.payload_id().source_block_number() as usize
+                        >= *max_blocks
+                    {
+                        return Ok(None);
+                    };
 
                     decoder
-                        .decode(EncodingPacket::deserialize(
-                            chunked.encoded_chunk(),
-                        ))
+                        .decode(packet)
                         // If decoded successfully, create the new
                         // BroadcastMessage
                         .and_then(|decoded| {

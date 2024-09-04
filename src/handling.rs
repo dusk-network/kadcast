@@ -94,6 +94,12 @@ impl MessageHandler {
                 trace!("Handler received message {:?}", message);
                 remote_peer_addr.set_port(message.header().sender_port);
 
+                let header = message.header();
+                let src = remote_peer_addr.ip();
+                if !PeerNode::verify_header(header, &src) {
+                    error!("Invalid Id {header:?} - from {src}");
+                }
+
                 let remote_peer = PeerNode::from_socket(
                     remote_peer_addr,
                     *message.header().binary_id(),

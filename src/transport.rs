@@ -17,7 +17,6 @@ use tracing::{debug, error, info, warn};
 use crate::config::Config;
 use crate::encoding::message::Message;
 use crate::encoding::Marshallable;
-use crate::peer::PeerNode;
 use crate::rwlock::RwLock;
 use crate::transport::encoding::{
     Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
@@ -100,8 +99,7 @@ impl WireNetwork {
             }
 
             dec_chan_tx
-                .send((bytes[0..len].to_vec(), remote_address))
-                .await
+                .try_send((bytes[0..len].to_vec(), remote_address))
                 .unwrap_or_else(|e| {
                     error!("Unable to send to dec_chan_tx channel {e}")
                 });
@@ -146,16 +144,12 @@ impl WireNetwork {
                 error!("Unable to process the message through the decoder: {e}")
             }
             Ok(Some(message)) => {
-                let header = message.header();
-                let valid_header = PeerNode::verify_header(header, &src.ip());
-
-                if valid_header {
-                    in_channel_tx.send((message, src)).await.unwrap_or_else(
-                        |e| error!("Unable to send to inbound channel {e}"),
-                    );
-                } else {
-                    error!("Invalid Id {header:?} - from {src}");
-                }
+                in_channel_tx
+                    .send((message, src))
+                    .await
+                    .unwrap_or_else(|e| {
+                        error!("Unable to send to inbound channel {e}")
+                    });
             }
             _ => {}
         }
