@@ -25,6 +25,7 @@ socket2 = "0.4"
 serde_derive = "1"
 serde = "1"
 humantime-serde = "1"
+semver = "1"
 
 [dev-dependencies]
 clap = "2.33.3"

@@ -7,6 +7,7 @@
 use arrayvec::ArrayVec;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use semver::Version;
 
 use super::node::{Node, NodeEvictionStatus};
 use super::BinaryKey;
@@ -37,6 +38,9 @@ pub enum NodeInsertOk<'a, TNode> {
         pending_insert: &'a TNode,
         pending_eviction: Option<&'a TNode>,
     },
+
+    /// No action has been performed
+    NoAction,
 }
 
 /// Enum representing possible errors when inserting a node into a bucket.
@@ -48,6 +52,8 @@ pub enum NodeInsertError<TNode> {
     Full(TNode),
     /// There is a mismatch with the network while inserting the node.
     MismatchNetwork(TNode),
+    /// There is a mismatch with the network while inserting the node.
+    MismatchVersion(TNode, Version),
 }
 
 impl<'a, TNode> NodeInsertOk<'a, TNode> {
@@ -63,6 +69,7 @@ impl<'a, TNode> NodeInsertOk<'a, TNode> {
                 updated: _,
                 pending_eviction,
             } => *pending_eviction,
+            Self::NoAction => None,
         }
     }
 }
@@ -186,6 +193,29 @@ impl<V> Bucket<V> {
                 }
             }
         }
+    }
+
+    /// Tries to refresh a node.
+    pub fn refresh(
+        &mut self,
+        node: Node<V>,
+    ) -> Result<InsertOk<V>, InsertError<V>> {
+        if !node.id().verify_nonce() {
+            return Err(NodeInsertError::Invalid(node));
+        }
+
+        if self.refresh_node(node.id().as_binary()).is_none() {
+            return Ok(NodeInsertOk::NoAction);
+        }
+
+        self.try_perform_eviction();
+        Ok(NodeInsertOk::Updated {
+            pending_eviction: self.pending_eviction_node(),
+            updated: self
+                .nodes
+                .last()
+                .expect("last node to exist because it's been just updated"),
+        })
     }
 
     /// Picks at most `ITEM_COUNT` random nodes from this bucket.

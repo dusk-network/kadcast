@@ -49,7 +49,7 @@ impl Marshallable for Header {
 
         let mut port_buffer = [0; 2];
         reader.read_exact(&mut port_buffer)?;
-        let port = u16::from_le_bytes(port_buffer);
+        let sender_port = u16::from_le_bytes(port_buffer);
 
         let mut network_id = [0; 1];
         reader.read_exact(&mut network_id)?;
@@ -60,9 +60,9 @@ impl Marshallable for Header {
 
         Ok(Header {
             binary_id,
-            sender_port: port,
-            reserved,
+            sender_port,
             network_id,
+            reserved,
         })
     }
 }

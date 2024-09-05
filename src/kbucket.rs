@@ -45,6 +45,19 @@ impl<V> Tree<V> {
         }
     }
 
+    pub fn refresh(
+        &mut self,
+        node: Node<V>,
+    ) -> Result<InsertOk<V>, InsertError<V>> {
+        if self.root().network_id != node.network_id {
+            return Err(NodeInsertError::MismatchNetwork(node));
+        }
+        match self.root.calculate_distance(&node) {
+            None => Err(NodeInsertError::Invalid(node)),
+            Some(height) => self.get_or_create_bucket(height).refresh(node),
+        }
+    }
+
     fn get_or_create_bucket(&mut self, height: BucketHeight) -> &mut Bucket<V> {
         return match self.buckets.entry(height) {
             Entry::Occupied(o) => o.into_mut(),

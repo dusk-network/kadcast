@@ -6,6 +6,7 @@
 
 use std::net::SocketAddr;
 
+use semver::{Version, VersionReq};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::*;
 
@@ -13,7 +14,7 @@ use crate::config::Config;
 use crate::encoding::message::{
     BroadcastPayload, Header, Message, NodePayload,
 };
-use crate::kbucket::{BinaryKey, NodeInsertError, Tree};
+use crate::kbucket::{BinaryKey, NodeInsertError, NodeInsertOk, Tree};
 use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
 use crate::{RwLock, K_K};
@@ -41,8 +42,10 @@ pub(crate) struct MessageHandler {
     ktable: RwLock<Tree<PeerInfo>>,
     outbound_sender: Sender<MessageBeanOut>,
     listener_sender: Sender<(Vec<u8>, MessageInfo)>,
-    nodes_reply_fn: fn(Header, BinaryKey) -> Message,
+    nodes_reply_fn: fn(Header, BinaryKey, Version) -> Message,
     auto_propagate: bool,
+    version_req: VersionReq,
+    my_version: Version,
 }
 
 impl MessageHandler {
@@ -52,14 +55,22 @@ impl MessageHandler {
         listener_sender: Sender<(Vec<u8>, MessageInfo)>,
         config: &Config,
     ) -> Self {
+        let version_req = VersionReq::parse(&config.version_match)
+            .expect("Invalid version req");
+        let my_version =
+            Version::parse(&config.version).expect("Invalid version");
+
         let nodes_reply_fn = match config.recursive_discovery {
-            true => |header: Header, target: BinaryKey| {
-                Message::FindNodes(header, target)
+            true => |header: Header, target: BinaryKey, version: Version| {
+                Message::FindNodes(header, version, target)
             },
-            false => |header: Header, _: BinaryKey| Message::Ping(header),
+            false => |header: Header, _: BinaryKey, version: Version| {
+                Message::Ping(header, version)
+            },
         };
         let auto_propagate = config.auto_propagate;
         let my_header = ktable.read().await.root().to_header();
+
         Self {
             my_header,
             auto_propagate,
@@ -67,6 +78,8 @@ impl MessageHandler {
             listener_sender,
             outbound_sender,
             nodes_reply_fn,
+            version_req,
+            my_version,
         }
     }
 
@@ -106,7 +119,7 @@ impl MessageHandler {
                     message.header().network_id,
                 );
 
-                match handler.handle_peer(remote_peer).await {
+                match handler.handle_peer(remote_peer, &message).await {
                     Ok(_) => {}
                     Err(NodeInsertError::Full(n)) => {
                         debug!(
@@ -129,6 +142,13 @@ impl MessageHandler {
                         );
                         continue;
                     }
+                    Err(NodeInsertError::MismatchVersion(n, version)) => {
+                        error!(
+                            "Unable to insert node - VERSION MISMATCH {} - {version}",
+                            n.value().address(),
+                        );
+                        continue;
+                    }
                 };
 
                 handler.handle_message(message, remote_peer_addr).await;
@@ -139,16 +159,49 @@ impl MessageHandler {
     async fn handle_peer(
         &self,
         remote_node: PeerNode,
+        msg: &Message,
     ) -> Result<(), NodeInsertError<PeerNode>> {
         let mut table = self.ktable.write().await;
 
-        let result = table.insert(remote_node)?;
-        debug!("Written node in ktable: {result:?}");
+        // If it's not a BROADCAST then we should handle the version and
+        // insert/update the routing table accordingly
+        let result = if let Some(version) = msg.version() {
+            // If version is not supported by node, discard it
+            if !self.version_req.matches(version) {
+                return Err(NodeInsertError::MismatchVersion(
+                    remote_node,
+                    version.clone(),
+                ));
+            }
 
+            table.insert(remote_node)?
+        } else {
+            // If it's BROADCAST, and it's a new node, we should PING it in
+            // order to know the version
+            let peer_id = remote_node.id().as_binary();
+            if table.has_peer(peer_id).is_none() {
+                self.outbound_sender
+                    .send((
+                        Message::Ping(self.my_header, self.my_version.clone()),
+                        vec![*remote_node.value().address()],
+                    ))
+                    .await
+                    .unwrap_or_else(|e| {
+                        error!("Unable to send PING to new node {e}")
+                    });
+                NodeInsertOk::NoAction
+            } else {
+                // If it's BROADCAST, and the node is already known, we just
+                // refresh the routing table
+                table.refresh(remote_node)?
+            }
+        };
+
+        // Ping the pending node (if any)
         if let Some(pending) = result.pending_eviction() {
             self.outbound_sender
                 .send((
-                    Message::Ping(self.my_header),
+                    Message::Ping(self.my_header, self.my_version.clone()),
                     vec![*pending.value().address()],
                 ))
                 .await
@@ -165,12 +218,12 @@ impl MessageHandler {
         remote_node_addr: SocketAddr,
     ) {
         match message {
-            Message::Ping(_) => self.handle_ping(remote_node_addr).await,
-            Message::Pong(_) => {}
-            Message::FindNodes(_, target) => {
+            Message::Ping(..) => self.handle_ping(remote_node_addr).await,
+            Message::Pong(..) => {}
+            Message::FindNodes(_, _, target) => {
                 self.handle_find_nodes(remote_node_addr, &target).await
             }
-            Message::Nodes(_, nodes) => self.handle_nodes(nodes).await,
+            Message::Nodes(_, _, nodes) => self.handle_nodes(nodes).await,
             Message::Broadcast(_, payload) => {
                 self.handle_broadcast(remote_node_addr, payload).await
             }
@@ -179,7 +232,10 @@ impl MessageHandler {
 
     async fn handle_ping(&self, remote_node_addr: SocketAddr) {
         self.outbound_sender
-            .send((Message::Pong(self.my_header), vec![remote_node_addr]))
+            .send((
+                Message::Pong(self.my_header, self.my_version.clone()),
+                vec![remote_node_addr],
+            ))
             .await
             .unwrap_or_else(|e| error!("Unable to send Pong {e}"));
     }
@@ -196,7 +252,11 @@ impl MessageHandler {
             .closest_peers::<K_K>(target)
             .map(|p| p.as_peer_info())
             .collect();
-        let message = Message::Nodes(self.my_header, NodePayload { peers });
+        let message = Message::Nodes(
+            self.my_header,
+            self.my_version.clone(),
+            NodePayload { peers },
+        );
         self.outbound_sender
             .send((message, vec![remote_node_addr]))
             .await
@@ -227,7 +287,11 @@ impl MessageHandler {
             })
             .map(|n| {
                 (
-                    (self.nodes_reply_fn)(self.my_header, n.id),
+                    (self.nodes_reply_fn)(
+                        self.my_header,
+                        n.id,
+                        self.my_version.clone(),
+                    ),
                     vec![n.to_socket_address()],
                 )
             })

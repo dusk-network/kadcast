@@ -7,6 +7,7 @@
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 
+use semver::Version;
 use tokio::sync::mpsc::Sender;
 use tracing::{error, info};
 
@@ -22,6 +23,7 @@ pub(crate) struct TableMaintainer {
     outbound_sender: Sender<MessageBeanOut>,
     my_ip: SocketAddr,
     header: Header,
+    version: Version,
 }
 
 impl TableMaintainer {
@@ -31,6 +33,7 @@ impl TableMaintainer {
         outbound_sender: Sender<MessageBeanOut>,
         idle_time: Duration,
         min_peers: usize,
+        version: Version,
     ) {
         tokio::spawn(async move {
             let my_ip = *ktable.read().await.root().value().address();
@@ -42,6 +45,7 @@ impl TableMaintainer {
                 outbound_sender,
                 my_ip,
                 header,
+                version,
             };
             maintainer.monitor_buckets(idle_time, min_peers).await;
         });
@@ -74,7 +78,11 @@ impl TableMaintainer {
             info!("TableMaintainer::contact_bootstrappers");
             let bootstrapping_nodes_addr = self.bootstrapping_nodes_addr();
             let binary_key = self.header.binary_id().as_binary();
-            let find_nodes = Message::FindNodes(self.header, *binary_key);
+            let find_nodes = Message::FindNodes(
+                self.header,
+                self.version.clone(),
+                *binary_key,
+            );
             self.send((find_nodes, bootstrapping_nodes_addr)).await;
             tokio::time::sleep(Duration::from_secs(30)).await;
         }
@@ -119,7 +127,8 @@ impl TableMaintainer {
             .idle_nodes()
             .map(|n| *n.value().address())
             .collect();
-        self.send((Message::Ping(self.header), idles)).await;
+        self.send((Message::Ping(self.header, self.version.clone()), idles))
+            .await;
         self.ktable.write().await.remove_idle_nodes();
     }
 
@@ -133,7 +142,11 @@ impl TableMaintainer {
             .flat_map(|(_, idle_nodes)| idle_nodes)
             .map(|target| {
                 (
-                    Message::FindNodes(self.header, *target.id().as_binary()),
+                    Message::FindNodes(
+                        self.header,
+                        self.version.clone(),
+                        *target.id().as_binary(),
+                    ),
                     //TODO: Extract alpha nodes
                     vec![*target.value().address()],
                 )

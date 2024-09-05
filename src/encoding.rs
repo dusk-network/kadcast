@@ -23,6 +23,7 @@ mod tests {
     use std::io::{BufReader, BufWriter, Cursor, Read, Seek};
 
     use rand::RngCore;
+    use semver::Version;
 
     use super::Marshallable;
     use crate::encoding::header::Header;
@@ -33,16 +34,18 @@ mod tests {
     use crate::peer::PeerNode;
     use crate::tests::Result;
 
+    const VERSION: Version = Version::new(1, 0, 0);
+
     #[test]
     fn test_encode_ping() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666", 0)?;
-        let a = Message::Ping(peer.to_header());
+        let a = Message::Ping(peer.to_header(), VERSION);
         test_kadkast_marshal(a)
     }
     #[test]
     fn test_encode_pong() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666", 0)?;
-        let a = Message::Pong(peer.to_header());
+        let a = Message::Pong(peer.to_header(), VERSION);
         test_kadkast_marshal(a)
     }
 
@@ -51,7 +54,7 @@ mod tests {
         let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let target =
             *PeerNode::generate("192.168.1.1:666", 0)?.id().as_binary();
-        let a = Message::FindNodes(peer.to_header(), target);
+        let a = Message::FindNodes(peer.to_header(), VERSION, target);
         test_kadkast_marshal(a)
     }
 
@@ -68,14 +71,22 @@ mod tests {
         .iter()
         .map(|f| f.as_peer_info())
         .collect();
-        let a = Message::Nodes(peer.to_header(), NodePayload { peers: nodes });
+        let a = Message::Nodes(
+            peer.to_header(),
+            VERSION,
+            NodePayload { peers: nodes },
+        );
         test_kadkast_marshal(a)
     }
 
     #[test]
     fn test_encode_empty_nodes() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666", 0)?;
-        let a = Message::Nodes(peer.to_header(), NodePayload { peers: vec![] });
+        let a = Message::Nodes(
+            peer.to_header(),
+            VERSION,
+            NodePayload { peers: vec![] },
+        );
         test_kadkast_marshal(a)
     }
     #[test]

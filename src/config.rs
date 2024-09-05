@@ -38,8 +38,19 @@ pub const DEFAULT_BLOCKLIST_REFRESH_SECS: u64 = 10;
 /// Default minimum peers required for network integration without bootstrapping
 pub const DEFAULT_MIN_PEERS_FOR_INTEGRATION: usize = 3;
 
+const DEFAULT_VERSION: &str = "0.0.1";
+const DEFAULT_VERSION_MATCH: &str = "*";
+
 const fn default_min_peers() -> usize {
     DEFAULT_MIN_PEERS_FOR_INTEGRATION
+}
+
+fn default_version() -> String {
+    DEFAULT_VERSION.to_string()
+}
+
+fn default_version_match() -> String {
+    DEFAULT_VERSION_MATCH.to_string()
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -90,6 +101,11 @@ pub struct Config {
 
     /// FEC configuration
     pub fec: FECConfig,
+
+    #[serde(default = "default_version")]
+    pub version: String,
+    #[serde(default = "default_version_match")]
+    pub version_match: String,
 }
 
 impl Default for Config {
@@ -105,6 +121,8 @@ impl Default for Config {
             network: NetworkConfig::default(),
             bucket: BucketConfig::default(),
             fec: FECConfig::default(),
+            version: default_version(),
+            version_match: default_version_match(),
         }
     }
 }
