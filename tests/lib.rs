@@ -19,7 +19,7 @@ mod tests {
 
     const NODES: i32 = 10;
     const BASE_PORT: i32 = 20000;
-    const BOOTSTRAP_COUNT: i32 = 2;
+    const BOOTSTRAP_COUNT: i32 = 3; // the first 2 bootstrappers are on different chain/version
     const WAIT_SEC: u64 = 20;
     const MESSAGE_SIZE: usize = 100_000;
 
@@ -94,9 +94,12 @@ mod tests {
         // Remove the invalid network id
         let expected_message_sent = expected_message_broadcasted - 1;
         // Remove the sender
-        let expected_message_received = expected_message_sent - 1;
+        let expected_message_received = expected_message_sent - 2;
 
-        let start_expected_range = BASE_PORT + 1; // remove the first invalid node
+        // remove the first two invalid nodes
+        // First one has invalid ChainID
+        // Second one has invalid Version
+        let start_expected_range = BASE_PORT + 2;
         let end_expected_range =
             start_expected_range + expected_message_received;
 
@@ -119,7 +122,7 @@ mod tests {
         expected_from: Range<i32>,
     ) {
         let mut missing = HashSet::new();
-        info!("{expected_from:?}");
+        info!("expected_from: {expected_from:?}");
         for i in expected_from {
             missing.insert(i);
         }
@@ -136,7 +139,7 @@ mod tests {
             }
         }
         info!("Received All {} messages", i);
-        info!("{missing:?}");
+        info!("missing: {missing:?}");
     }
 
     fn create_peer(
@@ -146,7 +149,7 @@ mod tests {
         network_id: Option<u8>,
     ) -> core::result::Result<Peer, AddrParseError> {
         let port = BASE_PORT + i;
-        let public_addr = format!("127.0.0.1:{}", port).to_string();
+        let public_addr = format!("127.0.0.1:{port}");
         let listener = KadcastListener {
             grpc_sender,
             receiver_port: port as usize,
@@ -155,6 +158,9 @@ mod tests {
         conf.kadcast_id = network_id;
         conf.bootstrapping_nodes = bootstrap;
         conf.public_address = public_addr;
+        conf.version_match = ">=1.2.2".to_string();
+        conf.version = format!("1.2.{i}");
+        conf.recursive_discovery = false;
         Peer::new(conf, listener)
     }
 

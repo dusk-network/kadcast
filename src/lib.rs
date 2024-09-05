@@ -106,6 +106,9 @@ impl Peer {
         let nodes = config.bootstrapping_nodes.clone();
         let idle_time = config.bucket.bucket_ttl;
         let min_peers = config.bucket.min_peers;
+        let version =
+            semver::Version::parse(&config.version).expect("Invalid version");
+
         MessageHandler::start(
             table.clone(),
             inbound_channel_rx,
@@ -125,6 +128,7 @@ impl Peer {
             outbound_channel_tx,
             idle_time,
             min_peers,
+            version,
         );
         task::spawn(Peer::notifier(listener_channel_rx, listener));
         Ok(peer)
