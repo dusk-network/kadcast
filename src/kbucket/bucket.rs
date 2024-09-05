@@ -52,7 +52,7 @@ pub enum NodeInsertError<TNode> {
     Full(TNode),
     /// There is a mismatch with the network while inserting the node.
     MismatchNetwork(TNode),
-    /// There is a mismatch with the network while inserting the node.
+    /// There is a mismatch with the version while inserting the node.
     MismatchVersion(TNode, Version),
 }
 
