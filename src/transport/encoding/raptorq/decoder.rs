@@ -84,6 +84,7 @@ impl Decoder for RaptorQDecoder {
             trace!("> Decoding broadcast chunk");
             let chunked: ChunkedPayload = (&payload).try_into()?;
             let uid = chunked.uid();
+            let encode_info = chunked.transmission_info_bytes();
             let uid_with_info = chunked.uid_with_info();
 
             // Perform a `match` on the cache entry against the uid.
@@ -101,7 +102,7 @@ impl Decoder for RaptorQDecoder {
                             debug!(
                                 event = "Start decoding payload",
                                 ray = hex::encode(uid),
-                                uid_with_into = hex::encode(uid_with_info)
+                                encode_info = hex::encode(encode_info)
                             );
 
                             v.insert(CacheStatus::Receiving(

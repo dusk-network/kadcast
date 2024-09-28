@@ -70,13 +70,16 @@ impl<'a> ChunkedPayload<'a> {
         max_udp_len: u64,
     ) -> Result<SafeObjectTransmissionInformation, TransmissionInformationError>
     {
-        let slice =
-            &self.0.gossip_frame[UID_SIZE..(UID_SIZE + TRANSMISSION_INFO_SIZE)];
+        let slice = self.transmission_info_bytes();
         let info = SafeObjectTransmissionInformation::try_from(slice)?;
         match info.inner.transfer_length() < max_udp_len {
             true => Ok(info),
             false => Err(TransmissionInformationError::TransferLengthExceeded),
         }
+    }
+
+    fn transmission_info_bytes(&self) -> &[u8] {
+        &self.0.gossip_frame[UID_SIZE..(UID_SIZE + TRANSMISSION_INFO_SIZE)]
     }
 
     fn encoded_chunk(&self) -> &[u8] {
