@@ -216,6 +216,7 @@ mod tests {
             BroadcastPayload {
                 height: 0,
                 gossip_frame: vec![0],
+                ray: vec![],
             },
         ))? {
             dec.decode(n)?;
@@ -236,6 +237,7 @@ mod tests {
                 BroadcastPayload {
                     height: 0,
                     gossip_frame: vec![i],
+                    ray: vec![],
                 },
             ))? {
                 dec.decode(n)?;
@@ -252,6 +254,7 @@ mod tests {
             BroadcastPayload {
                 height: 0,
                 gossip_frame: vec![0],
+                ray: vec![],
             },
         ))? {
             dec.decode(n)?;

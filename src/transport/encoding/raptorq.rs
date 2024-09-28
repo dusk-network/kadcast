@@ -133,6 +133,7 @@ mod tests {
         let payload = BroadcastPayload {
             height: 255,
             gossip_frame: data,
+            ray: vec![],
         };
         println!("orig payload len {}", payload.bytes()?.len());
         let message = Message::Broadcast(header, payload);
@@ -190,6 +191,7 @@ mod tests {
         let payload = BroadcastPayload {
             height: 255,
             gossip_frame: data,
+            ray: vec![],
         };
         println!("orig payload len {}", payload.bytes()?.len());
         let message = Message::Broadcast(header, payload);
@@ -218,6 +220,7 @@ mod tests {
                 BroadcastPayload {
                     height: 255,
                     gossip_frame,
+                    ray: vec![],
                 },
             );
             if let Ok(Some(_)) = decoder.decode(msg) {

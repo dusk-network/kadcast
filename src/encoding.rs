@@ -97,6 +97,7 @@ mod tests {
             BroadcastPayload {
                 height: 10,
                 gossip_frame: vec![3, 5, 6, 7],
+                ray: vec![],
             },
         );
         test_kadkast_marshal(a)
