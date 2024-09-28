@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `max_udp_len` configuration parameter
 - Add range checks to MTU (between 1296 and 8192)
 - Add network version to handshake messages
+- Add Ray-ID to MessageInfo for message tracking
 
 ### Fixed
 
