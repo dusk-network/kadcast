@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use raptorq::{Decoder as ExtDecoder, EncodingPacket};
 use serde::{Deserialize, Serialize};
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 
 use super::{ChunkedPayload, TRANSMISSION_INFO_SIZE, UID_SIZE};
 use crate::encoding::message::Message;
@@ -97,12 +97,20 @@ impl Decoder for RaptorQDecoder {
                 std::collections::btree_map::Entry::Vacant(v) => {
                     let info = chunked.transmission_info(self.conf.max_udp_len);
                     match info {
-                        Ok(safe_info) => v.insert(CacheStatus::Receiving(
-                            ExtDecoder::new(safe_info.inner),
-                            Instant::now() + self.conf.cache_ttl,
-                            payload.height,
-                            safe_info.max_blocks,
-                        )),
+                        Ok(safe_info) => {
+                            debug!(
+                                event = "Start decoding payload",
+                                ray = hex::encode(uid),
+                                uid_with_into = hex::encode(uid_with_info)
+                            );
+
+                            v.insert(CacheStatus::Receiving(
+                                ExtDecoder::new(safe_info.inner),
+                                Instant::now() + self.conf.cache_ttl,
+                                payload.height,
+                                safe_info.max_blocks,
+                            ))
+                        }
                         Err(e) => {
                             return Err(io::Error::new(
                                 io::ErrorKind::Other,

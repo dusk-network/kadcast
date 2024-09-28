@@ -108,8 +108,7 @@ impl MessageHandler {
             while let Some((message, mut remote_peer_addr)) =
                 inbound_receiver.recv().await
             {
-                debug!("Handler received message");
-                trace!("Handler received message {:?}", message);
+                trace!("Handler received message {}", message.type_byte());
                 remote_peer_addr.set_port(message.header().sender_port);
 
                 let header = message.header();
@@ -127,7 +126,7 @@ impl MessageHandler {
                 match handler.handle_peer(remote_peer, &message).await {
                     Ok(_) => {}
                     Err(NodeInsertError::Full(n)) => {
-                        debug!(
+                        trace!(
                             "Unable to insert node - FULL {}",
                             n.value().address()
                         )
@@ -315,11 +314,13 @@ impl MessageHandler {
     ) {
         let height = payload.height;
         let gossip_frame = payload.gossip_frame;
-        debug!(
-            "Received payload with height {height} and len {}",
-            gossip_frame.len()
-        );
         let ray = payload.ray;
+        debug!(
+            event = "handle broadcast",
+            height,
+            size = gossip_frame.len(),
+            ray = hex::encode(&ray)
+        );
 
         // Aggregate message + metadata for lib client
         let msg = gossip_frame.clone();
@@ -333,7 +334,7 @@ impl MessageHandler {
 
         if self.auto_propagate && height > 0 {
             let new_height = height - 1;
-            debug!("Extracting for height {new_height}");
+            trace!("Extracting for height {new_height}");
 
             let messages: Vec<_> = {
                 let table_read = self.ktable.read().await;

@@ -21,6 +21,7 @@ const DEFAULT_FEQ_REDUNDANCY: f32 = 0.15;
 
 use raptorq::Encoder as ExtEncoder;
 use serde_derive::{Deserialize, Serialize};
+use tracing::debug;
 
 pub struct RaptorQEncoder {
     conf: RaptorQEncoderConf,
@@ -73,6 +74,12 @@ impl Encoder for RaptorQEncoder {
 
             let uid = payload.generate_uid()?.to_vec();
             let base_packet = [&uid[..], &transmission_info].concat();
+
+            debug!(
+                event = "Start encoding payload",
+                ray = hex::encode(&uid),
+                encode_info = hex::encode(&transmission_info)
+            );
 
             let mut repair_packets =
                 (payload.gossip_frame.len() as f32 * self.conf.fec_redundancy

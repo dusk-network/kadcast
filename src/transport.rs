@@ -12,7 +12,7 @@ use socket2::SockRef;
 use tokio::io;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{self, Receiver, Sender};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::config::Config;
 use crate::encoding::message::Message;
@@ -117,7 +117,7 @@ impl WireNetwork {
             if let Some((data, src)) = dec_chan_rx.recv().await {
                 match Message::unmarshal_binary(&mut &data[..]) {
                     Ok(deser) => {
-                        debug!("> Received raw message {}", deser.type_byte());
+                        trace!("> Received raw message {}", deser.type_byte());
                         Self::handle_raw_message(
                             &mut decoder,
                             deser,
@@ -164,7 +164,7 @@ impl WireNetwork {
         debug!("WireNetwork::outgoing loop started");
         loop {
             if let Some((message, targets)) = out_channel_rx.recv().await {
-                debug!(
+                trace!(
                     "< Message to send to ({targets:?}) - {:?} ",
                     message.type_byte()
                 );
