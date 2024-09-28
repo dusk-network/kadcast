@@ -212,7 +212,9 @@ impl Peer {
                     self.header,
                     BroadcastPayload {
                         height,
-                        gossip_frame: message.to_vec(), //FIX_ME: avoid clone
+                        gossip_frame: message.to_vec(),
+                        ray: vec![], /* ray will be set while sending
+                                      * according to the encoder */
                     },
                 );
                 let targets =
@@ -249,6 +251,7 @@ impl Peer {
             BroadcastPayload {
                 height: 0,
                 gossip_frame: message.to_vec(), //FIX_ME: avoid clone
+                ray: vec![],
             },
         );
         let targets = vec![target];

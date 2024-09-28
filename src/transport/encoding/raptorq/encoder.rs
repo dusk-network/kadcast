@@ -69,11 +69,10 @@ impl Encoder for RaptorQEncoder {
         if let Message::Broadcast(header, payload) = msg {
             let encoder =
                 ExtEncoder::with_defaults(&payload.gossip_frame, self.conf.mtu);
-            let mut transmission_info =
-                encoder.get_config().serialize().to_vec();
+            let transmission_info = encoder.get_config().serialize();
 
-            let mut base_packet = payload.generate_uid()?.to_vec();
-            base_packet.append(&mut transmission_info);
+            let uid = payload.generate_uid()?.to_vec();
+            let base_packet = [&uid[..], &transmission_info].concat();
 
             let mut repair_packets =
                 (payload.gossip_frame.len() as f32 * self.conf.fec_redundancy
@@ -87,12 +86,14 @@ impl Encoder for RaptorQEncoder {
                 .iter()
                 .map(|encoded_packet| {
                     let mut packet_with_uid = base_packet.clone();
+                    let ray = uid.clone();
                     packet_with_uid.append(&mut encoded_packet.serialize());
                     Message::Broadcast(
                         header,
                         BroadcastPayload {
                             height: payload.height,
                             gossip_frame: packet_with_uid,
+                            ray,
                         },
                     )
                 })

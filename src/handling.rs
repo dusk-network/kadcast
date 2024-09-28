@@ -24,6 +24,7 @@ use crate::{RwLock, K_K};
 pub struct MessageInfo {
     pub(crate) src: SocketAddr,
     pub(crate) height: u8,
+    pub(crate) ray: Vec<u8>,
 }
 
 impl MessageInfo {
@@ -34,6 +35,10 @@ impl MessageInfo {
     /// Returns current kadcast broadcast height
     pub fn height(&self) -> u8 {
         self.height
+    }
+    /// Returns the ray-id for this message (if any)
+    pub fn ray(&self) -> &[u8] {
+        &self.ray
     }
 }
 
@@ -314,10 +319,11 @@ impl MessageHandler {
             "Received payload with height {height} and len {}",
             gossip_frame.len()
         );
+        let ray = payload.ray;
 
         // Aggregate message + metadata for lib client
         let msg = gossip_frame.clone();
-        let md = MessageInfo { src, height };
+        let md = MessageInfo { src, height, ray };
 
         // Notify lib client
         self.listener_sender
@@ -340,6 +346,8 @@ impl MessageHandler {
                         let payload = BroadcastPayload {
                             height,
                             gossip_frame,
+                            ray: vec![], /* ray will be set while sending
+                                          * according to the encoder */
                         };
                         let msg = Message::Broadcast(self.my_header, payload);
                         let targets =

@@ -83,10 +83,11 @@ impl Decoder for RaptorQDecoder {
         if let Message::Broadcast(header, payload) = message {
             trace!("> Decoding broadcast chunk");
             let chunked: ChunkedPayload = (&payload).try_into()?;
-            let uid = chunked.uid_with_info();
+            let uid = chunked.uid();
+            let uid_with_info = chunked.uid_with_info();
 
             // Perform a `match` on the cache entry against the uid.
-            let status = match self.cache.entry(uid) {
+            let status = match self.cache.entry(uid_with_info) {
                 // Cache status exists: return it
                 std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
 
@@ -140,6 +141,7 @@ impl Decoder for RaptorQDecoder {
                             let payload = BroadcastPayload {
                                 height: *max_height,
                                 gossip_frame: decoded,
+                                ray: uid.to_vec(),
                             };
                             // Perform integrity check
                             match payload.generate_uid() {
@@ -159,7 +161,7 @@ impl Decoder for RaptorQDecoder {
                         // to propagate already processed messages
                         .map(|decoded| {
                             self.cache.insert(
-                                uid,
+                                uid_with_info,
                                 CacheStatus::Processed(
                                     Instant::now() + self.conf.cache_ttl,
                                 ),
