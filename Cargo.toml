@@ -1,7 +1,7 @@
 [package]
 name = "kadcast"
 authors = ["herr-seppia <seppia@dusk.network>"]
-version = "0.7.0-rc.6"
+version = "0.7.0-rc.7"
 edition = "2018"
 description = "Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]
@@ -26,6 +26,7 @@ serde_derive = "1"
 serde = "1"
 humantime-serde = "1"
 semver = "1"
+hex = "0.4"
 
 [dev-dependencies]
 clap = "2.33.3"

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `max_udp_len` configuration parameter
 - Add range checks to MTU (between 1296 and 8192)
 - Add network version to handshake messages
+- Add Ray-ID to MessageInfo for message tracking
 
 ### Fixed
 
@@ -20,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Change the EncodedChunk UUID generation
+- Change the EncodedChunk UUID generation (aka RaptorqHeader)
 - Change `raptorq` dependency from `1.6` to `2.0`
 
 ## [0.6.1] - 2024-04-10

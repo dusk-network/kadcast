@@ -37,7 +37,7 @@ mod tests {
     async fn harness_test() -> Result<(), Box<dyn std::error::Error>> {
         // Generate a subscriber with the desired log level.
         let subscriber = tracing_subscriber::fmt::Subscriber::builder()
-            .with_max_level(tracing::Level::INFO)
+            .with_max_level(tracing::Level::DEBUG)
             .finish();
         // Set the subscriber as global.
         // so this subscriber will be used as the default in all threads for the

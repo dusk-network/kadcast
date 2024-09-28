@@ -5,15 +5,15 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use std::collections::BTreeMap;
-use std::convert::TryInto;
+use std::convert::TryFrom;
 use std::io;
 use std::time::{Duration, Instant};
 
 use raptorq::{Decoder as ExtDecoder, EncodingPacket};
 use serde::{Deserialize, Serialize};
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 
-use super::{ChunkedPayload, TRANSMISSION_INFO_SIZE, UID_SIZE};
+use super::{ChunkedPayload, CHUNKED_HEADER_SIZE};
 use crate::encoding::message::Message;
 use crate::encoding::payload::BroadcastPayload;
 use crate::transport::encoding::Configurable;
@@ -25,7 +25,7 @@ const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
 const DEFAULT_MAX_UDP_LEN: u64 = 10 * 1_024 * 1_024;
 
 pub struct RaptorQDecoder {
-    cache: BTreeMap<[u8; UID_SIZE + TRANSMISSION_INFO_SIZE], CacheStatus>,
+    cache: BTreeMap<[u8; CHUNKED_HEADER_SIZE], CacheStatus>,
     last_pruned: Instant,
     conf: RaptorQDecoderConf,
 }
@@ -80,13 +80,15 @@ impl CacheStatus {
 
 impl Decoder for RaptorQDecoder {
     fn decode(&mut self, message: Message) -> io::Result<Option<Message>> {
-        if let Message::Broadcast(header, payload) = message {
+        if let Message::Broadcast(header, payload, ..) = message {
             trace!("> Decoding broadcast chunk");
-            let chunked: ChunkedPayload = (&payload).try_into()?;
-            let uid = chunked.uid_with_info();
+            let chunked = ChunkedPayload::try_from(&payload)?;
+            let ray_id = chunked.ray_id();
+            let encode_info = chunked.transmission_info_bytes();
+            let chunked_header = chunked.header();
 
-            // Perform a `match` on the cache entry against the uid.
-            let status = match self.cache.entry(uid) {
+            // Perform a `match` on the cache entry against the chunked header.
+            let status = match self.cache.entry(chunked_header) {
                 // Cache status exists: return it
                 std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
 
@@ -96,12 +98,20 @@ impl Decoder for RaptorQDecoder {
                 std::collections::btree_map::Entry::Vacant(v) => {
                     let info = chunked.transmission_info(self.conf.max_udp_len);
                     match info {
-                        Ok(safe_info) => v.insert(CacheStatus::Receiving(
-                            ExtDecoder::new(safe_info.inner),
-                            Instant::now() + self.conf.cache_ttl,
-                            payload.height,
-                            safe_info.max_blocks,
-                        )),
+                        Ok(safe_info) => {
+                            debug!(
+                                event = "Start decoding payload",
+                                ray = hex::encode(ray_id),
+                                encode_info = hex::encode(encode_info)
+                            );
+
+                            v.insert(CacheStatus::Receiving(
+                                ExtDecoder::new(safe_info.inner),
+                                Instant::now() + self.conf.cache_ttl,
+                                payload.height,
+                                safe_info.max_blocks,
+                            ))
+                        }
                         Err(e) => {
                             return Err(io::Error::new(
                                 io::ErrorKind::Other,
@@ -142,10 +152,12 @@ impl Decoder for RaptorQDecoder {
                                 gossip_frame: decoded,
                             };
                             // Perform integrity check
-                            match payload.generate_uid() {
+                            match payload.generate_ray_id() {
                                 // Compare received ID with the one generated
-                                Ok(uid) if chunked.uid().eq(&uid) => {
-                                    Some(Message::Broadcast(header, payload))
+                                Ok(ray_id) if chunked.ray_id().eq(&ray_id) => {
+                                    Some(Message::Broadcast(
+                                        header, payload, ray_id,
+                                    ))
                                 }
                                 _ => {
                                     warn!("Invalid message decoded");
@@ -159,7 +171,7 @@ impl Decoder for RaptorQDecoder {
                         // to propagate already processed messages
                         .map(|decoded| {
                             self.cache.insert(
-                                uid,
+                                chunked_header,
                                 CacheStatus::Processed(
                                     Instant::now() + self.conf.cache_ttl,
                                 ),
@@ -209,7 +221,7 @@ mod tests {
         assert_eq!(dec.cache_size(), 0);
 
         //Decode first message
-        for n in enc.encode(Message::Broadcast(
+        for n in enc.encode(Message::broadcast(
             root.to_header(),
             BroadcastPayload {
                 height: 0,
@@ -229,7 +241,7 @@ mod tests {
 
         // Decode other 3 messages
         for i in 1..4 {
-            for n in enc.encode(Message::Broadcast(
+            for n in enc.encode(Message::broadcast(
                 root.to_header(),
                 BroadcastPayload {
                     height: 0,
@@ -245,7 +257,7 @@ mod tests {
         thread::sleep(Duration::from_millis(500));
 
         // Decode message, it should remove the previous 3
-        for n in enc.encode(Message::Broadcast(
+        for n in enc.encode(Message::broadcast(
             root.to_header(),
             BroadcastPayload {
                 height: 0,

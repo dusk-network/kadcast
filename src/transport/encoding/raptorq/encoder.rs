@@ -21,6 +21,7 @@ const DEFAULT_FEQ_REDUNDANCY: f32 = 0.15;
 
 use raptorq::Encoder as ExtEncoder;
 use serde_derive::{Deserialize, Serialize};
+use tracing::debug;
 
 pub struct RaptorQEncoder {
     conf: RaptorQEncoderConf,
@@ -66,14 +67,19 @@ impl Configurable for RaptorQEncoder {
 
 impl Encoder for RaptorQEncoder {
     fn encode<'msg>(&self, msg: Message) -> io::Result<Vec<Message>> {
-        if let Message::Broadcast(header, payload) = msg {
+        if let Message::Broadcast(header, payload, ..) = msg {
             let encoder =
                 ExtEncoder::with_defaults(&payload.gossip_frame, self.conf.mtu);
-            let mut transmission_info =
-                encoder.get_config().serialize().to_vec();
+            let transmission_info = encoder.get_config().serialize();
 
-            let mut base_packet = payload.generate_uid()?.to_vec();
-            base_packet.append(&mut transmission_info);
+            let ray_id = payload.generate_ray_id()?;
+            let raptorq_header = [&ray_id[..], &transmission_info].concat();
+
+            debug!(
+                event = "Start encoding payload",
+                ray = hex::encode(ray_id),
+                encode_info = hex::encode(transmission_info)
+            );
 
             let mut repair_packets =
                 (payload.gossip_frame.len() as f32 * self.conf.fec_redundancy
@@ -86,14 +92,15 @@ impl Encoder for RaptorQEncoder {
                 .get_encoded_packets(repair_packets)
                 .iter()
                 .map(|encoded_packet| {
-                    let mut packet_with_uid = base_packet.clone();
-                    packet_with_uid.append(&mut encoded_packet.serialize());
+                    let mut gossip_frame = raptorq_header.clone();
+                    gossip_frame.append(&mut encoded_packet.serialize());
                     Message::Broadcast(
                         header,
                         BroadcastPayload {
                             height: payload.height,
-                            gossip_frame: packet_with_uid,
+                            gossip_frame,
                         },
+                        ray_id,
                     )
                 })
                 .collect();

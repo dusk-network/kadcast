@@ -24,6 +24,7 @@ use crate::{RwLock, K_K};
 pub struct MessageInfo {
     pub(crate) src: SocketAddr,
     pub(crate) height: u8,
+    pub(crate) ray_id: [u8; 32],
 }
 
 impl MessageInfo {
@@ -34,6 +35,10 @@ impl MessageInfo {
     /// Returns current kadcast broadcast height
     pub fn height(&self) -> u8 {
         self.height
+    }
+    /// Returns the ray-id for this message (if any)
+    pub fn ray_id(&self) -> &[u8] {
+        &self.ray_id
     }
 }
 
@@ -103,8 +108,7 @@ impl MessageHandler {
             while let Some((message, mut remote_peer_addr)) =
                 inbound_receiver.recv().await
             {
-                debug!("Handler received message");
-                trace!("Handler received message {:?}", message);
+                trace!("Handler received message {}", message.type_byte());
                 remote_peer_addr.set_port(message.header().sender_port);
 
                 let header = message.header();
@@ -122,7 +126,7 @@ impl MessageHandler {
                 match handler.handle_peer(remote_peer, &message).await {
                     Ok(_) => {}
                     Err(NodeInsertError::Full(n)) => {
-                        debug!(
+                        trace!(
                             "Unable to insert node - FULL {}",
                             n.value().address()
                         )
@@ -224,8 +228,9 @@ impl MessageHandler {
                 self.handle_find_nodes(remote_node_addr, &target).await
             }
             Message::Nodes(_, _, nodes) => self.handle_nodes(nodes).await,
-            Message::Broadcast(_, payload) => {
-                self.handle_broadcast(remote_node_addr, payload).await
+            Message::Broadcast(_, payload, ray_id) => {
+                self.handle_broadcast(remote_node_addr, payload, ray_id)
+                    .await
             }
         }
     }
@@ -307,17 +312,24 @@ impl MessageHandler {
         &self,
         src: SocketAddr,
         payload: BroadcastPayload,
+        ray_id: [u8; 32],
     ) {
         let height = payload.height;
         let gossip_frame = payload.gossip_frame;
         debug!(
-            "Received payload with height {height} and len {}",
-            gossip_frame.len()
+            event = "handle broadcast",
+            height,
+            size = gossip_frame.len(),
+            ray = hex::encode(ray_id)
         );
 
         // Aggregate message + metadata for lib client
         let msg = gossip_frame.clone();
-        let md = MessageInfo { src, height };
+        let md = MessageInfo {
+            src,
+            height,
+            ray_id,
+        };
 
         // Notify lib client
         self.listener_sender
@@ -327,7 +339,7 @@ impl MessageHandler {
 
         if self.auto_propagate && height > 0 {
             let new_height = height - 1;
-            debug!("Extracting for height {new_height}");
+            trace!("Extracting for height {new_height}");
 
             let messages: Vec<_> = {
                 let table_read = self.ktable.read().await;
@@ -341,7 +353,7 @@ impl MessageHandler {
                             height,
                             gossip_frame,
                         };
-                        let msg = Message::Broadcast(self.my_header, payload);
+                        let msg = Message::broadcast(self.my_header, payload);
                         let targets =
                             nodes.map(|node| *node.value().address()).collect();
                         (msg, targets)

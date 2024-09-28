@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn test_encode_broadcast() -> Result<()> {
         let peer = PeerNode::generate("192.168.0.1:666", 0)?;
-        let a = Message::Broadcast(
+        let a = Message::broadcast(
             peer.to_header(),
             BroadcastPayload {
                 height: 10,
