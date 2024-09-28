@@ -72,13 +72,13 @@ impl Encoder for RaptorQEncoder {
                 ExtEncoder::with_defaults(&payload.gossip_frame, self.conf.mtu);
             let transmission_info = encoder.get_config().serialize();
 
-            let uid = payload.generate_uid()?.to_vec();
-            let base_packet = [&uid[..], &transmission_info].concat();
+            let ray_id = payload.generate_ray_id()?;
+            let raptorq_header = [&ray_id[..], &transmission_info].concat();
 
             debug!(
                 event = "Start encoding payload",
-                ray = hex::encode(&uid),
-                encode_info = hex::encode(&transmission_info)
+                ray = hex::encode(ray_id),
+                encode_info = hex::encode(transmission_info)
             );
 
             let mut repair_packets =
@@ -92,15 +92,15 @@ impl Encoder for RaptorQEncoder {
                 .get_encoded_packets(repair_packets)
                 .iter()
                 .map(|encoded_packet| {
-                    let mut packet_with_uid = base_packet.clone();
-                    let ray = uid.clone();
-                    packet_with_uid.append(&mut encoded_packet.serialize());
+                    let mut gossip_frame = raptorq_header.clone();
+                    let ray_id = ray_id.to_vec();
+                    gossip_frame.append(&mut encoded_packet.serialize());
                     Message::Broadcast(
                         header,
                         BroadcastPayload {
                             height: payload.height,
-                            gossip_frame: packet_with_uid,
-                            ray,
+                            gossip_frame,
+                            ray_id,
                         },
                     )
                 })

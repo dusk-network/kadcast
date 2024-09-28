@@ -5,7 +5,7 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use std::collections::BTreeMap;
-use std::convert::TryInto;
+use std::convert::TryFrom;
 use std::io;
 use std::time::{Duration, Instant};
 
@@ -13,7 +13,7 @@ use raptorq::{Decoder as ExtDecoder, EncodingPacket};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
-use super::{ChunkedPayload, TRANSMISSION_INFO_SIZE, UID_SIZE};
+use super::{ChunkedPayload, CHUNKED_HEADER_SIZE};
 use crate::encoding::message::Message;
 use crate::encoding::payload::BroadcastPayload;
 use crate::transport::encoding::Configurable;
@@ -25,7 +25,7 @@ const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
 const DEFAULT_MAX_UDP_LEN: u64 = 10 * 1_024 * 1_024;
 
 pub struct RaptorQDecoder {
-    cache: BTreeMap<[u8; UID_SIZE + TRANSMISSION_INFO_SIZE], CacheStatus>,
+    cache: BTreeMap<[u8; CHUNKED_HEADER_SIZE], CacheStatus>,
     last_pruned: Instant,
     conf: RaptorQDecoderConf,
 }
@@ -82,13 +82,13 @@ impl Decoder for RaptorQDecoder {
     fn decode(&mut self, message: Message) -> io::Result<Option<Message>> {
         if let Message::Broadcast(header, payload) = message {
             trace!("> Decoding broadcast chunk");
-            let chunked: ChunkedPayload = (&payload).try_into()?;
-            let uid = chunked.uid();
+            let chunked = ChunkedPayload::try_from(&payload)?;
+            let ray_id = chunked.ray_id();
             let encode_info = chunked.transmission_info_bytes();
-            let uid_with_info = chunked.uid_with_info();
+            let chunked_header = chunked.header();
 
-            // Perform a `match` on the cache entry against the uid.
-            let status = match self.cache.entry(uid_with_info) {
+            // Perform a `match` on the cache entry against the chunked header.
+            let status = match self.cache.entry(chunked_header) {
                 // Cache status exists: return it
                 std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
 
@@ -101,7 +101,7 @@ impl Decoder for RaptorQDecoder {
                         Ok(safe_info) => {
                             debug!(
                                 event = "Start decoding payload",
-                                ray = hex::encode(uid),
+                                ray = hex::encode(ray_id),
                                 encode_info = hex::encode(encode_info)
                             );
 
@@ -150,12 +150,12 @@ impl Decoder for RaptorQDecoder {
                             let payload = BroadcastPayload {
                                 height: *max_height,
                                 gossip_frame: decoded,
-                                ray: uid.to_vec(),
+                                ray_id: ray_id.to_vec(),
                             };
                             // Perform integrity check
-                            match payload.generate_uid() {
+                            match payload.generate_ray_id() {
                                 // Compare received ID with the one generated
-                                Ok(uid) if chunked.uid().eq(&uid) => {
+                                Ok(ray_id) if chunked.ray_id().eq(&ray_id) => {
                                     Some(Message::Broadcast(header, payload))
                                 }
                                 _ => {
@@ -170,7 +170,7 @@ impl Decoder for RaptorQDecoder {
                         // to propagate already processed messages
                         .map(|decoded| {
                             self.cache.insert(
-                                uid_with_info,
+                                chunked_header,
                                 CacheStatus::Processed(
                                     Instant::now() + self.conf.cache_ttl,
                                 ),
@@ -225,7 +225,7 @@ mod tests {
             BroadcastPayload {
                 height: 0,
                 gossip_frame: vec![0],
-                ray: vec![],
+                ray_id: vec![],
             },
         ))? {
             dec.decode(n)?;
@@ -246,7 +246,7 @@ mod tests {
                 BroadcastPayload {
                     height: 0,
                     gossip_frame: vec![i],
-                    ray: vec![],
+                    ray_id: vec![],
                 },
             ))? {
                 dec.decode(n)?;
@@ -263,7 +263,7 @@ mod tests {
             BroadcastPayload {
                 height: 0,
                 gossip_frame: vec![0],
-                ray: vec![],
+                ray_id: vec![],
             },
         ))? {
             dec.decode(n)?;

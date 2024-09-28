@@ -24,14 +24,16 @@ struct ChunkedPayload<'a>(&'a BroadcastPayload);
 // ObjectTransmissionInformation Size (Raptorq header)
 const TRANSMISSION_INFO_SIZE: usize = 12;
 
-// UID Size (Blake2s256)
-const UID_SIZE: usize = 32;
+// RAY_ID Size (Blake2s256)
+const RAY_ID_SIZE: usize = 32;
+
+// CHUNKED_HEADER_SIZE Size
+const CHUNKED_HEADER_SIZE: usize = RAY_ID_SIZE + TRANSMISSION_INFO_SIZE;
 
 // EncodingPacket min size (RaptorQ packet)
 const MIN_ENCODING_PACKET_SIZE: usize = 5;
 
-const MIN_CHUNKED_SIZE: usize =
-    UID_SIZE + TRANSMISSION_INFO_SIZE + MIN_ENCODING_PACKET_SIZE;
+const MIN_CHUNKED_SIZE: usize = CHUNKED_HEADER_SIZE + MIN_ENCODING_PACKET_SIZE;
 
 impl<'a> TryFrom<&'a BroadcastPayload> for ChunkedPayload<'a> {
     type Error = io::Error;
@@ -53,7 +55,7 @@ impl BroadcastPayload {
         self.marshal_binary(&mut bytes)?;
         Ok(bytes)
     }
-    fn generate_uid(&self) -> io::Result<[u8; UID_SIZE]> {
+    fn generate_ray_id(&self) -> io::Result<[u8; RAY_ID_SIZE]> {
         let mut hasher = Blake2s256::new();
         // Remove the kadcast `height` field from the hash
         hasher.update(&self.bytes()?[1..]);
@@ -61,8 +63,8 @@ impl BroadcastPayload {
     }
 }
 impl<'a> ChunkedPayload<'a> {
-    fn uid(&self) -> &[u8] {
-        &self.0.gossip_frame[0..UID_SIZE]
+    fn ray_id(&self) -> &[u8] {
+        &self.0.gossip_frame[0..RAY_ID_SIZE]
     }
 
     fn transmission_info(
@@ -79,17 +81,17 @@ impl<'a> ChunkedPayload<'a> {
     }
 
     fn transmission_info_bytes(&self) -> &[u8] {
-        &self.0.gossip_frame[UID_SIZE..(UID_SIZE + TRANSMISSION_INFO_SIZE)]
+        &self.0.gossip_frame[RAY_ID_SIZE..(CHUNKED_HEADER_SIZE)]
     }
 
     fn encoded_chunk(&self) -> &[u8] {
-        &self.0.gossip_frame[(UID_SIZE + TRANSMISSION_INFO_SIZE)..]
+        &self.0.gossip_frame[(CHUNKED_HEADER_SIZE)..]
     }
 
-    fn uid_with_info(&self) -> [u8; UID_SIZE + TRANSMISSION_INFO_SIZE] {
-        let uid = &self.0.gossip_frame[0..UID_SIZE + TRANSMISSION_INFO_SIZE];
+    fn header(&self) -> [u8; CHUNKED_HEADER_SIZE] {
+        let header = &self.0.gossip_frame[0..CHUNKED_HEADER_SIZE];
 
-        // Why do we need transmission info?
+        // Why do we need transmission info included into the header?
         //
         // Transmission info should be sent over a reliable channel, because
         // it is critical to decode packets.
@@ -102,7 +104,7 @@ impl<'a> ChunkedPayload<'a> {
         // Since the correctness of an UDP packet is already guaranteed by OS
         // checksum checks, Hashing has been removed in order to increase the
         // decoding performance.
-        uid.try_into().expect("slice to be length 44")
+        header.try_into().expect("slice to be length 44")
     }
 }
 
@@ -136,7 +138,7 @@ mod tests {
         let payload = BroadcastPayload {
             height: 255,
             gossip_frame: data,
-            ray: vec![],
+            ray_id: vec![],
         };
         println!("orig payload len {}", payload.bytes()?.len());
         let message = Message::Broadcast(header, payload);
@@ -194,7 +196,7 @@ mod tests {
         let payload = BroadcastPayload {
             height: 255,
             gossip_frame: data,
-            ray: vec![],
+            ray_id: vec![],
         };
         println!("orig payload len {}", payload.bytes()?.len());
         let message = Message::Broadcast(header, payload);
@@ -223,7 +225,7 @@ mod tests {
                 BroadcastPayload {
                     height: 255,
                     gossip_frame,
-                    ray: vec![],
+                    ray_id: vec![],
                 },
             );
             if let Ok(Some(_)) = decoder.decode(msg) {

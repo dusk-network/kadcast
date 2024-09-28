@@ -12,7 +12,7 @@ use crate::encoding::Marshallable;
 pub(crate) struct BroadcastPayload {
     pub(crate) height: u8,
     pub(crate) gossip_frame: Vec<u8>,
-    pub(crate) ray: Vec<u8>,
+    pub(crate) ray_id: Vec<u8>,
 }
 
 impl Marshallable for BroadcastPayload {
@@ -34,7 +34,8 @@ impl Marshallable for BroadcastPayload {
         Ok(BroadcastPayload {
             height: height_buf[0],
             gossip_frame,
-            ray: vec![],
+            ray_id: vec![], /* We don't serialize the ray_id because is up to
+                             * the decoder. */
         })
     }
 }
