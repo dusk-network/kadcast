@@ -24,7 +24,7 @@ use crate::{RwLock, K_K};
 pub struct MessageInfo {
     pub(crate) src: SocketAddr,
     pub(crate) height: u8,
-    pub(crate) ray_id: Vec<u8>,
+    pub(crate) ray_id: [u8; 32],
 }
 
 impl MessageInfo {
@@ -228,8 +228,9 @@ impl MessageHandler {
                 self.handle_find_nodes(remote_node_addr, &target).await
             }
             Message::Nodes(_, _, nodes) => self.handle_nodes(nodes).await,
-            Message::Broadcast(_, payload) => {
-                self.handle_broadcast(remote_node_addr, payload).await
+            Message::Broadcast(_, payload, ray_id) => {
+                self.handle_broadcast(remote_node_addr, payload, ray_id)
+                    .await
             }
         }
     }
@@ -311,15 +312,15 @@ impl MessageHandler {
         &self,
         src: SocketAddr,
         payload: BroadcastPayload,
+        ray_id: [u8; 32],
     ) {
         let height = payload.height;
         let gossip_frame = payload.gossip_frame;
-        let ray_id = payload.ray_id;
         debug!(
             event = "handle broadcast",
             height,
             size = gossip_frame.len(),
-            ray = hex::encode(&ray_id)
+            ray = hex::encode(ray_id)
         );
 
         // Aggregate message + metadata for lib client
@@ -351,10 +352,8 @@ impl MessageHandler {
                         let payload = BroadcastPayload {
                             height,
                             gossip_frame,
-                            ray_id: vec![], /* ray will be set while sending
-                                             * according to the encoder */
                         };
-                        let msg = Message::Broadcast(self.my_header, payload);
+                        let msg = Message::broadcast(self.my_header, payload);
                         let targets =
                             nodes.map(|node| *node.value().address()).collect();
                         (msg, targets)

@@ -80,7 +80,7 @@ impl CacheStatus {
 
 impl Decoder for RaptorQDecoder {
     fn decode(&mut self, message: Message) -> io::Result<Option<Message>> {
-        if let Message::Broadcast(header, payload) = message {
+        if let Message::Broadcast(header, payload, ..) = message {
             trace!("> Decoding broadcast chunk");
             let chunked = ChunkedPayload::try_from(&payload)?;
             let ray_id = chunked.ray_id();
@@ -150,13 +150,14 @@ impl Decoder for RaptorQDecoder {
                             let payload = BroadcastPayload {
                                 height: *max_height,
                                 gossip_frame: decoded,
-                                ray_id: ray_id.to_vec(),
                             };
                             // Perform integrity check
                             match payload.generate_ray_id() {
                                 // Compare received ID with the one generated
                                 Ok(ray_id) if chunked.ray_id().eq(&ray_id) => {
-                                    Some(Message::Broadcast(header, payload))
+                                    Some(Message::Broadcast(
+                                        header, payload, ray_id,
+                                    ))
                                 }
                                 _ => {
                                     warn!("Invalid message decoded");
@@ -220,12 +221,11 @@ mod tests {
         assert_eq!(dec.cache_size(), 0);
 
         //Decode first message
-        for n in enc.encode(Message::Broadcast(
+        for n in enc.encode(Message::broadcast(
             root.to_header(),
             BroadcastPayload {
                 height: 0,
                 gossip_frame: vec![0],
-                ray_id: vec![],
             },
         ))? {
             dec.decode(n)?;
@@ -241,12 +241,11 @@ mod tests {
 
         // Decode other 3 messages
         for i in 1..4 {
-            for n in enc.encode(Message::Broadcast(
+            for n in enc.encode(Message::broadcast(
                 root.to_header(),
                 BroadcastPayload {
                     height: 0,
                     gossip_frame: vec![i],
-                    ray_id: vec![],
                 },
             ))? {
                 dec.decode(n)?;
@@ -258,12 +257,11 @@ mod tests {
         thread::sleep(Duration::from_millis(500));
 
         // Decode message, it should remove the previous 3
-        for n in enc.encode(Message::Broadcast(
+        for n in enc.encode(Message::broadcast(
             root.to_header(),
             BroadcastPayload {
                 height: 0,
                 gossip_frame: vec![0],
-                ray_id: vec![],
             },
         ))? {
             dec.decode(n)?;

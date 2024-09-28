@@ -208,13 +208,11 @@ impl Peer {
             .await
             .extract(height)
             .map(|(height, nodes)| {
-                let msg = Message::Broadcast(
+                let msg = Message::broadcast(
                     self.header,
                     BroadcastPayload {
                         height,
                         gossip_frame: message.to_vec(),
-                        ray_id: vec![], /* ray will be set while sending
-                                         * according to the encoder */
                     },
                 );
                 let targets =
@@ -246,12 +244,11 @@ impl Peer {
         }
         // We use the Broadcast message type while setting height to 0
         // to prevent further propagation at the receiver
-        let msg = Message::Broadcast(
+        let msg = Message::broadcast(
             self.header,
             BroadcastPayload {
                 height: 0,
                 gossip_frame: message.to_vec(), //FIX_ME: avoid clone
-                ray_id: vec![],
             },
         );
         let targets = vec![target];

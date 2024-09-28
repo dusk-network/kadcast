@@ -33,10 +33,14 @@ pub(crate) enum Message {
     Pong(Header, Version),
     FindNodes(Header, Version, BinaryKey),
     Nodes(Header, Version, NodePayload), //should we pass node[] as ref?
-    Broadcast(Header, BroadcastPayload),
+    Broadcast(Header, BroadcastPayload, [u8; 32]),
 }
 
 impl Message {
+    pub fn broadcast(header: Header, payload: BroadcastPayload) -> Self {
+        Self::Broadcast(header, payload, [0; 32])
+    }
+
     pub(crate) fn type_byte(&self) -> u8 {
         match self {
             Message::Ping(..) => ID_MSG_PING,
@@ -120,7 +124,7 @@ impl Marshallable for Message {
                 version.marshal_binary(writer)?;
                 node_payload.marshal_binary(writer)?;
             }
-            Message::Broadcast(_, broadcast_payload) => {
+            Message::Broadcast(_, broadcast_payload, ..) => {
                 broadcast_payload.marshal_binary(writer)?;
             }
         };
@@ -153,7 +157,7 @@ impl Marshallable for Message {
             }
             ID_MSG_BROADCAST => {
                 let payload = BroadcastPayload::unmarshal_binary(reader)?;
-                Ok(Message::Broadcast(header, payload))
+                Ok(Message::broadcast(header, payload))
             }
             unknown => Err(Error::new(
                 ErrorKind::Other,

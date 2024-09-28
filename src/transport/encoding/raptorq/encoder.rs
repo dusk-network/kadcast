@@ -67,7 +67,7 @@ impl Configurable for RaptorQEncoder {
 
 impl Encoder for RaptorQEncoder {
     fn encode<'msg>(&self, msg: Message) -> io::Result<Vec<Message>> {
-        if let Message::Broadcast(header, payload) = msg {
+        if let Message::Broadcast(header, payload, ..) = msg {
             let encoder =
                 ExtEncoder::with_defaults(&payload.gossip_frame, self.conf.mtu);
             let transmission_info = encoder.get_config().serialize();
@@ -93,15 +93,14 @@ impl Encoder for RaptorQEncoder {
                 .iter()
                 .map(|encoded_packet| {
                     let mut gossip_frame = raptorq_header.clone();
-                    let ray_id = ray_id.to_vec();
                     gossip_frame.append(&mut encoded_packet.serialize());
                     Message::Broadcast(
                         header,
                         BroadcastPayload {
                             height: payload.height,
                             gossip_frame,
-                            ray_id,
                         },
+                        ray_id,
                     )
                 })
                 .collect();

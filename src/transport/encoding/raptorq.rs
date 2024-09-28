@@ -138,10 +138,9 @@ mod tests {
         let payload = BroadcastPayload {
             height: 255,
             gossip_frame: data,
-            ray_id: vec![],
         };
         println!("orig payload len {}", payload.bytes()?.len());
-        let message = Message::Broadcast(header, payload);
+        let message = Message::broadcast(header, payload);
         let message_bytes = message.bytes()?;
         println!("orig message len {}", message_bytes.len());
         let start = Instant::now();
@@ -196,10 +195,9 @@ mod tests {
         let payload = BroadcastPayload {
             height: 255,
             gossip_frame: data,
-            ray_id: vec![],
         };
         println!("orig payload len {}", payload.bytes()?.len());
-        let message = Message::Broadcast(header, payload);
+        let message = Message::broadcast(header, payload);
         let message_bytes = message.bytes()?;
         println!("orig message len {}", message_bytes.len());
         let start = Instant::now();
@@ -220,12 +218,11 @@ mod tests {
             for _ in 0..DATA_LEN {
                 gossip_frame.push(rand::Rng::gen(&mut rand::thread_rng()));
             }
-            let msg = Message::Broadcast(
+            let msg = Message::broadcast(
                 header,
                 BroadcastPayload {
                     height: 255,
                     gossip_frame,
-                    ray_id: vec![],
                 },
             );
             if let Ok(Some(_)) = decoder.decode(msg) {
