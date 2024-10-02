@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix raptorQ cache default config
 - Fix ObjectTransmissionInformation deserialization
+- Fix duplicate processing for messages with different RaptorQ configurations
 
 ### Changed
 

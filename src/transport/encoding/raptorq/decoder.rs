@@ -13,7 +13,7 @@ use raptorq::{Decoder as ExtDecoder, EncodingPacket};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
-use super::{ChunkedPayload, CHUNKED_HEADER_SIZE};
+use super::{ChunkedPayload, RAY_ID_SIZE, TRANSMISSION_INFO_SIZE};
 use crate::encoding::message::Message;
 use crate::encoding::payload::BroadcastPayload;
 use crate::transport::encoding::Configurable;
@@ -25,7 +25,7 @@ const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
 const DEFAULT_MAX_UDP_LEN: u64 = 10 * 1_024 * 1_024;
 
 pub struct RaptorQDecoder {
-    cache: BTreeMap<[u8; CHUNKED_HEADER_SIZE], CacheStatus>,
+    cache: BTreeMap<[u8; RAY_ID_SIZE], CacheStatus>,
     last_pruned: Instant,
     conf: RaptorQDecoderConf,
 }
@@ -63,15 +63,27 @@ impl Configurable for RaptorQDecoder {
     }
 }
 
+struct ReceivingInfo {
+    expire_on: Instant,
+    max_kad_height: u8,
+}
+
+struct DecoderInfo {
+    decoder: ExtDecoder,
+    max_kad_blocks: usize,
+}
+
+type DecoderLists = BTreeMap<[u8; TRANSMISSION_INFO_SIZE], DecoderInfo>;
+
 enum CacheStatus {
-    Receiving(ExtDecoder, Instant, u8, usize),
+    Receiving(ReceivingInfo, DecoderLists),
     Processed(Instant),
 }
 
 impl CacheStatus {
     fn expired(&self) -> bool {
         let expire_on = match self {
-            CacheStatus::Receiving(_, expire_on, _, _) => expire_on,
+            CacheStatus::Receiving(info, _) => &info.expire_on,
             CacheStatus::Processed(expire_on) => expire_on,
         };
         expire_on < &Instant::now()
@@ -85,10 +97,9 @@ impl Decoder for RaptorQDecoder {
             let chunked = ChunkedPayload::try_from(&payload)?;
             let ray_id = chunked.ray_id();
             let encode_info = chunked.transmission_info_bytes();
-            let chunked_header = chunked.header();
 
-            // Perform a `match` on the cache entry against the chunked header.
-            let status = match self.cache.entry(chunked_header) {
+            // Perform a `match` on the cache entry against the ray id.
+            let status = match self.cache.entry(ray_id) {
                 // Cache status exists: return it
                 std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
 
@@ -96,59 +107,88 @@ impl Decoder for RaptorQDecoder {
                 // CacheStatus::Receiving status and binds a new Decoder with
                 // the received transmission information
                 std::collections::btree_map::Entry::Vacant(v) => {
-                    let info = chunked.transmission_info(self.conf.max_udp_len);
-                    match info {
-                        Ok(safe_info) => {
-                            debug!(
-                                event = "Start decoding payload",
-                                ray = hex::encode(ray_id),
-                                encode_info = hex::encode(encode_info)
-                            );
-
-                            v.insert(CacheStatus::Receiving(
-                                ExtDecoder::new(safe_info.inner),
-                                Instant::now() + self.conf.cache_ttl,
-                                payload.height,
-                                safe_info.max_blocks,
-                            ))
-                        }
-                        Err(e) => {
-                            return Err(io::Error::new(
-                                io::ErrorKind::Other,
-                                format!("Invalid transmission info {e:?}",),
-                            ));
-                        }
-                    }
+                    let receiving_info = ReceivingInfo {
+                        expire_on: Instant::now() + self.conf.cache_ttl,
+                        max_kad_height: payload.height,
+                    };
+                    v.insert(CacheStatus::Receiving(
+                        receiving_info,
+                        BTreeMap::new(),
+                    ))
                 }
             };
 
             let decoded = match status {
                 // Avoid to repropagate already processed messages
                 CacheStatus::Processed(_) => None,
-                CacheStatus::Receiving(decoder, _, max_height, max_blocks) => {
+                CacheStatus::Receiving(recv, list) => {
+                    // check right decoder according to the encoding info
+                    let decoder_info = match list.entry(encode_info) {
+                        // Cache status exists: return it
+                        std::collections::btree_map::Entry::Occupied(o) => {
+                            o.into_mut()
+                        }
+
+                        // Cache status not found: creates a new entry with
+                        // CacheStatus::Receiving status and binds a new Decoder
+                        // with the received
+                        // transmission information
+                        std::collections::btree_map::Entry::Vacant(v) => {
+                            let info = chunked
+                                .transmission_info(self.conf.max_udp_len);
+
+                            match info {
+                                Ok(safe_info) => {
+                                    debug!(
+                                        event = "Start decoding payload",
+                                        ray = hex::encode(ray_id),
+                                        encode_info = hex::encode(encode_info)
+                                    );
+
+                                    v.insert(DecoderInfo {
+                                        decoder: ExtDecoder::new(
+                                            safe_info.inner,
+                                        ),
+                                        max_kad_blocks: safe_info.max_blocks,
+                                    })
+                                }
+                                Err(e) => {
+                                    return Err(io::Error::new(
+                                        io::ErrorKind::Other,
+                                        format!(
+                                            "Invalid transmission info {e:?}",
+                                        ),
+                                    ));
+                                }
+                            }
+                        }
+                    };
+
                     // Depending on Beta replication, we can receive chunks of
                     // the same message from multiple peers.
                     // Those peers can send with different broadcast height.
                     // If those heights differs, we should check the highest one
                     // in order to preserve the propagation
-                    if payload.height > *max_height {
-                        *max_height = payload.height;
+                    if payload.height > recv.max_kad_height {
+                        recv.max_kad_height = payload.height;
                     }
+
                     let packet =
                         EncodingPacket::deserialize(chunked.encoded_chunk());
                     if packet.payload_id().source_block_number() as usize
-                        >= *max_blocks
+                        >= decoder_info.max_kad_blocks
                     {
                         return Ok(None);
                     };
 
-                    decoder
+                    decoder_info
+                        .decoder
                         .decode(packet)
                         // If decoded successfully, create the new
                         // BroadcastMessage
                         .and_then(|decoded| {
                             let payload = BroadcastPayload {
-                                height: *max_height,
+                                height: recv.max_kad_height,
                                 gossip_frame: decoded,
                             };
                             // Perform integrity check
@@ -171,7 +211,7 @@ impl Decoder for RaptorQDecoder {
                         // to propagate already processed messages
                         .map(|decoded| {
                             self.cache.insert(
-                                chunked_header,
+                                ray_id,
                                 CacheStatus::Processed(
                                     Instant::now() + self.conf.cache_ttl,
                                 ),

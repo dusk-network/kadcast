@@ -30,7 +30,7 @@
  * limitations under the License.
  */
 
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 use raptorq::ObjectTransmissionInformation;
 
@@ -60,7 +60,6 @@ pub(crate) struct SafeObjectTransmissionInformation {
 
 #[derive(Debug, Clone)]
 pub enum TransmissionInformationError {
-    InvalidSize,
     SourceBlocksZero,
     SymbolSizeZero,
     SymbolSizeGreaterThanMTU,
@@ -70,12 +69,13 @@ pub enum TransmissionInformationError {
     TooManySourceSymbols,
 }
 
-impl TryFrom<&[u8]> for SafeObjectTransmissionInformation {
+impl TryFrom<&[u8; TRANSMISSION_INFO_SIZE]>
+    for SafeObjectTransmissionInformation
+{
     type Error = TransmissionInformationError;
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        let value: &[u8; TRANSMISSION_INFO_SIZE] = value
-            .try_into()
-            .map_err(|_| TransmissionInformationError::InvalidSize)?;
+    fn try_from(
+        value: &[u8; TRANSMISSION_INFO_SIZE],
+    ) -> Result<Self, Self::Error> {
         let config = ObjectTransmissionInformation::deserialize(value);
 
         if config.source_blocks() == 0 {
