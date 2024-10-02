@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add range checks to MTU (between 1296 and 8192)
 - Add network version to handshake messages
 - Add Ray-ID to MessageInfo for message tracking
+- Add warning when discarding incomplete messages
 
 ### Fixed
 
