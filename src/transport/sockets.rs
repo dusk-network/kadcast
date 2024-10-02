@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
-use tokio::time::{self, Interval};
+use tokio::time::{self, timeout, Interval};
 use tracing::{info, warn};
 
 use super::encoding::Configurable;
@@ -72,26 +72,28 @@ impl MultipleOutSocket {
         if let Some(sleep) = &mut self.udp_backoff_timeout {
             sleep.tick().await;
         }
-        for i in 0..self.retry_count {
-            let res = match remote_addr.is_ipv4() {
-                true => self.ipv4.send_to(data, &remote_addr).await,
-                false => self.ipv6.send_to(data, &remote_addr).await,
+        let max_retry = self.retry_count;
+
+        for i in 1..=max_retry {
+            let send_fn = match remote_addr.is_ipv4() {
+                true => self.ipv4.send_to(data, *remote_addr),
+                false => self.ipv6.send_to(data, *remote_addr),
             };
-            match res {
-                Ok(_) => {
-                    if i > 0 {
+
+            let send = timeout(self.udp_send_retry_interval, send_fn)
+                .await
+                .map_err(|_| io::Error::new(io::ErrorKind::Other, "TIMEOUT"));
+
+            match send {
+                Ok(Ok(_)) => {
+                    if i > 1 {
                         info!("Message sent, recovered from previous error");
                     }
                     return Ok(());
                 }
-                Err(e) => {
-                    if i < (self.retry_count - 1) {
-                        warn!(
-                            "Unable to send msg, temptative {}/{} - {}",
-                            i + 1,
-                            self.retry_count,
-                            e
-                        );
+                Ok(Err(e)) | Err(e) => {
+                    if i < max_retry {
+                        warn!("Unable to send msg, temptative {i}/{max_retry} - {e}");
                         tokio::time::sleep(self.udp_send_retry_interval).await
                     } else {
                         return Err(e);
