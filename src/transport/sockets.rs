@@ -85,6 +85,10 @@ impl MultipleOutSocket {
                     }
                     return Ok(());
                 }
+                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    // Writable false positive.
+                    continue;
+                }
                 Err(e) => {
                     if i < retry_count {
                         warn!("Unable to send msg, temptative {i}/{retry_count} - {e}");
