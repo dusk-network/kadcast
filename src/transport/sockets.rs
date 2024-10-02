@@ -102,3 +102,37 @@ impl MultipleOutSocket {
         unreachable!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+    use crate::peer::PeerNode;
+    use crate::tests::Result;
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_send_peers() -> Result<()> {
+        // Generate a subscriber with the desired log level.
+        let subscriber = tracing_subscriber::fmt::Subscriber::builder()
+            .with_max_level(tracing::Level::DEBUG)
+            .finish();
+        // Set the subscriber as global.
+        // so this subscriber will be used as the default in all threads for the
+        // remainder of the duration of the program, similar to how `loggers`
+        // work in the `log` crate.
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("Failed on subscribe tracing");
+        let mut socket = MultipleOutSocket::configure(
+            &MultipleOutSocket::default_configuration(),
+        );
+        let data = [0u8; 1000];
+        let root = PeerNode::generate("192.168.0.1:666", 0)?;
+        let target = root.as_peer_info().to_socket_address();
+
+        for _ in 0..1000 * 1000 {
+            socket.send(&data, &target).await?
+        }
+        Ok(())
+       
+    }
+}
