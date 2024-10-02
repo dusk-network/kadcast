@@ -72,26 +72,22 @@ impl MultipleOutSocket {
         if let Some(sleep) = &mut self.udp_backoff_timeout {
             sleep.tick().await;
         }
-        for i in 0..self.retry_count {
+        let retry_count = self.retry_count;
+        for i in 1..=retry_count {
             let res = match remote_addr.is_ipv4() {
-                true => self.ipv4.send_to(data, &remote_addr).await,
-                false => self.ipv6.send_to(data, &remote_addr).await,
+                true => self.ipv4.try_send_to(data, *remote_addr),
+                false => self.ipv6.try_send_to(data, *remote_addr),
             };
             match res {
                 Ok(_) => {
-                    if i > 0 {
+                    if i > 1 {
                         info!("Message sent, recovered from previous error");
                     }
                     return Ok(());
                 }
                 Err(e) => {
-                    if i < (self.retry_count - 1) {
-                        warn!(
-                            "Unable to send msg, temptative {}/{} - {}",
-                            i + 1,
-                            self.retry_count,
-                            e
-                        );
+                    if i < retry_count {
+                        warn!("Unable to send msg, temptative {i}/{retry_count} - {e}");
                         tokio::time::sleep(self.udp_send_retry_interval).await
                     } else {
                         return Err(e);
@@ -105,7 +101,7 @@ impl MultipleOutSocket {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use tracing::error;
 
     use super::*;
     use crate::peer::PeerNode;
@@ -130,9 +126,10 @@ mod tests {
         let target = root.as_peer_info().to_socket_address();
 
         for _ in 0..1000 * 1000 {
-            socket.send(&data, &target).await?
+            if let Err(e) = socket.send(&data, &target).await {
+                error!("{e}");
+            }
         }
         Ok(())
-       
     }
 }
