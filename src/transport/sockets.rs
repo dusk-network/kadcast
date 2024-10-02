@@ -74,6 +74,7 @@ impl MultipleOutSocket {
         }
         let retry_count = self.retry_count;
         for i in 1..=retry_count {
+            self.ipv4.writable().await?;
             let res = match remote_addr.is_ipv4() {
                 true => self.ipv4.try_send_to(data, *remote_addr),
                 false => self.ipv6.try_send_to(data, *remote_addr),
@@ -85,9 +86,12 @@ impl MultipleOutSocket {
                     }
                     return Ok(());
                 }
-                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
                     // Writable false positive.
-                    continue;
+                    if i > 1 {
+                        info!("Message sent, recovered from previous error");
+                    }
+                    return Ok(());
                 }
                 Err(e) => {
                     if i < retry_count {
