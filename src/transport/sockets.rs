@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
-use tokio::time::{self, Interval};
+use tokio::time::{self, timeout, Interval};
 use tracing::{info, warn};
 
 use super::encoding::Configurable;
@@ -74,7 +74,17 @@ impl MultipleOutSocket {
         }
         let retry_count = self.retry_count;
         for i in 1..=retry_count {
-            self.ipv4.writable().await?;
+            let writable_fn = match remote_addr.is_ipv4() {
+                true => self.ipv4.writable(),
+                false => self.ipv6.writable(),
+            };
+            match timeout(self.udp_send_retry_interval, writable_fn).await {
+                Ok(inner) => inner,
+                Err(_) => Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "Unable to check writable in time",
+                )),
+            }?;
             let res = match remote_addr.is_ipv4() {
                 true => self.ipv4.try_send_to(data, *remote_addr),
                 false => self.ipv6.try_send_to(data, *remote_addr),
