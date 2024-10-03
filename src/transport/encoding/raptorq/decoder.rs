@@ -81,6 +81,10 @@ enum CacheStatus {
 }
 
 impl CacheStatus {
+    fn receiving(&self) -> bool {
+        matches!(&self, CacheStatus::Receiving(..))
+    }
+
     fn expired(&self) -> bool {
         let expire_on = match self {
             CacheStatus::Receiving(info, _) => &info.expire_on,
@@ -223,7 +227,16 @@ impl Decoder for RaptorQDecoder {
             };
             // Every X time, prune dupemap cache
             if self.last_pruned.elapsed() > self.conf.cache_prune_every {
-                self.cache.retain(|_, status| !status.expired());
+                self.cache.retain(|ray_id, status| {
+                    let keep = !status.expired();
+                    if !keep && status.receiving() {
+                        warn!(
+                            event = "dupemap discard",
+                            ray = hex::encode(ray_id)
+                        );
+                    };
+                    keep
+                });
                 self.last_pruned = Instant::now();
             }
             Ok(decoded)
