@@ -63,8 +63,10 @@ impl BroadcastPayload {
     }
 }
 impl<'a> ChunkedPayload<'a> {
-    fn ray_id(&self) -> &[u8] {
-        &self.0.gossip_frame[0..RAY_ID_SIZE]
+    fn ray_id(&self) -> [u8; RAY_ID_SIZE] {
+        self.0.gossip_frame[0..RAY_ID_SIZE]
+            .try_into()
+            .expect("slice to be length 32")
     }
 
     fn transmission_info(
@@ -73,38 +75,21 @@ impl<'a> ChunkedPayload<'a> {
     ) -> Result<SafeObjectTransmissionInformation, TransmissionInformationError>
     {
         let slice = self.transmission_info_bytes();
-        let info = SafeObjectTransmissionInformation::try_from(slice)?;
+        let info = SafeObjectTransmissionInformation::try_from(&slice)?;
         match info.inner.transfer_length() < max_udp_len {
             true => Ok(info),
             false => Err(TransmissionInformationError::TransferLengthExceeded),
         }
     }
 
-    fn transmission_info_bytes(&self) -> &[u8] {
-        &self.0.gossip_frame[RAY_ID_SIZE..(CHUNKED_HEADER_SIZE)]
+    fn transmission_info_bytes(&self) -> [u8; TRANSMISSION_INFO_SIZE] {
+        self.0.gossip_frame[RAY_ID_SIZE..(CHUNKED_HEADER_SIZE)]
+            .try_into()
+            .expect("slice to be length 12")
     }
 
     fn encoded_chunk(&self) -> &[u8] {
         &self.0.gossip_frame[(CHUNKED_HEADER_SIZE)..]
-    }
-
-    fn header(&self) -> [u8; CHUNKED_HEADER_SIZE] {
-        let header = &self.0.gossip_frame[0..CHUNKED_HEADER_SIZE];
-
-        // Why do we need transmission info included into the header?
-        //
-        // Transmission info should be sent over a reliable channel, because
-        // it is critical to decode packets.
-        // Since it is sent over UDP alongside the encoded chunked bytes,
-        // corrupted transmission info can be received.
-        // If the corrupted info is part of the first received chunk, no
-        // message can ever be decoded.
-        //
-        // ** UPDATE:
-        // Since the correctness of an UDP packet is already guaranteed by OS
-        // checksum checks, Hashing has been removed in order to increase the
-        // decoding performance.
-        header.try_into().expect("slice to be length 44")
     }
 }
 
