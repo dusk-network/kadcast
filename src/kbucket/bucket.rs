@@ -264,7 +264,7 @@ impl<V> Bucket<V> {
     /// Get idle nodes from the bucket.
     pub(crate) fn idle_nodes(&self) -> impl Iterator<Item = &Node<V>> {
         let ttl = self.bucket_config.node_ttl;
-        self.nodes.iter().filter(move |n| n.is_alive(ttl))
+        self.nodes.iter().filter(move |n| !n.is_alive(ttl))
     }
 
     /// Checks if the bucket contains a node with the given peer key.
