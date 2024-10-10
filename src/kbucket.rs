@@ -99,6 +99,15 @@ impl<V> Tree<V> {
             .take(ITEM_COUNT)
     }
 
+    pub(crate) fn buckets(
+        &self,
+    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>
+    {
+        self.buckets
+            .iter()
+            .map(|(&height, bucket)| (height, bucket.peers()))
+    }
+
     pub(crate) fn all_sorted(
         &self,
     ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>

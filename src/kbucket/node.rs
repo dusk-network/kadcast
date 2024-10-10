@@ -78,4 +78,18 @@ impl<TValue> Node<TValue> {
     pub(super) fn is_alive(&self, duration: Duration) -> bool {
         self.seen_at.elapsed() < duration
     }
+
+    /// Returns the time when the node was last seen.
+    ///
+    /// This function provides a reference to the `Instant` representing the
+    /// last time the node was observed as active in the network. It can be
+    /// used to determine the recency of the node's activity or
+    /// availability.
+    ///
+    /// # Returns
+    /// A reference to an `Instant` indicating the last observed activity of the
+    /// node.
+    pub fn seen_at(&self) -> &Instant {
+        &self.seen_at
+    }
 }
