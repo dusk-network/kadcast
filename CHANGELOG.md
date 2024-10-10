@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `Peer:send_to_peers` API
 - Add `max_udp_len` configuration parameter
 - Add range checks to MTU (between 1296 and 8192)
 - Add network version to handshake messages

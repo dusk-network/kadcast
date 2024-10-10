@@ -239,6 +239,25 @@ impl Peer {
     /// The function returns just after the message is put on the internal queue
     /// system. It **does not guarantee** the message will be broadcasted
     pub async fn send(&self, message: &[u8], target: SocketAddr) {
+        self.send_to_peers(message, vec![target]).await
+    }
+
+    /// Send a message to multiple peers in the network
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - Byte array containing the message to be sent
+    /// * `targets` - Vector of receiver addresses (`Vec<SocketAddr>`)
+    ///
+    /// Note:
+    /// The function returns just after the message is put on the internal queue
+    /// system. It **does not guarantee** the message will be broadcasted to
+    /// all.
+    pub async fn send_to_peers(
+        &self,
+        message: &[u8],
+        targets: Vec<SocketAddr>,
+    ) {
         if message.is_empty() {
             return;
         }
@@ -248,10 +267,9 @@ impl Peer {
             self.header,
             BroadcastPayload {
                 height: 0,
-                gossip_frame: message.to_vec(), //FIX_ME: avoid clone
+                gossip_frame: message.to_vec(),
             },
         );
-        let targets = vec![target];
         self.outbound_sender
             .send((msg, targets))
             .await
