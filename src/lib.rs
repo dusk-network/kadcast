@@ -4,9 +4,11 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::net::AddrParseError;
 use std::net::SocketAddr;
+use std::time::Instant;
 
 use config::Config;
 use encoding::message::{Header, Message};
@@ -180,6 +182,28 @@ impl Peer {
             let nodes_joined = nodes.map(|p| p.value().address()).join(",");
             info!("H: {h} - Nodes {nodes_joined}");
         });
+    }
+
+    /// Returns the current routing table.
+    ///
+    /// # Returns
+    /// A `BTreeMap<u8, Vec<(SocketAddr, Instant)>>` where each key is the
+    /// bucket height and each value is a vector of tuples containing a
+    /// node's address and last seen time.
+    pub async fn to_route_table(
+        &self,
+    ) -> BTreeMap<u8, Vec<(SocketAddr, Instant)>> {
+        let mut route_table = BTreeMap::new();
+
+        let table_read = self.ktable.read().await;
+        table_read.buckets().for_each(|(h, nodes)| {
+            let nodes = nodes
+                .map(|p| (*p.value().address(), *p.seen_at()))
+                .collect::<Vec<_>>();
+            route_table.insert(h, nodes);
+        });
+
+        route_table
     }
 
     /// Broadcast a message to the network
