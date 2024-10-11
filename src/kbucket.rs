@@ -11,7 +11,7 @@ pub use bucket::InsertError;
 pub use bucket::InsertOk;
 pub use bucket::{NodeInsertError, NodeInsertOk};
 use itertools::Itertools;
-use key::MAX_BUCKET_HEIGHT;
+pub use key::MAX_BUCKET_HEIGHT;
 pub use key::{BinaryID, BinaryKey, BinaryNonce};
 pub use node::Node;
 use std::collections::hash_map::Entry;
@@ -163,6 +163,13 @@ impl<V> Tree<V> {
         self.buckets
             .get(&height)
             .map_or(false, |bucket| bucket.is_full())
+    }
+
+    pub(crate) fn bucket_size(&self, height: BucketHeight) -> usize {
+        self.buckets
+            .get(&height)
+            .map(|bucket| bucket.peers().count())
+            .unwrap_or_default()
     }
 
     pub(crate) fn new(root: Node<V>, config: BucketConfig) -> Tree<V> {
