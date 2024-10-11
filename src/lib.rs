@@ -16,6 +16,7 @@ use encoding::payload::BroadcastPayload;
 use handling::MessageHandler;
 pub use handling::MessageInfo;
 use itertools::Itertools;
+use kbucket::MAX_BUCKET_HEIGHT;
 use kbucket::{BucketHeight, Tree};
 use maintainer::TableMaintainer;
 use peer::{PeerInfo, PeerNode};
@@ -23,6 +24,7 @@ use rand::prelude::IteratorRandom;
 pub(crate) use rwlock::RwLock;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task;
+use tracing::warn;
 use tracing::{error, info};
 use transport::{MessageBeanOut, WireNetwork};
 
@@ -226,10 +228,24 @@ impl Peer {
             return;
         }
 
-        let tosend: Vec<_> = self
-            .ktable
-            .read()
-            .await
+        for i in self.extract(message, height).await {
+            self.outbound_sender.send(i).await.unwrap_or_else(|e| {
+                error!("Unable to send from broadcast {e}")
+            });
+        }
+    }
+
+    async fn extract(
+        &self,
+        message: &[u8],
+        height: Option<BucketHeight>,
+    ) -> Vec<(Message, Vec<SocketAddr>)> {
+        const LAST_BUCKET_IDX: u8 = MAX_BUCKET_HEIGHT as u8 - 1;
+        let ktable = self.ktable.read().await;
+        if height.is_none() && ktable.bucket_size(LAST_BUCKET_IDX) == 0 {
+            warn!("Broadcasting a new message with empty bucket height {LAST_BUCKET_IDX}")
+        }
+        ktable
             .extract(height)
             .map(|(height, nodes)| {
                 let msg = Message::broadcast(
@@ -243,13 +259,7 @@ impl Peer {
                     nodes.map(|node| *node.value().address()).collect();
                 (msg, targets)
             })
-            .collect();
-
-        for i in tosend {
-            self.outbound_sender.send(i).await.unwrap_or_else(|e| {
-                error!("Unable to send from broadcast {e}")
-            });
-        }
+            .collect()
     }
 
     /// Send a message to a peer in the network

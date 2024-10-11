@@ -19,8 +19,11 @@ use crate::{K_DIFF_MIN_BIT, K_DIFF_PRODUCED_BIT};
 
 use super::BucketHeight;
 
+pub const MAX_BUCKET_HEIGHT: usize =
+    K_ID_LEN_BYTES * BucketHeight::BITS as usize;
+
 const _: () = assert!(
-    (K_ID_LEN_BYTES * BucketHeight::BITS as usize) < BucketHeight::MAX as usize,
+    MAX_BUCKET_HEIGHT < BucketHeight::MAX as usize,
     "K_ID_LEN_BYTES must be lower than BucketHeight::MAX"
 );
 
@@ -82,6 +85,27 @@ impl BinaryID {
             .find(|(_, b)| b != &0b0)
             .map(|(i, b)| (i as BucketHeight, b))
             .map(|(i, b)| BinaryID::msb(b).expect("to be Some") + (i << 3) - 1)
+    }
+
+    /// Given a specific `kadcast` distance, this method generates a `BinaryKey`
+    /// that has the requested XOR-based distance from `self`.
+    ///
+    /// The method works by flipping the bit at the specified `distance` in the
+    /// binary representation of the `BinaryId`. The distance is used to
+    /// identify both the byte (`idx`) and the bit within that byte
+    /// (`bit_to_change`) to be modified. The bit is toggled (flipped) using
+    /// an XOR operation, resulting in a new `BinaryKey` that differs from
+    /// `self` at exactly the requested distance.
+    pub fn get_at_distance(&self, distance: BucketHeight) -> BinaryKey {
+        let mut new_key = self.bytes;
+
+        let distance = distance as usize;
+        let idx = distance / 8;
+        let bit_to_change = distance % 8;
+
+        new_key[idx] ^= 1 << bit_to_change;
+
+        new_key
     }
 
     /// Returns the position of the most significant bit set in a byte.
@@ -168,6 +192,8 @@ impl BinaryID {
 #[cfg(test)]
 mod tests {
 
+    use itertools::Itertools;
+
     use super::*;
     use crate::kbucket::BucketHeight;
     use crate::peer::PeerNode;
@@ -202,6 +228,25 @@ mod tests {
                 n1.calculate_distance(&n_in),
                 n1.id().calculate_distance_native(n_in.id())
             );
+        }
+        Ok(())
+    }
+
+    fn key_as_string(key: BinaryKey) -> String {
+        key.iter().map(|b| format!("{b:08b}")).join(" ")
+    }
+
+    #[test]
+    fn test_get_at_distance() -> Result<()> {
+        let current = PeerNode::generate("192.168.0.1:666", 0)?;
+        let current_str = key_as_string(current.as_peer_info().id);
+        for i in 0..(8 * K_ID_LEN_BYTES) {
+            let other = current.id().get_at_distance(i as u8);
+            let other_str = key_as_string(other);
+            println!("current {current_str}");
+            println!("other   {other_str}");
+            println!("distance {i:?}");
+            assert_eq!(current.id().calculate_distance(&other), Some(i as u8))
         }
         Ok(())
     }

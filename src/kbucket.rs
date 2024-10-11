@@ -11,6 +11,7 @@ pub use bucket::InsertError;
 pub use bucket::InsertOk;
 pub use bucket::{NodeInsertError, NodeInsertOk};
 use itertools::Itertools;
+pub use key::MAX_BUCKET_HEIGHT;
 pub use key::{BinaryID, BinaryKey, BinaryNonce};
 pub use node::Node;
 use std::collections::hash_map::Entry;
@@ -20,7 +21,6 @@ mod bucket;
 mod key;
 mod node;
 use crate::config::BucketConfig;
-use crate::K_ALPHA;
 use crate::K_BETA;
 
 pub type BucketHeight = u8;
@@ -118,25 +118,12 @@ impl<V> Tree<V> {
             .map(|(&height, bucket)| (height, bucket.peers()))
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn idle_or_empty_heigth(
-        &'static self,
-    ) -> impl Iterator<Item = BucketHeight> {
-        let max_buckets = (crate::K_ID_LEN_BYTES * 8) as BucketHeight;
-        (0..max_buckets).filter(move |h| {
-            self.buckets.get(h).map_or_else(|| true, |b| b.has_idle())
-        })
-    }
-
-    // pick at most Alpha nodes for each idle bucket
-    pub(crate) fn idle_buckets(
-        &self,
-    ) -> impl Iterator<Item = (BucketHeight, impl Iterator<Item = &Node<V>>)>
-    {
-        self.buckets
-            .iter()
-            .filter(|(_, bucket)| bucket.has_idle())
-            .map(|(&height, bucket)| (height, bucket.pick::<K_ALPHA>()))
+    pub(crate) fn idle_or_empty_height(&self) -> Vec<BucketHeight> {
+        (0..MAX_BUCKET_HEIGHT as u8)
+            .filter(|h| {
+                self.buckets.get(h).map_or_else(|| true, |b| b.has_idle())
+            })
+            .collect()
     }
 
     // Return the height of a Peer
@@ -176,6 +163,13 @@ impl<V> Tree<V> {
         self.buckets
             .get(&height)
             .map_or(false, |bucket| bucket.is_full())
+    }
+
+    pub(crate) fn bucket_size(&self, height: BucketHeight) -> usize {
+        self.buckets
+            .get(&height)
+            .map(|bucket| bucket.peers().count())
+            .unwrap_or_default()
     }
 
     pub(crate) fn new(root: Node<V>, config: BucketConfig) -> Tree<V> {
