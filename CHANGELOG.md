@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `Peer::to_route_table` API
+- Add `Peer:send_to_peers` API
 - Add `max_udp_len` configuration parameter
 - Add range checks to MTU (between 1296 and 8192)
 - Add network version to handshake messages
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix raptorQ cache default config
 - Fix ObjectTransmissionInformation deserialization
 - Fix duplicate processing for messages with different RaptorQ configurations
+- Fix idle nodes removal on maintainance
 
 ### Changed
 
