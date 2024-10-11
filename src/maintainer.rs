@@ -15,7 +15,7 @@ use crate::encoding::message::{Header, Message};
 use crate::kbucket::Tree;
 use crate::peer::PeerInfo;
 use crate::transport::MessageBeanOut;
-use crate::RwLock;
+use crate::{RwLock, K_ALPHA};
 
 pub(crate) struct TableMaintainer {
     bootstrapping_nodes: Vec<String>,
@@ -132,27 +132,39 @@ impl TableMaintainer {
         self.ktable.write().await.remove_idle_nodes();
     }
 
-    /// Search for idle buckets (no message received) and try to contact some of
-    /// the belonging nodes
+    /// Searches for idle or empty buckets (those without received messages) in
+    /// the routing table and requests information about the nodes in these
+    /// buckets from active peers.
+    ///
+    /// For each identified idle or empty bucket, it calculates a target binary
+    /// key using the `get_at_distance` method, which flips a specific bit
+    /// in the node's binary identifier based on the given distance. This
+    /// generates a new target key that is used to search for additional
+    /// nodes.
+    ///
+    /// A set of active peers, up to `K_ALPHA`, is gathered from the current
+    /// routing table and combined with the bootstrapping nodes to form the
+    /// list of peers to contact.
+    ///
+    /// The purpose of this method is to keep the routing table active and up to
+    /// date by finding new peers whenever buckets are empty or nodes become
+    /// unresponsive.
     async fn find_new_nodes(&self) {
         let table_lock_read = self.ktable.read().await;
+        let buckets_to_refresh = table_lock_read.idle_or_empty_height();
 
-        let find_node_messages = table_lock_read
-            .idle_buckets()
-            .flat_map(|(_, idle_nodes)| idle_nodes)
-            .map(|target| {
-                (
-                    Message::FindNodes(
-                        self.header,
-                        self.version.clone(),
-                        *target.id().as_binary(),
-                    ),
-                    //TODO: Extract alpha nodes
-                    vec![*target.value().address()],
-                )
-            });
-        for find_node in find_node_messages {
-            self.send(find_node).await;
+        let alive_peers = table_lock_read
+            .alive_nodes()
+            .map(|n| n.as_peer_info().to_socket_address())
+            .take(K_ALPHA)
+            .chain(self.bootstrapping_nodes_addr().into_iter())
+            .collect::<Vec<_>>();
+
+        for bucket_h in buckets_to_refresh {
+            let target = self.header.binary_id().get_at_distance(bucket_h);
+            let msg =
+                Message::FindNodes(self.header, self.version.clone(), target);
+            self.send((msg, alive_peers.clone())).await;
         }
     }
 }
