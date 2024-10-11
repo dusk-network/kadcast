@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add network version to handshake messages
 - Add Ray-ID to MessageInfo for message tracking
 - Add warning when discarding incomplete messages
+- Add tracing when broadcasting to an eclipsed network	
 
 ### Fixed
 
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix ObjectTransmissionInformation deserialization
 - Fix duplicate processing for messages with different RaptorQ configurations
 - Fix idle nodes removal on maintainance
+- Fix `find_new_nodes` to query the proper buckets	
 
 ### Changed
 
