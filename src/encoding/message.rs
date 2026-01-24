@@ -159,9 +159,10 @@ impl Marshallable for Message {
                 let payload = BroadcastPayload::unmarshal_binary(reader)?;
                 Ok(Message::broadcast(header, payload))
             }
-            unknown => Err(Error::other(
-                format!("Invalid message type: '{}'", unknown),
-            )),
+            unknown => Err(Error::other(format!(
+                "Invalid message type: '{}'",
+                unknown
+            ))),
         }
     }
 }

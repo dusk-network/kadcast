@@ -157,11 +157,9 @@ impl Decoder for RaptorQDecoder {
                                     })
                                 }
                                 Err(e) => {
-                                    return Err(io::Error::other(
-                                        format!(
-                                            "Invalid transmission info {e:?}",
-                                        ),
-                                    ));
+                                    return Err(io::Error::other(format!(
+                                        "Invalid transmission info {e:?}",
+                                    )));
                                 }
                             }
                         }
