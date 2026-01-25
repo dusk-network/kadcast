@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added MSRV, set to rust version `1.85`
+
+### Changed
+
+- Change rust edition to 2024
+- Change rust toolchain to stable
+
 ## [0.7.0] - 2024-10-21
 
 ### Added

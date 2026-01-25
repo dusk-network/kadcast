@@ -10,7 +10,7 @@ use std::io::{self, BufRead};
 use clap::{App, Arg};
 use kadcast::config::Config;
 use kadcast::{MessageInfo, NetworkListen, Peer};
-use rustc_tools_util::{get_version_info, VersionInfo};
+use rustc_tools_util::{VersionInfo, get_version_info};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]

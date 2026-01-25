@@ -8,7 +8,7 @@ use std::convert::TryInto;
 use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-use crate::{encoding::Marshallable, kbucket::BinaryKey, K_ID_LEN_BYTES};
+use crate::{K_ID_LEN_BYTES, encoding::Marshallable, kbucket::BinaryKey};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct NodePayload {

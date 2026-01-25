@@ -20,8 +20,8 @@ use tracing::info;
 mod bucket;
 mod key;
 mod node;
-use crate::config::BucketConfig;
 use crate::K_BETA;
+use crate::config::BucketConfig;
 
 pub type BucketHeight = u8;
 
@@ -75,7 +75,7 @@ impl<V> Tree<V> {
         let max_h = max_h.unwrap_or(BucketHeight::MAX);
         self.buckets
             .iter()
-            .filter(move |(&height, _)| height <= max_h)
+            .filter(move |&(&height, _)| height <= max_h)
             .map(|(&height, bucket)| (height, bucket.pick::<K_BETA>()))
     }
 
@@ -86,7 +86,7 @@ impl<V> Tree<V> {
     pub(crate) fn closest_peers<const ITEM_COUNT: usize>(
         &self,
         other: &BinaryKey,
-    ) -> impl Iterator<Item = &Node<V>> {
+    ) -> impl Iterator<Item = &Node<V>> + use<'_, ITEM_COUNT, V> {
         self.buckets
             .iter()
             .flat_map(|(_, b)| b.peers())

@@ -16,8 +16,8 @@ use tracing::{debug, trace, warn};
 use super::{ChunkedPayload, RAY_ID_SIZE, TRANSMISSION_INFO_SIZE};
 use crate::encoding::message::Message;
 use crate::encoding::payload::BroadcastPayload;
-use crate::transport::encoding::Configurable;
 use crate::transport::Decoder;
+use crate::transport::encoding::Configurable;
 
 const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
 const DEFAULT_CACHE_PRUNE_EVERY: Duration = Duration::from_secs(30);
@@ -249,8 +249,8 @@ mod tests {
     use super::*;
     use crate::peer::PeerNode;
     use crate::tests::Result;
-    use crate::transport::encoding::raptorq::RaptorQEncoder;
     use crate::transport::encoding::Encoder;
+    use crate::transport::encoding::raptorq::RaptorQEncoder;
 
     impl RaptorQDecoder {
         fn cache_size(&self) -> usize {

@@ -9,10 +9,10 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 use semver::Version;
 
-use super::node::{Node, NodeEvictionStatus};
 use super::BinaryKey;
-use crate::config::BucketConfig;
+use super::node::{Node, NodeEvictionStatus};
 use crate::K_K;
+use crate::config::BucketConfig;
 
 /// Represents a bucket for storing nodes in a Kademlia routing table.
 pub(super) struct Bucket<V> {
@@ -302,10 +302,10 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+    use crate::K_BETA;
     use crate::kbucket::Tree;
     use crate::peer::PeerNode;
     use crate::tests::Result;
-    use crate::K_BETA;
 
     impl<V> Bucket<V> {
         pub fn last_id(&self) -> Option<&BinaryKey> {
