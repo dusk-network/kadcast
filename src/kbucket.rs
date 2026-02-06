@@ -59,10 +59,10 @@ impl<V> Tree<V> {
     }
 
     fn get_or_create_bucket(&mut self, height: BucketHeight) -> &mut Bucket<V> {
-        return match self.buckets.entry(height) {
+        match self.buckets.entry(height) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => v.insert(Bucket::new(self.config)),
-        };
+        }
     }
 
     // iter the buckets (up to max_height, inclusive) and pick at most Beta
@@ -162,7 +162,7 @@ impl<V> Tree<V> {
     pub(crate) fn is_bucket_full(&self, height: BucketHeight) -> bool {
         self.buckets
             .get(&height)
-            .map_or(false, |bucket| bucket.is_full())
+            .is_some_and(|bucket| bucket.is_full())
     }
 
     pub(crate) fn bucket_size(&self, height: BucketHeight) -> usize {

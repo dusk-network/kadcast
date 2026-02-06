@@ -82,7 +82,7 @@ impl MultipleOutSocket {
 
             let send = timeout(self.udp_send_retry_interval, send_fn)
                 .await
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "TIMEOUT"));
+                .map_err(|_| io::Error::other("TIMEOUT"));
 
             match send {
                 Ok(Ok(_)) => {

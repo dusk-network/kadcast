@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::io::{self, Error, ErrorKind, Read, Write};
+use std::io::{self, Error, Read, Write};
 
 use super::Marshallable;
 use crate::{kbucket::BinaryID, K_ID_LEN_BYTES, K_NONCE_LEN};
@@ -26,7 +26,7 @@ impl Header {
 impl Marshallable for Header {
     fn marshal_binary<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         if !self.binary_id.verify_nonce() {
-            return Err(Error::new(ErrorKind::Other, "Invalid Nonce"));
+            return Err(Error::other("Invalid Nonce"));
         }
         writer.write_all(self.binary_id.as_binary())?;
         writer.write_all(self.binary_id.nonce())?;

@@ -127,7 +127,7 @@ impl BinaryID {
         if ret.verify_nonce() {
             Ok(ret)
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "Invalid Nonce"))
+            Err(io::Error::other("Invalid Nonce"))
         }
     }
 
@@ -177,7 +177,7 @@ impl BinaryID {
     where
         I: Iterator<Item = &'a u8>,
     {
-        bytes.next().map_or(false, |b| {
+        bytes.next().is_some_and(|b| {
             if difficulty <= 8 {
                 b.trailing_zeros() as usize >= difficulty
             } else if b != &0 {
