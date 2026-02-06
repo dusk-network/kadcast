@@ -17,7 +17,7 @@ use crate::encoding::message::{
 use crate::kbucket::{BinaryKey, NodeInsertError, NodeInsertOk, Tree};
 use crate::peer::{PeerInfo, PeerNode};
 use crate::transport::{MessageBeanIn, MessageBeanOut};
-use crate::{RwLock, K_K};
+use crate::{K_K, RwLock};
 
 /// Message metadata for incoming message notifications
 #[derive(Debug)]

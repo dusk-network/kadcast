@@ -11,10 +11,10 @@ use blake2::{Blake2s256, Digest};
 
 use crate::kbucket::{BinaryID, BinaryKey};
 pub type PeerNode = Node<PeerInfo>;
+use crate::K_ID_LEN_BYTES;
 use crate::encoding::message::Header;
 use crate::encoding::payload::{IpInfo, PeerEncodedInfo};
 use crate::kbucket::Node;
-use crate::K_ID_LEN_BYTES;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PeerInfo {
     address: SocketAddr,

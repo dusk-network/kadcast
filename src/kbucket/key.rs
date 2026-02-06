@@ -6,9 +6,9 @@
 
 use std::io;
 
-use crate::encoding::Marshallable;
 use crate::K_ID_LEN_BYTES;
 use crate::K_NONCE_LEN;
+use crate::encoding::Marshallable;
 
 pub type BinaryKey = [u8; K_ID_LEN_BYTES];
 pub type BinaryNonce = [u8; K_NONCE_LEN];

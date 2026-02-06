@@ -15,8 +15,8 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::config::Config;
-use crate::encoding::message::Message;
 use crate::encoding::Marshallable;
+use crate::encoding::message::Message;
 use crate::rwlock::RwLock;
 use crate::transport::encoding::{
     Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,

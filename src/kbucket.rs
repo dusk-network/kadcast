@@ -20,8 +20,8 @@ use tracing::info;
 mod bucket;
 mod key;
 mod node;
-use crate::config::BucketConfig;
 use crate::K_BETA;
+use crate::config::BucketConfig;
 
 pub type BucketHeight = u8;
 

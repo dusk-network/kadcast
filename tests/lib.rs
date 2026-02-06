@@ -134,7 +134,11 @@ mod tests {
                 let removed = missing.remove(&(receiver_port as i32));
                 info!(
                     "RECEIVER PORT: {} - Message N° {} got from {:?} -  Left {} - Removed {:?}",
-                    receiver_port, i, message.1, missing.len(), removed
+                    receiver_port,
+                    i,
+                    message.1,
+                    missing.len(),
+                    removed
                 );
             }
         }

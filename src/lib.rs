@@ -243,7 +243,9 @@ impl Peer {
         const LAST_BUCKET_IDX: u8 = MAX_BUCKET_HEIGHT as u8 - 1;
         let ktable = self.ktable.read().await;
         if height.is_none() && ktable.bucket_size(LAST_BUCKET_IDX) == 0 {
-            warn!("Broadcasting a new message with empty bucket height {LAST_BUCKET_IDX}")
+            warn!(
+                "Broadcasting a new message with empty bucket height {LAST_BUCKET_IDX}"
+            )
         }
         ktable
             .extract(height)

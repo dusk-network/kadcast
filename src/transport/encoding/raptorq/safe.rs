@@ -34,7 +34,7 @@ use std::convert::TryFrom;
 
 use raptorq::ObjectTransmissionInformation;
 
-use super::{encoder::MAX_MTU, TRANSMISSION_INFO_SIZE};
+use super::{TRANSMISSION_INFO_SIZE, encoder::MAX_MTU};
 
 // This should eventually become <https://doc.rust-lang.org/std/primitive.u64.html#method.div_ceil>
 // when it gets stabilized, and this function should be removed.

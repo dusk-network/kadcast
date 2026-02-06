@@ -10,7 +10,7 @@ use std::io::{self, ErrorKind};
 use blake2::{Blake2s256, Digest};
 use safe::{SafeObjectTransmissionInformation, TransmissionInformationError};
 
-use crate::encoding::{payload::BroadcastPayload, Marshallable};
+use crate::encoding::{Marshallable, payload::BroadcastPayload};
 
 mod decoder;
 mod encoder;
