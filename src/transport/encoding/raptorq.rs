@@ -116,7 +116,7 @@ mod tests {
         let mut data = vec![0; 100_000];
 
         for i in 0..data.len() {
-            data[i] = rand::Rng::gen(&mut rand::thread_rng());
+            data[i] = rand::Rng::r#gen(&mut rand::thread_rng());
         }
         let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let header = peer.to_header();
@@ -173,7 +173,7 @@ mod tests {
         let mut data = vec![0; DATA_LEN];
 
         for i in 0..DATA_LEN {
-            data[i] = rand::Rng::gen(&mut rand::thread_rng());
+            data[i] = rand::Rng::r#gen(&mut rand::thread_rng());
         }
         let peer = PeerNode::generate("192.168.0.1:666", 0)?;
         let header = peer.to_header();
@@ -201,7 +201,7 @@ mod tests {
         for _ in 0..junks_messages {
             let mut gossip_frame = vec![];
             for _ in 0..DATA_LEN {
-                gossip_frame.push(rand::Rng::gen(&mut rand::thread_rng()));
+                gossip_frame.push(rand::Rng::r#gen(&mut rand::thread_rng()));
             }
             let msg = Message::broadcast(
                 header,
@@ -258,7 +258,7 @@ mod tests {
         c.seek(std::io::SeekFrom::Start(0))?;
         c.read_to_end(&mut bytes)?;
         for i in 44..bytes.len() {
-            bytes[i] = rand::Rng::gen(&mut rand::thread_rng());
+            bytes[i] = rand::Rng::r#gen(&mut rand::thread_rng());
         }
         let c = Cursor::new(bytes);
         let mut reader = BufReader::new(c);

@@ -72,7 +72,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(2000)).await;
         let mut data: Vec<u8> = vec![0; MESSAGE_SIZE];
         for i in 0..data.len() {
-            data[i] = rand::Rng::gen(&mut rand::thread_rng());
+            data[i] = rand::Rng::r#gen(&mut rand::thread_rng());
         }
         for i in 0..NODES {
             info!("ROUTING TABLE PEER #{}", i);

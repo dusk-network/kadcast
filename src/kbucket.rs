@@ -75,7 +75,7 @@ impl<V> Tree<V> {
         let max_h = max_h.unwrap_or(BucketHeight::MAX);
         self.buckets
             .iter()
-            .filter(move |(&height, _)| height <= max_h)
+            .filter(move |&(&height, _)| height <= max_h)
             .map(|(&height, bucket)| (height, bucket.pick::<K_BETA>()))
     }
 
