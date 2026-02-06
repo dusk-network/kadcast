@@ -11,13 +11,6 @@ use clap::{App, Arg};
 use kadcast::config::Config;
 use kadcast::{MessageInfo, NetworkListen, Peer};
 use rustc_tools_util::{get_version_info, VersionInfo};
-use serde_derive::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize)]
-struct General {
-    kadcast: kadcast::config::Config,
-}
-
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error>> {
     let crate_info = get_version_info!();

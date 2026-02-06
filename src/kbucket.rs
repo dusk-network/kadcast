@@ -12,7 +12,7 @@ pub use bucket::InsertOk;
 pub use bucket::{NodeInsertError, NodeInsertOk};
 use itertools::Itertools;
 pub use key::MAX_BUCKET_HEIGHT;
-pub use key::{BinaryID, BinaryKey, BinaryNonce};
+pub use key::{BinaryID, BinaryKey};
 pub use node::Node;
 use std::collections::hash_map::Entry;
 use tracing::info;
@@ -35,7 +35,7 @@ impl<V> Tree<V> {
     pub fn insert(
         &mut self,
         node: Node<V>,
-    ) -> Result<InsertOk<V>, InsertError<V>> {
+    ) -> Result<InsertOk<'_, V>, InsertError<V>> {
         if self.root().network_id != node.network_id {
             return Err(NodeInsertError::MismatchNetwork(node));
         }
@@ -48,7 +48,7 @@ impl<V> Tree<V> {
     pub fn refresh(
         &mut self,
         node: Node<V>,
-    ) -> Result<InsertOk<V>, InsertError<V>> {
+    ) -> Result<InsertOk<'_, V>, InsertError<V>> {
         if self.root().network_id != node.network_id {
             return Err(NodeInsertError::MismatchNetwork(node));
         }

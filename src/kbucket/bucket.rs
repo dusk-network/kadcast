@@ -153,7 +153,7 @@ impl<V> Bucket<V> {
     pub fn insert(
         &mut self,
         node: Node<V>,
-    ) -> Result<InsertOk<V>, InsertError<V>> {
+    ) -> Result<InsertOk<'_, V>, InsertError<V>> {
         if !node.id().verify_nonce() {
             return Err(NodeInsertError::Invalid(node));
         }
@@ -199,7 +199,7 @@ impl<V> Bucket<V> {
     pub fn refresh(
         &mut self,
         node: Node<V>,
-    ) -> Result<InsertOk<V>, InsertError<V>> {
+    ) -> Result<InsertOk<'_, V>, InsertError<V>> {
         if !node.id().verify_nonce() {
             return Err(NodeInsertError::Invalid(node));
         }
