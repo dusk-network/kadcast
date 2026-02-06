@@ -157,12 +157,9 @@ impl Decoder for RaptorQDecoder {
                                     })
                                 }
                                 Err(e) => {
-                                    return Err(io::Error::new(
-                                        io::ErrorKind::Other,
-                                        format!(
-                                            "Invalid transmission info {e:?}",
-                                        ),
-                                    ));
+                                    return Err(io::Error::other(format!(
+                                        "Invalid transmission info {e:?}",
+                                    )));
                                 }
                             }
                         }
@@ -213,7 +210,7 @@ impl Decoder for RaptorQDecoder {
                         // cache with new status. This
                         // will drop useless Decoder and avoid
                         // to propagate already processed messages
-                        .map(|decoded| {
+                        .inspect(|_decoded| {
                             self.cache.insert(
                                 ray_id,
                                 CacheStatus::Processed(
@@ -221,7 +218,6 @@ impl Decoder for RaptorQDecoder {
                                 ),
                             );
                             trace!("> Broadcast message decoded!");
-                            decoded
                         })
                 }
             };

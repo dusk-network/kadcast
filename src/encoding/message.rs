@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::io::{self, Error, ErrorKind, Read, Write};
+use std::io::{self, Error, Read, Write};
 
 use semver::Version;
 
@@ -159,10 +159,10 @@ impl Marshallable for Message {
                 let payload = BroadcastPayload::unmarshal_binary(reader)?;
                 Ok(Message::broadcast(header, payload))
             }
-            unknown => Err(Error::new(
-                ErrorKind::Other,
-                format!("Invalid message type: '{}'", unknown),
-            )),
+            unknown => Err(Error::other(format!(
+                "Invalid message type: '{}'",
+                unknown
+            ))),
         }
     }
 }

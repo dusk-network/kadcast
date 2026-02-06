@@ -153,7 +153,7 @@ impl<V> Bucket<V> {
     pub fn insert(
         &mut self,
         node: Node<V>,
-    ) -> Result<InsertOk<V>, InsertError<V>> {
+    ) -> Result<InsertOk<'_, V>, InsertError<V>> {
         if !node.id().verify_nonce() {
             return Err(NodeInsertError::Invalid(node));
         }
@@ -199,7 +199,7 @@ impl<V> Bucket<V> {
     pub fn refresh(
         &mut self,
         node: Node<V>,
-    ) -> Result<InsertOk<V>, InsertError<V>> {
+    ) -> Result<InsertOk<'_, V>, InsertError<V>> {
         if !node.id().verify_nonce() {
             return Err(NodeInsertError::Invalid(node));
         }
@@ -243,7 +243,7 @@ impl<V> Bucket<V> {
 
     /// Checks if the bucket has at least one idle node.
     pub(crate) fn has_idle(&self) -> bool {
-        self.nodes.first().map_or(false, |n| {
+        self.nodes.first().is_some_and(|n| {
             n.seen_at.elapsed() > self.bucket_config.bucket_ttl
         })
     }
@@ -286,13 +286,12 @@ impl<V> Bucket<V> {
         let node_idx =
             self.nodes.iter().position(|s| s.id().as_binary() == id)?;
 
-        self.nodes.pop_at(node_idx).map(|removed| {
+        self.nodes.pop_at(node_idx).inspect(|_| {
             if let Some(pending) = self.pending_node.take() {
                 if pending.is_alive(self.bucket_config.node_ttl) {
                     self.nodes.push(pending);
                 }
             }
-            removed
         })
     }
 }
