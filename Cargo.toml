@@ -2,7 +2,6 @@
 name = "kadcast"
 authors = ["herr-seppia <seppia@dusk.network>"]
 version = "0.7.0"
-edition = "2018"
 description = "Implementation of the Kadcast Network Protocol."
 categories = ["network-programming"]
 keywords = ["p2p", "network", "kad", "peer-to-peer", "kadcast"]
@@ -11,6 +10,7 @@ repository = "https://github.com/dusk-network/kadcast"
 publish = true
 
 rust-version = "1.85"
+edition = "2024"
 
 exclude = [".git*", "ARCHITECTURE.md", "architecture.jpg"]
 
