@@ -10,13 +10,23 @@ license = "MPL-2.0"
 repository = "https://github.com/dusk-network/kadcast"
 publish = true
 
+rust-version = "1.85"
+
 exclude = [".git*", "ARCHITECTURE.md", "architecture.jpg"]
 
 [dependencies]
 arrayvec = "0.7"
 blake2 = "0.10"
 rand = "0.8"
-tokio = { version = "1", features = ["rt", "net", "sync", "time", "io-std", "rt-multi-thread", "macros"] }
+tokio = { version = "1", features = [
+  "rt",
+  "net",
+  "sync",
+  "time",
+  "io-std",
+  "rt-multi-thread",
+  "macros",
+] }
 raptorq = { version = "2.0", optional = true }
 tracing = "0.1"
 itertools = "0.10"
@@ -35,7 +45,7 @@ tracing-subscriber = "0.2"
 toml = "0.5"
 
 [features]
-default = [ "raptorq" ]
+default = ["raptorq"]
 diagnostics = []
 
 [[example]]

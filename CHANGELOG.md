@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Move to stable MSRV 1.85
+
 ## [0.7.0] - 2024-10-21
 
 ### Added
@@ -18,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add network version to handshake messages
 - Add Ray-ID to MessageInfo for message tracking
 - Add warning when discarding incomplete messages
-- Add tracing when broadcasting to an eclipsed network	
+- Add tracing when broadcasting to an eclipsed network
 
 ### Fixed
 
@@ -26,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix ObjectTransmissionInformation deserialization
 - Fix duplicate processing for messages with different RaptorQ configurations
 - Fix idle nodes removal on maintainance
-- Fix `find_new_nodes` to query the proper buckets	
+- Fix `find_new_nodes` to query the proper buckets
 
 ### Changed
 
@@ -61,22 +65,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2023-05-17
 
 ### Added
+
 - Add network blocklist implementation [#117]
 
-### Changed 
+### Changed
+
 - Change `Peer::new` to return a Result [#115]
 - Change `blake2` dependency from `0.9` to `0.10` [#115]
 
 ## [0.4.1] - 2022-07-27
 
 ### Added
+
 - Remove idle nodes during bucket mantainance [#108]
 
 ### Fixed
+
 - Use provided nonce instead of regenerate it [#110]
 - Network bootstrap after being disconnected [#112]
 
 ## [0.4.0] - 2022-07-06
+
 ### Added
 
 - Add `kadcast::Config` [#96]
@@ -92,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dupemap cache expiring [#101]
 
 ## [0.3.0] - 2022-01-07
+
 ### Added
 
 - Add network transport configuration [#72] [#76]
@@ -107,7 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Deadlock in `RWLock.write()` [#80]
 - Preserve propagation in some edge-corner cases
-- Messages from buckets full are correctly handled 
+- Messages from buckets full are correctly handled
 - Empty payload NodesMessage decoding [#90]
 
 ## [0.2.0] - 2021-12-16
@@ -175,7 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.7.0]: https://github.com/dusk-network/kadcast/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/dusk-network/kadcast/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/dusk-network/kadcast/compare/v0.5.0...v0.6.0
-[0.5.1]: https://github.com/dusk-network/kadcast/compare/v0.4.1...v0.5.0
+[0.5.0]: https://github.com/dusk-network/kadcast/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/dusk-network/kadcast/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/dusk-network/kadcast/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dusk-network/kadcast/compare/v0.2.0...v0.3.0
