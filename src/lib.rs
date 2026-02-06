@@ -48,7 +48,7 @@ const K_DIFF_PRODUCED_BIT: usize = 8;
 
 const fn get_k_k() -> usize {
     match option_env!("KADCAST_K") {
-        Some(v) => match konst::primitive::parse_usize(v) {
+        Some(v) => match usize::from_str_radix(v, 10) {
             Ok(e) => e,
             Err(_) => DEFAULT_K_K,
         },
