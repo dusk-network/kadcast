@@ -87,13 +87,13 @@ impl MultipleOutSocket {
             match send {
                 Ok(Ok(_)) => {
                     if i > 1 {
-                        info!("Message sent, recovered from previous error");
+                        info!("Send msg success, attempt {i}");
                     }
                     return Ok(());
                 }
                 Ok(Err(e)) | Err(e) => {
                     if i < max_retry {
-                        warn!("Unable to send msg, temptative {i}/{max_retry} - {e}");
+                        warn!("Send msg failure, attempt {i} of {max_retry}, {e}");
                         tokio::time::sleep(self.udp_send_retry_interval).await
                     } else {
                         return Err(e);
