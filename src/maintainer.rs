@@ -15,7 +15,7 @@ use crate::encoding::message::{Header, Message};
 use crate::kbucket::Tree;
 use crate::peer::PeerInfo;
 use crate::transport::MessageBeanOut;
-use crate::{RwLock, K_ALPHA};
+use crate::{K_ALPHA, RwLock};
 
 pub(crate) struct TableMaintainer {
     bootstrapping_nodes: Vec<String>,

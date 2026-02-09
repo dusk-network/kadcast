@@ -6,8 +6,8 @@
 
 use std::time::{Duration, Instant};
 
-use super::key::BinaryID;
 use super::BucketHeight;
+use super::key::BinaryID;
 
 /// A struct representing a node in the network with an associated ID, value,
 /// and eviction status.

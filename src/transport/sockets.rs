@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
-use tokio::time::{self, timeout, Interval};
+use tokio::time::{self, Interval, timeout};
 use tracing::{info, warn};
 
 use super::encoding::Configurable;
@@ -93,7 +93,9 @@ impl MultipleOutSocket {
                 }
                 Ok(Err(e)) | Err(e) => {
                     if i < max_retry {
-                        warn!("Unable to send msg, temptative {i}/{max_retry} - {e}");
+                        warn!(
+                            "Unable to send msg, temptative {i}/{max_retry} - {e}"
+                        );
                         tokio::time::sleep(self.udp_send_retry_interval).await
                     } else {
                         return Err(e);

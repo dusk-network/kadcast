@@ -8,8 +8,8 @@ use std::io;
 
 use crate::encoding::message::Message;
 use crate::encoding::payload::BroadcastPayload;
-use crate::transport::encoding::Configurable;
 use crate::transport::Encoder;
+use crate::transport::encoding::Configurable;
 
 const DEFAULT_MIN_REPAIR_PACKETS_PER_BLOCK: u32 = 5;
 const DEFAULT_MTU: u16 = 1300;

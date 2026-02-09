@@ -20,8 +20,8 @@ use tracing::info;
 mod bucket;
 mod key;
 mod node;
-use crate::config::BucketConfig;
 use crate::K_BETA;
+use crate::config::BucketConfig;
 
 pub type BucketHeight = u8;
 
@@ -75,7 +75,7 @@ impl<V> Tree<V> {
         let max_h = max_h.unwrap_or(BucketHeight::MAX);
         self.buckets
             .iter()
-            .filter(move |(&height, _)| height <= max_h)
+            .filter(move |&(&height, _)| height <= max_h)
             .map(|(&height, bucket)| (height, bucket.pick::<K_BETA>()))
     }
 

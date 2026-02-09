@@ -48,7 +48,7 @@ const K_DIFF_PRODUCED_BIT: usize = 8;
 
 const fn get_k_k() -> usize {
     match option_env!("KADCAST_K") {
-        Some(v) => match konst::primitive::parse_usize(v) {
+        Some(v) => match usize::from_str_radix(v, 10) {
             Ok(e) => e,
             Err(_) => DEFAULT_K_K,
         },
@@ -243,7 +243,9 @@ impl Peer {
         const LAST_BUCKET_IDX: u8 = MAX_BUCKET_HEIGHT as u8 - 1;
         let ktable = self.ktable.read().await;
         if height.is_none() && ktable.bucket_size(LAST_BUCKET_IDX) == 0 {
-            warn!("Broadcasting a new message with empty bucket height {LAST_BUCKET_IDX}")
+            warn!(
+                "Broadcasting a new message with empty bucket height {LAST_BUCKET_IDX}"
+            )
         }
         ktable
             .extract(height)
