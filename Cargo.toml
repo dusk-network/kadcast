@@ -30,7 +30,7 @@ tokio = { version = "1", features = [
 raptorq = { version = "2.0", optional = true }
 tracing = "0.1"
 itertools = "0.10"
-socket2 = "0.4"
+socket2 = "0.6"
 serde_derive = "1"
 serde = "1"
 humantime-serde = "1"
