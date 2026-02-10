@@ -7,57 +7,61 @@
 use std::error::Error;
 use std::io::{self, BufRead};
 
-use clap::{App, Arg};
+use clap::{Arg, ArgAction, Command};
 use kadcast::config::Config;
 use kadcast::{MessageInfo, NetworkListen, Peer};
 use rustc_tools_util::{VersionInfo, get_version_info};
+
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error>> {
     let crate_info = get_version_info!();
-    let matches = App::new(&crate_info.crate_name)
-        .version(show_version(crate_info).as_str())
+    // intentionally leak the version string because clap needs a static str
+    let version: &'static str =
+        Box::leak(show_version(crate_info).into_boxed_str());
+    let matches = Command::new(env!("CARGO_PKG_NAME"))
+        .version(version)
         .author("Dusk Network B.V. All Rights Reserved.")
         .about("Kadcast Network impl.")
         .arg(
-            Arg::with_name("listen_address")
-                .short("l")
+            Arg::new("listen_address")
+                .short('l')
                 .long("listen")
                 .help("Internal address you want to use to listen incoming connections. Eg: 127.0.0.1:696")
-                .takes_value(true)
+                .num_args(1)
                 .required(false),
         )
         .arg(
-            Arg::with_name("public_address")
-                .short("p")
+            Arg::new("public_address")
+                .short('p')
                 .long("address")
                 .help("Public address you want to be identified with. Eg: 193.xxx.xxx.198:696")
-                .takes_value(true)
+                .num_args(1)
                 .required(true),
         )
         .arg(
-            Arg::with_name("bootstrap")
+            Arg::new("bootstrap")
                 .long("bootstrap")
-                .short("b")
-                .multiple(true)
+                .short('b')
+                .action(ArgAction::Append)
                 .help("List of bootstrapping server instances")
-                .takes_value(true)
+                .num_args(1)
                 .required(true),
         )
         .arg(
-            Arg::with_name("log-level")
+            Arg::new("log-level")
                 .long("log-level")
                 .value_name("LOG")
-                .possible_values(&["error", "warn", "info", "debug", "trace"])
+                .value_parser(["error", "warn", "info", "debug", "trace"])
                 .default_value("info")
-                .help("Output log level")
-                .takes_value(true),
+                .help("Output log level"),
         )
         .get_matches();
 
     // Match tracing desired level.
     let log = match matches
-        .value_of("log-level")
+        .get_one::<String>("log-level")
         .expect("Failed parsing log-level arg")
+        .as_str()
     {
         "error" => tracing::Level::ERROR,
         "warn" => tracing::Level::WARN,
@@ -80,13 +84,14 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut conf = Config::default();
     conf.public_address = matches
-        .value_of("public_address")
+        .get_one::<String>("public_address")
         .expect("public_address to have a value")
         .to_string();
-    conf.listen_address =
-        matches.value_of("listen_address").map(|a| a.to_string());
+    conf.listen_address = matches
+        .get_one::<String>("listen_address")
+        .map(|a| a.to_string());
     conf.bootstrapping_nodes = matches
-        .values_of("bootstrap")
+        .get_many::<String>("bootstrap")
         .unwrap_or_default()
         .map(|s| s.to_string())
         .collect();
