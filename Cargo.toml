@@ -30,7 +30,7 @@ tokio = { version = "1", features = [
 raptorq = { version = "2.0", optional = true }
 tracing = "0.1"
 itertools = "0.10"
-socket2 = "0.4"
+socket2 = "0.6"
 serde_derive = "1"
 serde = "1"
 humantime-serde = "1"
@@ -38,9 +38,9 @@ semver = "1"
 hex = "0.4"
 
 [dev-dependencies]
-clap = "2.33.3"
+clap = "4.5"
 rustc_tools_util = "0.2"
-tracing-subscriber = "0.2"
+tracing-subscriber = "0.3"
 toml = "0.5"
 
 [features]
