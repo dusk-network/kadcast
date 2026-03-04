@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject messages from invalid peers (P1.10-3)
+
 ### Changed
 
 - Move to stable MSRV 1.85

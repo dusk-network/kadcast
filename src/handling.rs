@@ -115,6 +115,7 @@ impl MessageHandler {
                 let src = remote_peer_addr.ip();
                 if !PeerNode::verify_header(header, &src) {
                     error!("Invalid Id {header:?} - from {src}");
+                    continue;
                 }
 
                 let remote_peer = PeerNode::from_socket(
