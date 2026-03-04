@@ -44,7 +44,7 @@ const K_K: usize = get_k_k();
 const K_ID_LEN_BYTES: usize = 16;
 const K_NONCE_LEN: usize = 4;
 const K_DIFF_MIN_BIT: usize = 8;
-const K_DIFF_PRODUCED_BIT: usize = 8;
+const K_DIFF_PRODUCED_BIT: usize = 20;
 
 const fn get_k_k() -> usize {
     match option_env!("KADCAST_K") {

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move to stable MSRV 1.85
 - Move to rust edition 2024
 - Limit the number of peers accepted in a single Nodes message (P1.10-4)
+- Increase the POW produced during ID generation (P1.10-2)
 
 ## [0.7.0] - 2024-10-21
 
