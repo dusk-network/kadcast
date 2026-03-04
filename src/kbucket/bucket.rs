@@ -56,7 +56,7 @@ pub enum NodeInsertError<TNode> {
     MismatchVersion(TNode, Version),
 }
 
-impl<'a, TNode> NodeInsertOk<'a, TNode> {
+impl<TNode> NodeInsertOk<'_, TNode> {
     /// Returns an optional reference to the node pending eviction.
     pub fn pending_eviction(&self) -> Option<&TNode> {
         match self {
