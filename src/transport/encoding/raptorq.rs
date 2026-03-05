@@ -62,7 +62,7 @@ impl BroadcastPayload {
         Ok(hasher.finalize().into())
     }
 }
-impl<'a> ChunkedPayload<'a> {
+impl ChunkedPayload<'_> {
     fn ray_id(&self) -> [u8; RAY_ID_SIZE] {
         self.0.gossip_frame[0..RAY_ID_SIZE]
             .try_into()

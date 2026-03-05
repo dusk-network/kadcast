@@ -115,6 +115,7 @@ impl MessageHandler {
                 let src = remote_peer_addr.ip();
                 if !PeerNode::verify_header(header, &src) {
                     error!("Invalid Id {header:?} - from {src}");
+                    continue;
                 }
 
                 let remote_peer = PeerNode::from_socket(
@@ -278,6 +279,9 @@ impl MessageHandler {
             .iter()
             //filter out my ID to avoid loopback
             .filter(|&n| &n.id != self.my_header.binary_id().as_binary())
+            // Limit the number of peers accepted in a single Nodes message to a
+            // reasonable bound
+            .take(K_K * 2)
             .filter(|&n| {
                 let h = self.my_header.binary_id().calculate_distance(&n.id);
                 match h {
