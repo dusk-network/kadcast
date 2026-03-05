@@ -1,6 +1,6 @@
 push = true
 tag = true
-tag-name = "{{prefix}}{{version}}"
+tag-name = "v{{version}}"
 publish = false
 pre-release-commit-message = "{{crate_name}}: release `{{version}}`"
 tag-message = "{{crate_name}}: tag {{version}}"
