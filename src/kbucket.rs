@@ -5,16 +5,13 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use bucket::Bucket;
-pub use bucket::InsertError;
-pub use bucket::InsertOk;
-pub use bucket::{NodeInsertError, NodeInsertOk};
+pub use bucket::{InsertError, InsertOk, NodeInsertError, NodeInsertOk};
 use itertools::Itertools;
-pub use key::MAX_BUCKET_HEIGHT;
-pub use key::{BinaryID, BinaryKey};
+pub use key::{BinaryID, BinaryKey, MAX_BUCKET_HEIGHT};
 pub use node::Node;
-use std::collections::hash_map::Entry;
 use tracing::info;
 
 mod bucket;

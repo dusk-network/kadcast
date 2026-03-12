@@ -34,7 +34,8 @@ use std::convert::TryFrom;
 
 use raptorq::ObjectTransmissionInformation;
 
-use super::{TRANSMISSION_INFO_SIZE, encoder::MAX_MTU};
+use super::TRANSMISSION_INFO_SIZE;
+use super::encoder::MAX_MTU;
 
 // This should eventually become <https://doc.rust-lang.org/std/primitive.u64.html#method.div_ceil>
 // when it gets stabilized, and this function should be removed.
@@ -73,6 +74,7 @@ impl TryFrom<&[u8; TRANSMISSION_INFO_SIZE]>
     for SafeObjectTransmissionInformation
 {
     type Error = TransmissionInformationError;
+
     fn try_from(
         value: &[u8; TRANSMISSION_INFO_SIZE],
     ) -> Result<Self, Self::Error> {

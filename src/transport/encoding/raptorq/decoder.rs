@@ -47,6 +47,7 @@ const fn default_max_udp_len() -> u64 {
 
 impl Configurable for RaptorQDecoder {
     type TConf = RaptorQDecoderConf;
+
     fn default_configuration() -> Self::TConf {
         RaptorQDecoderConf {
             cache_prune_every: DEFAULT_CACHE_PRUNE_EVERY,
@@ -54,6 +55,7 @@ impl Configurable for RaptorQDecoder {
             max_udp_len: default_max_udp_len(),
         }
     }
+
     fn configure(conf: &Self::TConf) -> Self {
         Self {
             conf: *conf,
@@ -244,7 +246,8 @@ impl Decoder for RaptorQDecoder {
 
 #[cfg(test)]
 mod tests {
-    use std::{thread, time::Duration};
+    use std::thread;
+    use std::time::Duration;
 
     use super::*;
     use crate::peer::PeerNode;

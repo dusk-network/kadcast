@@ -1,2 +1,7 @@
 max_width = 80
 newline_style = "Unix"
+unstable_features = true
+group_imports = "StdExternalCrate"
+imports_granularity = "Module"
+use_field_init_shorthand = true
+wrap_comments = true

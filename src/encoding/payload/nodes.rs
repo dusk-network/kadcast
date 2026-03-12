@@ -8,7 +8,9 @@ use std::convert::TryInto;
 use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-use crate::{K_ID_LEN_BYTES, encoding::Marshallable, kbucket::BinaryKey};
+use crate::K_ID_LEN_BYTES;
+use crate::encoding::Marshallable;
+use crate::kbucket::BinaryKey;
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct NodePayload {
@@ -99,6 +101,7 @@ impl Marshallable for NodePayload {
         }
         Ok(())
     }
+
     fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self> {
         let mut peers = vec![];
         let mut len = [0; 2];

@@ -7,7 +7,8 @@
 use std::io::{self, Error, Read, Write};
 
 use super::Marshallable;
-use crate::{K_ID_LEN_BYTES, K_NONCE_LEN, kbucket::BinaryID};
+use crate::kbucket::BinaryID;
+use crate::{K_ID_LEN_BYTES, K_NONCE_LEN};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Header {

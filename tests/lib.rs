@@ -14,7 +14,8 @@ mod tests {
 
     use kadcast::config::Config;
     use kadcast::{MessageInfo, NetworkListen, Peer};
-    use tokio::{sync::mpsc, time::timeout};
+    use tokio::sync::mpsc;
+    use tokio::time::timeout;
     use tracing::{info, warn};
 
     const NODES: i32 = 10;
