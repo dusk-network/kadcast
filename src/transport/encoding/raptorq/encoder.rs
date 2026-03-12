@@ -50,6 +50,7 @@ impl Configurable for RaptorQEncoder {
     fn default_configuration() -> Self::TConf {
         RaptorQEncoderConf::default()
     }
+
     fn configure(conf: &Self::TConf) -> Self {
         let mut conf = *conf;
         let mtu = conf.mtu;

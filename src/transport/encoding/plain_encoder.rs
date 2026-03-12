@@ -13,7 +13,9 @@ pub struct PlainEncoder {}
 
 impl Configurable for PlainEncoder {
     type TConf = ();
+
     fn default_configuration() -> Self::TConf {}
+
     fn configure(_: &Self::TConf) -> Self {
         PlainEncoder {}
     }

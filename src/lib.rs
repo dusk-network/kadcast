@@ -4,10 +4,8 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::collections::BTreeMap;
-use std::collections::HashSet;
-use std::net::AddrParseError;
-use std::net::SocketAddr;
+use std::collections::{BTreeMap, HashSet};
+use std::net::{AddrParseError, SocketAddr};
 use std::time::Instant;
 
 use config::Config;
@@ -16,16 +14,14 @@ use encoding::payload::BroadcastPayload;
 use handling::MessageHandler;
 pub use handling::MessageInfo;
 use itertools::Itertools;
-use kbucket::MAX_BUCKET_HEIGHT;
-use kbucket::{BucketHeight, Tree};
+use kbucket::{BucketHeight, MAX_BUCKET_HEIGHT, Tree};
 use maintainer::TableMaintainer;
 use peer::{PeerInfo, PeerNode};
 use rand::prelude::IteratorRandom;
 pub(crate) use rwlock::RwLock;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task;
-use tracing::warn;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use transport::{MessageBeanOut, WireNetwork};
 
 pub mod config;

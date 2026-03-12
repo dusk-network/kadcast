@@ -6,18 +6,16 @@
 
 use std::io;
 
-use crate::K_ID_LEN_BYTES;
-use crate::K_NONCE_LEN;
 use crate::encoding::Marshallable;
+use crate::{K_ID_LEN_BYTES, K_NONCE_LEN};
 
 pub type BinaryKey = [u8; K_ID_LEN_BYTES];
 pub type BinaryNonce = [u8; K_NONCE_LEN];
 
 use blake2::{Blake2s256, Digest};
 
-use crate::{K_DIFF_MIN_BIT, K_DIFF_PRODUCED_BIT};
-
 use super::BucketHeight;
+use crate::{K_DIFF_MIN_BIT, K_DIFF_PRODUCED_BIT};
 
 pub const MAX_BUCKET_HEIGHT: usize =
     K_ID_LEN_BYTES * BucketHeight::BITS as usize;

@@ -8,8 +8,9 @@ use std::io::{self, Error, Read, Write};
 
 use semver::Version;
 
+pub use super::Marshallable;
+pub use super::header::Header;
 pub(crate) use super::payload::{BroadcastPayload, NodePayload};
-pub use super::{Marshallable, header::Header};
 use crate::kbucket::BinaryKey;
 
 // PingMsg wire Ping message id.

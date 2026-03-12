@@ -10,7 +10,8 @@ use std::io::{self, ErrorKind};
 use blake2::{Blake2s256, Digest};
 use safe::{SafeObjectTransmissionInformation, TransmissionInformationError};
 
-use crate::encoding::{Marshallable, payload::BroadcastPayload};
+use crate::encoding::Marshallable;
+use crate::encoding::payload::BroadcastPayload;
 
 mod decoder;
 mod encoder;
@@ -37,6 +38,7 @@ const MIN_CHUNKED_SIZE: usize = CHUNKED_HEADER_SIZE + MIN_ENCODING_PACKET_SIZE;
 
 impl<'a> TryFrom<&'a BroadcastPayload> for ChunkedPayload<'a> {
     type Error = io::Error;
+
     fn try_from(value: &'a BroadcastPayload) -> Result<Self, Self::Error> {
         if value.gossip_frame.len() < MIN_CHUNKED_SIZE {
             Err(io::Error::new(
@@ -55,6 +57,7 @@ impl BroadcastPayload {
         self.marshal_binary(&mut bytes)?;
         Ok(bytes)
     }
+
     fn generate_ray_id(&self) -> io::Result<[u8; RAY_ID_SIZE]> {
         let mut hasher = Blake2s256::new();
         // Remove the kadcast `height` field from the hash
@@ -246,9 +249,7 @@ mod tests {
         Ok(())
     }
 
-    use std::io::BufReader;
-    use std::io::Read;
-    use std::io::Seek;
+    use std::io::{BufReader, Read, Seek};
     fn clone_and_corrupt_msg(message: &Message) -> Result<Message> {
         let mut c = Cursor::new(Vec::new());
         let mut writer = BufWriter::new(c);

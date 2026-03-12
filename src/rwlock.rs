@@ -17,6 +17,7 @@
 /// takes care of which lock to provide based on the set feature flag,
 /// while offering a unified API.
 use std::sync::Arc;
+
 use tokio::sync::RwLock as ExtRwLock;
 
 #[cfg(feature = "diagnostics")]
@@ -47,11 +48,13 @@ pub(super) fn new<T>(value: T) -> RwLock<T> {
 
 #[cfg(feature = "diagnostics")]
 mod diagnostic {
-    use super::*;
     use std::time::Duration;
+
     use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
     use tokio::time::timeout;
     use tracing::warn;
+
+    use super::*;
 
     /// Diagnostics read-write lock.
     pub(crate) struct DiagnosticRwLock<T> {

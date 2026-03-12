@@ -22,6 +22,7 @@ impl Marshallable for BroadcastPayload {
         writer.write_all(&self.gossip_frame)?;
         Ok(())
     }
+
     fn unmarshal_binary<R: Read>(reader: &mut R) -> io::Result<Self> {
         let mut height_buf = [0; 1];
         reader.read_exact(&mut height_buf)?;

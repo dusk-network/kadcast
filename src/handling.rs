@@ -32,10 +32,12 @@ impl MessageInfo {
     pub fn src(&self) -> SocketAddr {
         self.src
     }
+
     /// Returns current kadcast broadcast height
     pub fn height(&self) -> u8 {
         self.height
     }
+
     /// Returns the ray-id for this message (if any)
     pub fn ray_id(&self) -> &[u8] {
         &self.ray_id

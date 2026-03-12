@@ -29,9 +29,11 @@ pub(super) struct MultipleOutSocket {
 
 impl Configurable for MultipleOutSocket {
     type TConf = NetworkConfig;
+
     fn default_configuration() -> Self::TConf {
         NetworkConfig::default()
     }
+
     fn configure(conf: &Self::TConf) -> Self {
         let udp_backoff_timeout =
             conf.udp_send_backoff_timeout.map(time::interval);
