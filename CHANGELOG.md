@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Reject messages from invalid peers (P1.10-3)
+- Improve memory allocation for wire frames (P1.10-1)
 
 ### Changed
 
