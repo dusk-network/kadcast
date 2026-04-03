@@ -7,6 +7,7 @@ test: ## Run tests
 
 clippy: ## Run clippy
 	@cargo clippy --all-features --release -- -D warnings
+	@cargo clippy --no-default-features --release -- -D warnings
 
 cq: ## Run code quality checks (formatting + clippy)
 	@$(MAKE) fmt CHECK=1
