@@ -7,22 +7,17 @@ on:
 name: Continuous integration
 
 jobs:
-  code_analysis:
-    name: Code Analysis
-    uses: dusk-network/.github/.github/workflows/code-analysis.yml@main
-
-  dusk_analyzer:
-    name: Dusk Analyzer
-    uses: dusk-network/.github/.github/workflows/dusk-analysis.yml@main
+  code-quality:
+    name: Code quality
+    uses: dusk-network/.github/.github/workflows/run-make.yml@main
+    with:
+      make_target: cq
 
   test:
-    name: Tests
-    runs-on: core
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dsherret/rust-toolchain-file@v1
-      - uses: Swatinem/rust-cache@v2
-      - run: make test
+    name: Run tests
+    uses: dusk-network/.github/.github/workflows/run-make.yml@main
+    with:
+      make_target: test
 
   cargo_deny:
     name: Cargo Deny
