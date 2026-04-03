@@ -32,7 +32,8 @@ impl Marshallable for BroadcastPayload {
         reader.read_exact(&mut gossip_length_buf)?;
         let gossip_length = u32::from_le_bytes(gossip_length_buf) as usize;
 
-        // To prevent inefficient memory usage, we read the gossip frame in chunks if its length exceeds a reasonable threshold.
+        // To prevent inefficient memory usage, we read the gossip frame in
+        // chunks if its length exceeds a reasonable threshold.
         let gossip_frame = if gossip_length > DEFAULT_ALLOCATION_SIZE {
             let mut gossip_frame = Vec::with_capacity(DEFAULT_ALLOCATION_SIZE);
             let mut bytes_left = gossip_length;
@@ -60,8 +61,9 @@ impl Marshallable for BroadcastPayload {
 #[cfg(test)]
 mod tests {
 
-    use super::*;
     use std::alloc::{GlobalAlloc, Layout, System};
+
+    use super::*;
 
     /// Global allocator wrapper that panics when allocating too much memory.
     struct MemoryCapAllocator;
