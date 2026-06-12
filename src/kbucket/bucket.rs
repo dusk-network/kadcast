@@ -108,14 +108,14 @@ impl<V> Bucket<V> {
         if self.nodes.is_full() {
             return;
         };
-        if let Some(pending) = self.pending_node.take() {
-            if pending.is_alive(self.bucket_config.node_ttl) {
-                // FIXME: Consider using `try_push` instead of `push`.
-                // FIXME2: This may break the LRU policy, as other records may
-                // have been updated in the meantime. However, it is mitigated
-                // by the `is_alive` check.
-                self.nodes.push(pending);
-            }
+        if let Some(pending) = self.pending_node.take()
+            && pending.is_alive(self.bucket_config.node_ttl)
+        {
+            // FIXME: Consider using `try_push` instead of `push`.
+            // FIXME2: This may break the LRU policy, as other records may
+            // have been updated in the meantime. However, it is mitigated
+            // by the `is_alive` check.
+            self.nodes.push(pending);
         }
     }
 
@@ -287,10 +287,10 @@ impl<V> Bucket<V> {
             self.nodes.iter().position(|s| s.id().as_binary() == id)?;
 
         self.nodes.pop_at(node_idx).inspect(|_| {
-            if let Some(pending) = self.pending_node.take() {
-                if pending.is_alive(self.bucket_config.node_ttl) {
-                    self.nodes.push(pending);
-                }
+            if let Some(pending) = self.pending_node.take()
+                && pending.is_alive(self.bucket_config.node_ttl)
+            {
+                self.nodes.push(pending);
             }
         })
     }

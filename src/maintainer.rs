@@ -157,7 +157,7 @@ impl TableMaintainer {
             .alive_nodes()
             .map(|n| n.as_peer_info().to_socket_address())
             .take(K_ALPHA)
-            .chain(self.bootstrapping_nodes_addr().into_iter())
+            .chain(self.bootstrapping_nodes_addr())
             .collect::<Vec<_>>();
 
         for bucket_h in buckets_to_refresh {
