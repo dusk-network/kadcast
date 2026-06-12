@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-12
+
 ### Fixed
 
 - Reject messages from invalid peers (P1.10-3)
@@ -14,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Move to stable MSRV 1.85
+- Move to stable MSRV 1.89
 - Move to rust edition 2024
 - Limit the number of peers accepted in a single Nodes message (P1.10-4)
 - Increase the POW produced during ID generation (P1.10-2)
@@ -189,7 +191,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- Releases -->
 
-[Unreleased]: https://github.com/dusk-network/kadcast/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/dusk-network/kadcast/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/dusk-network/kadcast/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/dusk-network/kadcast/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/dusk-network/kadcast/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/dusk-network/kadcast/compare/v0.5.0...v0.6.0

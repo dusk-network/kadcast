@@ -85,8 +85,8 @@ impl<V> Tree<V> {
         other: &BinaryKey,
     ) -> impl Iterator<Item = &Node<V>> {
         self.buckets
-            .iter()
-            .flat_map(|(_, b)| b.peers())
+            .values()
+            .flat_map(|b| b.peers())
             .filter(|p| p.id().as_binary() != other)
             .sorted_by(|a, b| {
                 let distance_a = a.id().calculate_distance(other);
@@ -141,7 +141,7 @@ impl<V> Tree<V> {
     }
 
     pub(crate) fn idle_nodes(&self) -> impl Iterator<Item = &Node<V>> {
-        self.buckets.iter().flat_map(|(_, b)| b.idle_nodes())
+        self.buckets.values().flat_map(|b| b.idle_nodes())
     }
 
     pub(crate) fn remove_idle_nodes(&mut self) {
@@ -152,8 +152,8 @@ impl<V> Tree<V> {
 
     pub(crate) fn alive_nodes(&self) -> impl Iterator<Item = &Node<V>> {
         self.buckets
-            .iter()
-            .flat_map(|(_, bucket)| bucket.alive_nodes())
+            .values()
+            .flat_map(|bucket| bucket.alive_nodes())
     }
 
     pub(crate) fn is_bucket_full(&self, height: BucketHeight) -> bool {
