@@ -16,6 +16,7 @@ pub(crate) use plain_encoder::PlainEncoder as TransportEncoder;
 mod raptorq;
 
 use std::io;
+use std::net::IpAddr;
 
 #[cfg(feature = "raptorq")]
 pub(crate) use self::raptorq::RaptorQDecoder as TransportDecoder;
@@ -39,5 +40,9 @@ pub(crate) trait Encoder: Configurable {
 }
 
 pub(crate) trait Decoder: Configurable {
-    fn decode(&mut self, chunk: Message) -> io::Result<Option<Message>>;
+    fn decode(
+        &mut self,
+        chunk: Message,
+        source: IpAddr,
+    ) -> io::Result<Option<Message>>;
 }

@@ -147,8 +147,8 @@ mod tests {
             validate(1, MIN_MTU - 8),
             Err(TransmissionInformationError::SymbolSizeLessThanMTU)
         ));
-        // A single block with more than 8_192 source symbols stays valid, so
-        // raising `max_udp_len` keeps working.
+        // A block with more than 8_192 source symbols remains valid. Decoder
+        // admission still depends on both configured memory budgets.
         let info = validate(20 * 1_024 * 1_024, MIN_MTU).unwrap();
         assert_eq!(info.max_blocks, 1);
     }

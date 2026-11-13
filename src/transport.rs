@@ -157,7 +157,7 @@ impl WireNetwork {
             return;
         }
 
-        match decoder.decode(deser) {
+        match decoder.decode(deser, src.ip()) {
             Err(e) => {
                 error!("Unable to process the message through the decoder: {e}")
             }
@@ -232,6 +232,8 @@ impl WireNetwork {
 
 #[cfg(test)]
 mod tests {
+    use std::net::IpAddr;
+
     use super::*;
 
     struct CountingDecoder(usize);
@@ -247,7 +249,11 @@ mod tests {
     }
 
     impl Decoder for CountingDecoder {
-        fn decode(&mut self, message: Message) -> io::Result<Option<Message>> {
+        fn decode(
+            &mut self,
+            message: Message,
+            _: IpAddr,
+        ) -> io::Result<Option<Message>> {
             self.0 += 1;
             Ok(Some(message))
         }

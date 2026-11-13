@@ -5,6 +5,7 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use std::io;
+use std::net::IpAddr;
 
 use super::{Configurable, Decoder, Encoder};
 use crate::encoding::message::Message;
@@ -28,7 +29,11 @@ impl Encoder for PlainEncoder {
 }
 
 impl Decoder for PlainEncoder {
-    fn decode(&mut self, chunk: Message) -> io::Result<Option<Message>> {
+    fn decode(
+        &mut self,
+        chunk: Message,
+        _: IpAddr,
+    ) -> io::Result<Option<Message>> {
         Ok(Some(chunk))
     }
 }
