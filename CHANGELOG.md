@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Extend the 0.8.0 `TransportDecoderConfig` struct with public reassembly and deduplication limit fields [#169]
+- Cap completed broadcast IDs retained for deduplication in `Peer` [#169]
+- Make `TransportDecoderConfig::cache_ttl` bound deduplication and reassembly without waiting for pruning [#169]
+
+### Fixed
+
+- Bound incomplete RaptorQ broadcast state in `Peer` [#169]
+- Drop broadcasts from peers with a different network ID in `Peer` [#169]
+- Fix panic in `Peer` on malformed RaptorQ chunks [#169]
+
 ## [0.8.0] - 2026-06-12
 
 ### Fixed
@@ -188,6 +200,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#135]: https://github.com/dusk-network/kadcast/issues/135
 [#136]: https://github.com/dusk-network/kadcast/issues/136
 [#138]: https://github.com/dusk-network/kadcast/issues/138
+[#169]: https://github.com/dusk-network/kadcast/issues/169
 
 <!-- Releases -->
 
