@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Drop broadcasts from peers with a different network ID in `Peer` [#169]
+- Fix panic in `Peer` on malformed RaptorQ chunks [#169]
 
 ## [0.8.0] - 2026-06-12
 

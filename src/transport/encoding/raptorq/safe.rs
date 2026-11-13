@@ -35,20 +35,7 @@ use std::convert::TryFrom;
 use raptorq::ObjectTransmissionInformation;
 
 use super::TRANSMISSION_INFO_SIZE;
-use super::encoder::MAX_MTU;
-
-// This should eventually become <https://doc.rust-lang.org/std/primitive.u64.html#method.div_ceil>
-// when it gets stabilized, and this function should be removed.
-// (1) the result is known to not overflow u32 from elsewhere;
-// (2) `denom` is known to not be `0` from elsewhere.
-// TODO this is definitely not always the case! Let's do something about it.
-fn int_div_ceil(num: u64, denom: u64) -> u32 {
-    if num % denom == 0 {
-        (num / denom) as u32
-    } else {
-        (num / denom + 1) as u32
-    }
-}
+use super::encoder::{MAX_MTU, MIN_MTU};
 
 // K'_max as defined in section 5.1.2
 const MAX_SOURCE_SYMBOLS_PER_BLOCK: u32 = 56403;
@@ -64,7 +51,10 @@ pub enum TransmissionInformationError {
     SourceBlocksZero,
     SymbolSizeZero,
     SymbolSizeGreaterThanMTU,
+    SymbolSizeLessThanMTU,
     SymbolSizeNotAligned,
+    InvalidSubBlocks,
+    TooManySourceBlocks,
     TransferLengthZero,
     TransferLengthExceeded,
     TooManySourceSymbols,
@@ -96,25 +86,70 @@ impl TryFrom<&[u8; TRANSMISSION_INFO_SIZE]>
             return Err(TransmissionInformationError::SymbolSizeGreaterThanMTU);
         }
 
-        if config.symbol_alignment() != 8 {
+        // Encoders never use symbols below the minimum MTU. Rejecting them
+        // bounds solver dimensions by `max_udp_len / MIN_MTU`.
+        if config.symbol_size() < MIN_MTU {
+            return Err(TransmissionInformationError::SymbolSizeLessThanMTU);
+        }
+
+        if config.symbol_alignment() != 8 || config.symbol_size() % 8 != 0 {
             return Err(TransmissionInformationError::SymbolSizeNotAligned);
         }
 
-        let kt =
-            int_div_ceil(config.transfer_length(), config.symbol_size() as u64);
+        if config.sub_blocks() == 0
+            || config.sub_blocks() > config.symbol_size() / 8
+        {
+            return Err(TransmissionInformationError::InvalidSubBlocks);
+        }
+
+        let kt = u32::try_from(
+            config
+                .transfer_length()
+                .div_ceil(u64::from(config.symbol_size())),
+        )
+        .map_err(|_| TransmissionInformationError::TooManySourceSymbols)?;
+
+        if kt < u32::from(config.source_blocks()) {
+            return Err(TransmissionInformationError::TooManySourceBlocks);
+        }
 
         let (kl, _, zl, zs) = raptorq::partition(kt, config.source_blocks());
 
-        let block_length = u64::from(kl) * u64::from(config.symbol_size());
-        let source_block_symbols =
-            int_div_ceil(block_length, config.symbol_size() as u64);
-
-        match source_block_symbols <= MAX_SOURCE_SYMBOLS_PER_BLOCK {
+        match kl <= MAX_SOURCE_SYMBOLS_PER_BLOCK {
             true => Ok(SafeObjectTransmissionInformation {
                 inner: config,
                 max_blocks: (zl + zs) as usize,
             }),
             false => Err(TransmissionInformationError::TooManySourceSymbols),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn validate(
+        transfer_length: u64,
+        symbol_size: u16,
+    ) -> Result<SafeObjectTransmissionInformation, TransmissionInformationError>
+    {
+        let info = ObjectTransmissionInformation::with_defaults(
+            transfer_length,
+            symbol_size,
+        );
+        SafeObjectTransmissionInformation::try_from(&info.serialize())
+    }
+
+    #[test]
+    fn symbol_size_bounds_source_symbols() {
+        assert!(matches!(
+            validate(1, MIN_MTU - 8),
+            Err(TransmissionInformationError::SymbolSizeLessThanMTU)
+        ));
+        // A single block with more than 8_192 source symbols stays valid, so
+        // raising `max_udp_len` keeps working.
+        let info = validate(20 * 1_024 * 1_024, MIN_MTU).unwrap();
+        assert_eq!(info.max_blocks, 1);
     }
 }

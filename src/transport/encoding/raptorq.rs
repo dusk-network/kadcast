@@ -78,11 +78,14 @@ impl ChunkedPayload<'_> {
     ) -> Result<SafeObjectTransmissionInformation, TransmissionInformationError>
     {
         let slice = self.transmission_info_bytes();
-        let info = SafeObjectTransmissionInformation::try_from(&slice)?;
-        match info.inner.transfer_length() < max_udp_len {
-            true => Ok(info),
-            false => Err(TransmissionInformationError::TransferLengthExceeded),
+        // Bound arithmetic before validating/partitioning the untrusted OTI.
+        let length =
+            raptorq::ObjectTransmissionInformation::deserialize(&slice)
+                .transfer_length();
+        if length >= max_udp_len {
+            return Err(TransmissionInformationError::TransferLengthExceeded);
         }
+        SafeObjectTransmissionInformation::try_from(&slice)
     }
 
     fn transmission_info_bytes(&self) -> [u8; TRANSMISSION_INFO_SIZE] {

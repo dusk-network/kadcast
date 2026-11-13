@@ -72,7 +72,6 @@ struct ReceivingInfo {
 
 struct DecoderInfo {
     decoder: ExtDecoder,
-    max_kad_blocks: usize,
 }
 
 type DecoderLists = BTreeMap<[u8; TRANSMISSION_INFO_SIZE], DecoderInfo>;
@@ -103,6 +102,19 @@ impl Decoder for RaptorQDecoder {
             let chunked = ChunkedPayload::try_from(&payload)?;
             let ray_id = chunked.ray_id();
             let encode_info = chunked.transmission_info_bytes();
+            let safe_info = chunked
+                .transmission_info(self.conf.max_udp_len)
+                .map_err(|e| {
+                    io::Error::other(format!("Invalid transmission info {e:?}"))
+                })?;
+            let encoded = chunked.encoded_chunk();
+            if encoded.len() != 4 + usize::from(safe_info.inner.symbol_size())
+                || usize::from(encoded[0]) >= safe_info.max_blocks
+            {
+                return Err(io::Error::other(
+                    "Invalid RaptorQ symbol length or block",
+                ));
+            }
 
             // Perform a `match` on the cache entry against the ray id.
             let status = match self.cache.entry(ray_id) {
@@ -140,30 +152,14 @@ impl Decoder for RaptorQDecoder {
                         // with the received
                         // transmission information
                         std::collections::btree_map::Entry::Vacant(v) => {
-                            let info = chunked
-                                .transmission_info(self.conf.max_udp_len);
-
-                            match info {
-                                Ok(safe_info) => {
-                                    debug!(
-                                        event = "Start decoding payload",
-                                        ray = hex::encode(ray_id),
-                                        encode_info = hex::encode(encode_info)
-                                    );
-
-                                    v.insert(DecoderInfo {
-                                        decoder: ExtDecoder::new(
-                                            safe_info.inner,
-                                        ),
-                                        max_kad_blocks: safe_info.max_blocks,
-                                    })
-                                }
-                                Err(e) => {
-                                    return Err(io::Error::other(format!(
-                                        "Invalid transmission info {e:?}",
-                                    )));
-                                }
-                            }
+                            debug!(
+                                event = "Start decoding payload",
+                                ray = hex::encode(ray_id),
+                                encode_info = hex::encode(encode_info)
+                            );
+                            v.insert(DecoderInfo {
+                                decoder: ExtDecoder::new(safe_info.inner),
+                            })
                         }
                     };
 
@@ -178,11 +174,6 @@ impl Decoder for RaptorQDecoder {
 
                     let packet =
                         EncodingPacket::deserialize(chunked.encoded_chunk());
-                    if packet.payload_id().source_block_number() as usize
-                        >= decoder_info.max_kad_blocks
-                    {
-                        return Ok(None);
-                    };
 
                     decoder_info
                         .decoder
@@ -249,7 +240,9 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
+    use super::super::CHUNKED_HEADER_SIZE;
     use super::*;
+    use crate::encoding::message::Header;
     use crate::peer::PeerNode;
     use crate::tests::Result;
     use crate::transport::encoding::Encoder;
@@ -258,6 +251,84 @@ mod tests {
     impl RaptorQDecoder {
         fn cache_size(&self) -> usize {
             self.cache.len()
+        }
+    }
+
+    fn chunk(
+        header: Header,
+        ray: u16,
+        info: raptorq::ObjectTransmissionInformation,
+        block: u8,
+        esi: u32,
+    ) -> Message {
+        let mut id = [0; RAY_ID_SIZE];
+        id[..2].copy_from_slice(&ray.to_le_bytes());
+        let packet = EncodingPacket::new(
+            raptorq::PayloadId::new(block, esi),
+            vec![0; usize::from(info.symbol_size())],
+        );
+        Message::broadcast(
+            header,
+            BroadcastPayload {
+                height: 0,
+                gossip_frame: [
+                    id.to_vec(),
+                    info.serialize().to_vec(),
+                    packet.serialize(),
+                ]
+                .concat(),
+            },
+        )
+    }
+
+    #[test]
+    fn malformed_chunks_do_not_allocate_state() {
+        let root = PeerNode::generate("192.0.2.1:9000", 0).unwrap();
+        let info =
+            raptorq::ObjectTransmissionInformation::with_defaults(20_000, 1300);
+        let mut conf = RaptorQDecoder::default_configuration();
+        conf.max_udp_len = u64::MAX;
+        let mut dec = RaptorQDecoder::configure(&conf);
+        // OTI offsets: length=0..5, symbol size=6..8, blocks=8,
+        // sub-blocks=9..11, alignment=11. All mutations are wire-reachable.
+        for (offset, value) in
+            [(6, 0), (7, 0), (7, 17), (8, 0), (10, 0), (9, 255), (11, 0)]
+        {
+            let mut msg = chunk(root.to_header(), 0, info, 0, 0);
+            let Message::Broadcast(_, ref mut payload, _) = msg else {
+                unreachable!()
+            };
+            if offset == 6 || offset == 7 && value == 0 {
+                payload.gossip_frame[RAY_ID_SIZE + 6] = 0;
+                payload.gossip_frame[RAY_ID_SIZE + 7] = 0;
+            } else {
+                payload.gossip_frame[RAY_ID_SIZE + offset] = value;
+            }
+            assert!(dec.decode(msg).is_err());
+            assert!(dec.cache.is_empty());
+        }
+        for kind in 0..5 {
+            let mut msg = chunk(root.to_header(), 0, info, 0, 0);
+            let Message::Broadcast(_, ref mut payload, _) = msg else {
+                unreachable!()
+            };
+            match kind {
+                0 => {
+                    payload.gossip_frame.pop();
+                }
+                1 => payload.gossip_frame.push(0),
+                2 => payload.gossip_frame[CHUNKED_HEADER_SIZE] = 255,
+                3 => {
+                    payload.gossip_frame[RAY_ID_SIZE..RAY_ID_SIZE + 5].fill(255)
+                }
+                _ => {
+                    payload.gossip_frame[RAY_ID_SIZE..RAY_ID_SIZE + 4].fill(0);
+                    payload.gossip_frame[RAY_ID_SIZE + 4] = 1;
+                    payload.gossip_frame[RAY_ID_SIZE + 8] = 2;
+                }
+            }
+            assert!(dec.decode(msg).is_err());
+            assert!(dec.cache.is_empty());
         }
     }
 
