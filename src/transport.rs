@@ -17,6 +17,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::config::Config;
 use crate::encoding::Marshallable;
 use crate::encoding::message::Message;
+use crate::peer::PeerNode;
 use crate::rwlock::RwLock;
 use crate::transport::encoding::{
     Configurable, Decoder, Encoder, TransportDecoder, TransportEncoder,
@@ -46,7 +47,12 @@ impl WireNetwork {
         let (dec_chan_tx, dec_chan_rx) = mpsc::channel(conf.channel_size);
 
         let outgoing = Self::outgoing(out_channel_rx, out_socket, encoder);
-        let decoder = Self::decoder(in_channel_tx, dec_chan_rx, decoder);
+        let decoder = Self::decoder(
+            in_channel_tx,
+            dec_chan_rx,
+            decoder,
+            conf.network_id(),
+        );
         let incoming = async {
             Self::incoming(dec_chan_tx, conf, blocklist)
                 .await
@@ -111,6 +117,7 @@ impl WireNetwork {
         in_channel_tx: Sender<MessageBeanIn>,
         mut dec_chan_rx: Receiver<UDPChunk>,
         mut decoder: TransportDecoder,
+        network_id: u8,
     ) {
         debug!("WireNetwork::decoder loop started");
         loop {
@@ -123,6 +130,7 @@ impl WireNetwork {
                             deser,
                             src,
                             &in_channel_tx,
+                            network_id,
                         )
                         .await;
                     }
@@ -135,11 +143,20 @@ impl WireNetwork {
     }
 
     async fn handle_raw_message(
-        decoder: &mut TransportDecoder,
+        decoder: &mut impl Decoder,
         deser: Message,
         src: SocketAddr,
         in_channel_tx: &Sender<MessageBeanIn>,
+        network_id: u8,
     ) {
+        let header = deser.header();
+        if header.network_id != network_id
+            || !PeerNode::verify_header(header, &src.ip())
+        {
+            trace!("Dropping invalid sender/network header from {src}");
+            return;
+        }
+
         match decoder.decode(deser) {
             Err(e) => {
                 error!("Unable to process the message through the decoder: {e}")
@@ -210,5 +227,62 @@ impl WireNetwork {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct CountingDecoder(usize);
+
+    impl Configurable for CountingDecoder {
+        type TConf = ();
+
+        fn default_configuration() {}
+
+        fn configure(_: &()) -> Self {
+            Self(0)
+        }
+    }
+
+    impl Decoder for CountingDecoder {
+        fn decode(&mut self, message: Message) -> io::Result<Option<Message>> {
+            self.0 += 1;
+            Ok(Some(message))
+        }
+    }
+
+    #[tokio::test]
+    async fn validate_sender_and_network_before_decoding() {
+        let header =
+            PeerNode::generate("192.0.2.1:9000", 7).unwrap().to_header();
+        // Outgoing UDP ports may differ from the advertised listening port.
+        let source = "192.0.2.1:45000".parse().unwrap();
+        let other_ip = "192.0.2.2:45000".parse().unwrap();
+        let (tx, mut rx) = mpsc::channel(1);
+        let mut decoder = CountingDecoder(0);
+        for (src, network) in [(other_ip, 7), (source, 0)] {
+            WireNetwork::handle_raw_message(
+                &mut decoder,
+                Message::Ping(header, semver::Version::new(1, 0, 0)),
+                src,
+                &tx,
+                network,
+            )
+            .await;
+            assert_eq!(decoder.0, 0);
+            assert!(rx.try_recv().is_err());
+        }
+        WireNetwork::handle_raw_message(
+            &mut decoder,
+            Message::Ping(header, semver::Version::new(1, 0, 0)),
+            source,
+            &tx,
+            7,
+        )
+        .await;
+        assert_eq!(decoder.0, 1);
+        assert_eq!(rx.try_recv().unwrap().1, source);
     }
 }
