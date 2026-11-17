@@ -1,5 +1,7 @@
 [advisories]
-ignore = []
+ignore = [
+  { id = "RUSTSEC-2026-0542", reason = "humantime is unmaintained and no patched version exists. kadcast uses it only through humantime-serde, for the duration fields of its configuration. A replacement can change which configuration files load, so https://github.com/dusk-network/kadcast/issues/171 tracks it as a separate change. Remove this entry when humantime-serde is gone." },
+]
 
 [licenses]
 allow = [
