@@ -108,6 +108,12 @@ pub struct Config {
     pub version_match: String,
 }
 
+impl Config {
+    pub(crate) fn network_id(&self) -> u8 {
+        self.kadcast_id.unwrap_or_default()
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {

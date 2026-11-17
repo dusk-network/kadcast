@@ -81,7 +81,7 @@ impl Peer {
         config: Config,
         listener: L,
     ) -> Result<Self, AddrParseError> {
-        let network_id = config.kadcast_id.unwrap_or_default();
+        let network_id = config.network_id();
         let tree = Tree::new(
             PeerNode::generate(&config.public_address[..], network_id)?,
             config.bucket,

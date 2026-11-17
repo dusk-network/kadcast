@@ -111,19 +111,13 @@ impl MessageHandler {
                 inbound_receiver.recv().await
             {
                 trace!("Handler received message {}", message.type_byte());
-                remote_peer_addr.set_port(message.header().sender_port);
-
                 let header = message.header();
-                let src = remote_peer_addr.ip();
-                if !PeerNode::verify_header(header, &src) {
-                    error!("Invalid Id {header:?} - from {src}");
-                    continue;
-                }
+                remote_peer_addr.set_port(header.sender_port);
 
                 let remote_peer = PeerNode::from_socket(
                     remote_peer_addr,
-                    *message.header().binary_id(),
-                    message.header().network_id,
+                    *header.binary_id(),
+                    header.network_id,
                 );
 
                 match handler.handle_peer(remote_peer, &message).await {

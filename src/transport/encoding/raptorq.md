@@ -25,14 +25,6 @@
   - `ObjectTransmissionInformation`: The 12-byte RaptorQ header, parsed from the `gossip_frame` bytes.
   - `Encoded Chunk`: The remaining bytes after RAY_ID and RaptorQ header, containing the encoded chunk.
 
-- `ChunkedPayload` is used in a cache to manage the decoding process for broadcast messages. It tracks the state of a broadcast message's chunk as either receiving or processed.
-
-- The cache stores the `RAY_ID`+`ObjectTransmissionInformation` (aka `ChunkedHeader`) of the broadcast message as the key and the `CacheStatus` as the value, which tracks the state.
-
-- The `CacheStatus` can be in two states:
-  1. **Receiving**: In this state, a RaptorQ decoder is initialized with the `ObjectTransmissionInformation`. The decoder processes incoming encoded chunks and attempts to decode them. If a chunk is successfully decoded, the message is checked for integrity, and if it's valid, it's stored as a fully processed message. If not, it's discarded.
-  2. **Processed**: In this state, the message has been successfully decoded and processed. The `CacheStatus` holds a timestamp for when it was last processed, and if the message is expired based on the cache's TTL, it can be removed from the cache.
-
-- The cache is pruned periodically to remove expired messages.
+See [`RaptorQDecoderConf`](raptorq/decoder.rs) for cache limits.
 
 Please note that the actual RaptorQ encoding and decoding processes are carried out using the RaptorQ library and are not detailed here. The focus is on how the Rust code manages the chunked broadcast payloads in the context of RaptorQ encoding.

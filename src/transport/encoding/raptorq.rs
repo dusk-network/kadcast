@@ -78,11 +78,14 @@ impl ChunkedPayload<'_> {
     ) -> Result<SafeObjectTransmissionInformation, TransmissionInformationError>
     {
         let slice = self.transmission_info_bytes();
-        let info = SafeObjectTransmissionInformation::try_from(&slice)?;
-        match info.inner.transfer_length() < max_udp_len {
-            true => Ok(info),
-            false => Err(TransmissionInformationError::TransferLengthExceeded),
+        // Bound arithmetic before validating/partitioning the untrusted OTI.
+        let length =
+            raptorq::ObjectTransmissionInformation::deserialize(&slice)
+                .transfer_length();
+        if length >= max_udp_len {
+            return Err(TransmissionInformationError::TransferLengthExceeded);
         }
+        SafeObjectTransmissionInformation::try_from(&slice)
     }
 
     fn transmission_info_bytes(&self) -> [u8; TRANSMISSION_INFO_SIZE] {
@@ -149,7 +152,9 @@ mod tests {
             // println!("chunk {:?}", chunk);
             i = i + 1;
             sizetotal += chunk.bytes()?.len();
-            if let Some(d) = decoder.decode(chunk).unwrap() {
+            if let Some(d) =
+                decoder.decode(chunk, peer.value().address().ip()).unwrap()
+            {
                 decoded = Some(d);
                 println!("Decoder after {} messages ", i);
                 break;
@@ -213,7 +218,9 @@ mod tests {
                     gossip_frame,
                 },
             );
-            if let Ok(Some(_)) = decoder.decode(msg) {
+            if let Ok(Some(_)) =
+                decoder.decode(msg, peer.value().address().ip())
+            {
                 panic!("This should be junk data");
             }
         }
@@ -228,12 +235,16 @@ mod tests {
             let cloned_chunk = clone_and_corrupt_msg(&chunk)?;
             for _ in 0..1000 {
                 let cloned_chunk = clone_and_corrupt_msg(&cloned_chunk)?;
-                if let Ok(Some(_)) = decoder.decode(cloned_chunk) {
+                if let Ok(Some(_)) =
+                    decoder.decode(cloned_chunk, peer.value().address().ip())
+                {
                     panic!("This should be junk data");
                 }
                 junk += 1;
             }
-            if let Some(d) = decoder.decode(chunk).unwrap() {
+            if let Some(d) =
+                decoder.decode(chunk, peer.value().address().ip()).unwrap()
+            {
                 decoded = Some(d);
                 println!("Decoder after {i} messages (and {junk} messages) ");
                 break;
